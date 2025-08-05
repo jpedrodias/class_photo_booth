@@ -1,0 +1,31 @@
+# This is the docker-compose file for a Flask application.
+services:
+  flaskapp:
+    container_name: ${FLASKAPP_NAME}
+    #command: gunicorn -w 10 -b :5000 app:app
+    #command: ./run.sh ${FLASKAPP_FILE}
+    command: python ./${FLASKAPP_FILE}
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./flaskapp/:/app
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - ${FLASKAPP_PORT}:5000
+    env_file:
+      - ./.env
+      #- ./.env_flaskapp
+    environment:
+      TZ: ${TZ}
+      FLASK_ENV: development  # Added environment variable for Flask environment
+    networks:
+      - default
+
+networks:
+  default:
+    name: flaskapps-network
+    #external: true # uncomment this on production
+    driver: bridge

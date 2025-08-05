@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Configurações - Class Photo Booth</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <style>
+        .avatar-circle {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #007bff, #6610f2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark navbar-custom navbar-expand-lg py-3">
+        <div class="container">
+            <div class="navbar-brand d-flex align-items-center">
+                <span class="display-6 me-2">⚙️</span>
+                <div>
+                    <div class="fw-bold">Configurações</div>
+                    <small class="text-white-50 d-block">Gerir dados dos alunos</small>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                {% if has_data %}
+                <a href="{{ url_for('turmas') }}" class="btn btn-light btn-sm rounded-pill px-3" title="Ver Turmas">
+                    <i class="bi bi-eye me-1"></i>
+                    <span class="d-none d-md-inline">Turmas</span>
+                </a>
+                {% else %}
+                <a href="{{ url_for('turmas') }}" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Voltar">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    <span class="d-none d-md-inline">Voltar</span>
+                </a>
+                {% endif %}
+                <button onclick="confirmLogout()" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Sair">
+                    <i class="bi bi-box-arrow-right me-1"></i>
+                    <span class="d-none d-md-inline">Sair</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mensagens flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else ('info' if category == 'info' else 'success') }} alert-dismissible fade show" role="alert">
+                        {% if category == 'error' %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif category == 'info' %}
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                        {% else %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Conteúdo principal -->
+    <main class="container my-5">
+        <!-- Gestão de Utilizadores -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="bi bi-people me-2"></i>
+                            Gestão de Utilizadores
+                        </h5>
+                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="bi bi-person-plus me-1"></i>
+                            Adicionar Utilizador
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th width="50"></th>
+                                        <th>Nome</th>
+                                        <th>Email</th>
+                                        <th>Permissão</th>
+                                        <th>Estado</th>
+                                        <th width="120">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td>
+                                            <div class="avatar-circle">
+                                                {{ user.name[0].upper() }}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <strong>{{ user.name }}</strong>
+                                            {% if user.id == current_user.id %}
+                                                <span class="badge bg-info ms-1">Você</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ user.email }}</td>
+                                        <td>
+                                            {% if user.role == 'admin' %}
+                                                <span class="badge bg-danger">Administrador</span>
+                                            {% elif user.role == 'editor' %}
+                                                <span class="badge bg-warning">Editor</span>
+                                            {% elif user.role == 'viewer' %}
+                                                <span class="badge bg-success">Visualizador</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Sem Permissões</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.is_verified %}
+                                                <span class="text-success">
+                                                    <i class="bi bi-check-circle"></i> Verificado
+                                                </span>
+                                            {% else %}
+                                                <span class="text-warning">
+                                                    <i class="bi bi-clock"></i> Pendente
+                                                </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm">
+                                                <button type="button" class="btn btn-outline-primary" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editUserModal{{ user.id }}"
+                                                        data-bs-toggle="tooltip" 
+                                                        title="Editar utilizador">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-warning" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#resetPasswordModal{{ user.id }}"
+                                                        data-bs-toggle="tooltip" 
+                                                        title="Alterar senha">
+                                                    <i class="bi bi-key"></i>
+                                                </button>
+                                                {% if user.id != current_user.id %}
+                                                <button type="button" class="btn btn-outline-danger" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#deleteUserModal{{ user.id }}"
+                                                        data-bs-toggle="tooltip" 
+                                                        title="Eliminar utilizador">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        {% if not users %}
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-people display-4"></i>
+                            <p class="mt-2">Nenhum utilizador encontrado</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modais para Edição e Eliminação de Utilizadores -->
+        {% for user in users %}
+        <!-- Modal de Edição -->
+        <div class="modal fade" id="editUserModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Editar Utilizador</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="/settings/users/{{ user.id }}/" method="post">
+                        <input type="hidden" name="action" value="crud_user_edit">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="editName{{ user.id }}" class="form-label">Nome</label>
+                                <input type="text" class="form-control" id="editName{{ user.id }}" 
+                                       name="name" value="{{ user.name }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editEmail{{ user.id }}" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="editEmail{{ user.id }}" 
+                                       name="email" value="{{ user.email }}" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editRole{{ user.id }}" class="form-label">Permissão</label>
+                                <select class="form-select" id="editRole{{ user.id }}" name="role" required>
+                                    <option value="none" {% if user.role == 'none' %}selected{% endif %}>Sem Permissões</option>
+                                    <option value="viewer" {% if user.role == 'viewer' %}selected{% endif %}>Visualizador</option>
+                                    <option value="editor" {% if user.role == 'editor' %}selected{% endif %}>Editor</option>
+                                    <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrador</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de Eliminação -->
+        {% if user.id != current_user.id %}
+        <div class="modal fade" id="deleteUserModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Eliminar Utilizador</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Tem a certeza que deseja eliminar o utilizador <strong>{{ user.name }}</strong>?</p>
+                        <p class="text-muted small">Esta ação não pode ser desfeita.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <form action="/settings/users/{{ user.id }}/" method="post" class="d-inline">
+                            <input type="hidden" name="action" value="crud_user_delete">
+                            <button type="submit" class="btn btn-danger">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Modal de Reset de Senha -->
+        <div class="modal fade" id="resetPasswordModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Alterar Senha do Utilizador</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="/settings/users/{{ user.id }}/" method="post">
+                        <input type="hidden" name="action" value="crud_user_reset_password">
+                        <div class="modal-body">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Atenção:</strong> Vai alterar a senha do utilizador <strong>{{ user.name }}</strong>.
+                            </div>
+                            <div class="mb-3">
+                                <label for="resetPassword{{ user.id }}" class="form-label">Nova Senha *</label>
+                                <input type="password" class="form-control" id="resetPassword{{ user.id }}" 
+                                       name="new_password" required minlength="6">
+                                <div class="form-text">Mínimo 6 caracteres. Recomenda-se: maiúsculas, minúsculas, números e símbolos.</div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Nota:</strong> O utilizador deverá ser informado da nova senha por um canal seguro.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-key me-1"></i>
+                                Alterar Senha
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% endfor %}
+
+        <!-- Modal para Adicionar Novo Utilizador -->
+        <div class="modal fade" id="addUserModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Adicionar Novo Utilizador</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="{{ url_for('user_management') }}" method="post">
+                        <input type="hidden" name="action" value="crud_user_add_new">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="addUserName" class="form-label">Nome *</label>
+                                <input type="text" class="form-control" id="addUserName" 
+                                       name="name" required minlength="2" maxlength="100">
+                                <div class="form-text">Nome que será exibido na aplicação.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="addUserEmail" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="addUserEmail" 
+                                       name="email" required>
+                                <div class="form-text">Email será usado para login e comunicações.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="addUserPassword" class="form-label">Palavra-passe *</label>
+                                <input type="password" class="form-control" id="addUserPassword" 
+                                       name="password" required minlength="6">
+                                <div class="form-text">Mínimo 6 caracteres. Recomenda-se: maiúsculas, minúsculas, números e símbolos.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="addUserRole" class="form-label">Permissão *</label>
+                                <select class="form-select" id="addUserRole" name="role" required>
+                                    <option value="">Selecione a permissão...</option>
+                                    <option value="none">Sem Permissões - Acesso negado</option>
+                                    <option value="viewer">Visualizador - Apenas consulta</option>
+                                    <option value="editor">Editor - Pode editar dados</option>
+                                    <option value="admin">Administrador - Acesso completo</option>
+                                </select>
+                                <div class="form-text">Define o nível de acesso do utilizador na aplicação.</div>
+                            </div>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Nota:</strong> O utilizador receberá um email de boas-vindas com as instruções de acesso.
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-person-plus me-1"></i>
+                                Criar Utilizador
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info sobre formato CSV -->
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-8">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Gestão de Alunos em Lote - Importação de dados no formato do ficheiro CSV:</strong> 
+                    <br>Exemplo: 
+                    <br><small class="text-muted">turma,numero,processo,nome</small>
+                    <br><small class="text-muted">5A,1,12345,João Silva</small>
+                </div>
+            </div>
+        </div>
+
+        {% if not has_data %}
+        <!-- Mensagem de primeiro acesso -->
+        <div class="row justify-content-center mb-4">
+            <div class="col-lg-8">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    <strong>Primeiro Acesso:</strong> Nenhuma turma foi encontrada. Carregue um ficheiro CSV para começar.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Cards das funcionalidades -->
+        <div class="row g-4">
+            <!-- Card 1: Substituir Dados -->
+            {% if can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-danger mb-3">🔄</div>
+                        <h5 class="card-title fw-bold">Substituir Todos os Dados</h5>
+                        <p class="card-text text-muted">
+                            Carregar novo ficheiro CSV e <strong>eliminar todos os dados existentes</strong>. 
+                            As fotos serão mantidas.
+                        </p>
+                        
+                        <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="replaceForm">
+                            <input type="hidden" name="action" value="replace">
+                            <div class="mb-3">
+                                <input type="file" name="file" id="replaceFile" accept=".csv" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-danger w-100" id="replaceBtn" disabled>
+                                <i class="bi bi-arrow-repeat me-2"></i>
+                                Substituir Dados
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 2: Atualizar/Adicionar Dados (só se houver dados) -->
+            {% if has_data and can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-primary mb-3">➕</div>
+                        <h5 class="card-title fw-bold">Atualizar/Adicionar Dados</h5>
+                        <p class="card-text text-muted">
+                            Fazer <strong>merge</strong> com os dados existentes. 
+                            Novos alunos serão adicionados, existentes atualizados.
+                        </p>
+                        
+                        <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="mergeForm">
+                            <input type="hidden" name="action" value="merge">
+                            <div class="mb-3">
+                                <input type="file" name="file" id="mergeFile" accept=".csv" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" id="mergeBtn" disabled>
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Atualizar Dados
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 3: Limpeza Completa (só se houver dados) -->
+            {% if has_data and can_system_nuke %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-danger border-2 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-danger mb-3">🗑️</div>
+                        <h5 class="card-title fw-bold text-danger">Limpeza Completa</h5>
+                        <p class="card-text text-muted">
+                            <strong>⚠️ ATENÇÃO:</strong> Elimina <strong>TODOS os dados e fotos</strong> 
+                            de forma permanente. Não pode ser desfeita!
+                        </p>
+                        
+                        <form action="{{ url_for('settings_nuke') }}" method="post" id="nukeForm" onsubmit="return confirmNuke()">
+                            <button type="submit" class="btn btn-outline-danger w-100">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                LIMPAR TUDO
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Seção de Gestão de Utilizadores -->
+        {% if show_users and users %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-people-fill me-2"></i>
+                                Utilizadores do Sistema
+                            </h5>
+                            <div>
+                                <span class="badge bg-light text-primary">{{ users|length }} utilizador{{ 'es' if users|length != 1 else '' }}</span>
+                                <a href="{{ url_for('settings') }}" class="btn btn-light btn-sm ms-2">
+                                    <i class="bi bi-arrow-left me-1"></i>
+                                    Voltar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Utilizador</th>
+                                        <th>Email</th>
+                                        <th>Papel</th>
+                                        <th>Estado</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td class="text-muted">#{{ user.id }}</td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="avatar-circle me-2">
+                                                    {{ user.name[0].upper() if user.name else user.email[0].upper() }}
+                                                </div>
+                                                <div>
+                                                    <strong>{{ user.name }}</strong>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ user.email }}</td>
+                                        <td>
+                                            {% if user.role == 'admin' %}
+                                                <span class="badge bg-danger">👑 Administrador</span>
+                                            {% elif user.role == 'editor' %}
+                                                <span class="badge bg-warning">✏️ Editor</span>
+                                            {% elif user.role == 'viewer' %}
+                                                <span class="badge bg-info">👁️ Visualizador</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">⏳ Sem Permissões</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.is_verified %}
+                                                <span class="badge bg-success">✅ Verificado</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">⏳ Pendente</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                {% if user.id != current_user.id %}
+                                                <form action="/settings/users/{{ user.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ user.name }}?')">
+                                                    <input type="hidden" name="action" value="crud_user_delete">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modais de Edição -->
+        {% for user in users %}
+        <div class="modal fade" id="editModal{{ user.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Editar Utilizador</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form action="/settings/users/{{ user.id }}/" method="post">
+                        <input type="hidden" name="action" value="crud_user_edit">
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="name{{ user.id }}" class="form-label">Nome</label>
+                                        <input type="text" class="form-control" name="name" id="name{{ user.id }}" value="{{ user.name }}" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="email{{ user.id }}" class="form-label">Email</label>
+                                        <input type="email" class="form-control" name="email" id="email{{ user.id }}" value="{{ user.email }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="role{{ user.id }}" class="form-label">Papel</label>
+                                <select class="form-select" name="role" id="role{{ user.id }}" required>
+                                    <option value="none" {{ 'selected' if user.role == 'none' else '' }}>Sem Permissões</option>
+                                    <option value="viewer" {{ 'selected' if user.role == 'viewer' else '' }}>Visualizador</option>
+                                    <option value="editor" {{ 'selected' if user.role == 'editor' else '' }}>Editor</option>
+                                    <option value="admin" {{ 'selected' if user.role == 'admin' else '' }}>Administrador</option>
+                                </select>
+                                <div class="form-text">
+                                    <small>
+                                        <strong>Sem Permissões:</strong> Não pode aceder a nenhuma funcionalidade<br>
+                                        <strong>Visualizador:</strong> Pode ver turmas e fotos<br>
+                                        <strong>Editor:</strong> Pode tirar fotos e gerir alunos<br>
+                                        <strong>Administrador:</strong> Acesso total ao sistema
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Alterações</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </main>
+
+    <!-- Mobile bottom buttons -->
+    <div class="d-lg-none fixed-bottom bg-light border-top p-3">
+        <div class="container">
+            <div class="row g-2">
+                <div class="col-6">
+                    {% if has_data %}
+                    <a href="{{ url_for('turmas') }}" class="btn btn-success w-100">
+                        <i class="bi bi-eye d-block"></i>
+                        <small>Ver Turmas</small>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100">
+                        <i class="bi bi-arrow-left d-block"></i>
+                        <small>Voltar</small>
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="col-6">
+                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-box-arrow-right d-block"></i>
+                        <small>Sair</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Validação do formulário de adicionar utilizador
+        document.addEventListener('DOMContentLoaded', function() {
+            const addUserForm = document.querySelector('#addUserModal form');
+            const passwordField = document.getElementById('addUserPassword');
+            const confirmPasswordField = document.getElementById('addUserPasswordConfirm');
+
+            if (addUserForm) {
+                addUserForm.addEventListener('submit', function(e) {
+                    const password = passwordField.value;
+                    const confirmPassword = confirmPasswordField.value;
+
+                    // Verificar se as palavras-passe coincidem
+                    if (password !== confirmPassword) {
+                        e.preventDefault();
+                        alert('As palavras-passe não coincidem. Por favor, verifique.');
+                        confirmPasswordField.focus();
+                        return false;
+                    }
+
+                    // Validação de força da palavra-passe
+                    if (password.length < 6) {
+                        e.preventDefault();
+                        alert('A palavra-passe deve ter pelo menos 6 caracteres.');
+                        passwordField.focus();
+                        return false;
+                    }
+
+                    return true;
+                });
+
+                // Validação em tempo real da confirmação da palavra-passe
+                confirmPasswordField.addEventListener('input', function() {
+                    const password = passwordField.value;
+                    const confirmPassword = this.value;
+                    
+                    if (confirmPassword && password !== confirmPassword) {
+                        this.setCustomValidity('As palavras-passe não coincidem');
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.setCustomValidity('');
+                        this.classList.remove('is-invalid');
+                    }
+                });
+            }
+        });
+
+        function confirmLogout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                window.location.href = '{{ url_for("logout") }}';
+            }
+        }
+
+        // Habilitar botões quando arquivo for selecionado
+        document.getElementById('replaceFile').addEventListener('change', function() {
+            document.getElementById('replaceBtn').disabled = !this.files.length;
+        });
+
+        {% if can_upload_csv %}
+        document.getElementById('replaceFile').addEventListener('change', function() {
+            document.getElementById('replaceBtn').disabled = !this.files.length;
+        });
+        {% endif %}
+
+        {% if has_data and can_upload_csv %}
+        document.getElementById('mergeFile').addEventListener('change', function() {
+            document.getElementById('mergeBtn').disabled = !this.files.length;
+        });
+        {% endif %}
+
+        // Confirmação para limpeza completa
+        function confirmNuke() {
+            return confirm(
+                '⚠️ ATENÇÃO: LIMPEZA COMPLETA ⚠️\n\n' +
+                'Esta operação irá eliminar TODOS os dados e fotos!\n' +
+                'ESTA AÇÃO NÃO PODE SER DESFEITA!\n\n' +
+                'Tem certeza que pretende continuar?'
+            );
+        }
+    </script>
+</body>
+</html>

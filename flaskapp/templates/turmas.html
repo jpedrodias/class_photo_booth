@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Class Photo Booth - Turmas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark navbar-custom navbar-expand-lg py-3">
+        <div class="container">
+            <div class="navbar-brand d-flex align-items-center">
+                <span class="display-6 me-2">📚</span>
+                <div>
+                    <div class="fw-bold">Class Photo Booth</div>
+                    <small class="text-white-50 d-block">Selecione uma turma para começar</small>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button onclick="addTurma()" class="btn btn-light btn-sm rounded-pill px-3" title="Nova Turma">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    <span class="d-none d-md-inline">Nova</span>
+                </button>
+                <a href="/settings" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Configurações">
+                    <i class="bi bi-gear me-1"></i>
+                    <span class="d-none d-md-inline">Config</span>
+                </a>
+                <button onclick="confirmLogout()" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Sair">
+                    <i class="bi bi-box-arrow-right me-1"></i>
+                    <span class="d-none d-md-inline">Sair</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Mensagens flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else ('info' if category == 'info' else 'success') }} alert-dismissible fade show" role="alert">
+                        {% if category == 'error' %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif category == 'info' %}
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                        {% else %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    {% if turmas|length > 0 %}
+    <div class="container">
+        <div class="stats-card">
+            <div class="stats-number">{{ turmas|length }}</div>
+            <div class="stats-label">Turma{{ 's' if turmas|length != 1 else '' }} Disponível{{ 'eis' if turmas|length != 1 else '' }}</div>
+        </div>
+        
+        <div class="row g-3">
+            {% for turma in turmas %}
+            <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+                <div class="turma-card h-100" style="cursor: pointer;">
+                    {% if turma.total_alunos > 0 and turma.alunos_com_foto == turma.total_alunos %}
+                    <div class="turma-completed-status">
+                        <i class="bi bi-check-circle-fill"></i>
+                    </div>
+                    {% endif %}
+                
+                <a href="{{ url_for('turma', nome_seguro=turma.nome_seguro) }}" class="text-decoration-none text-dark">
+                    <div class="turma-icon">🎓</div>
+                    <h5 class="fw-bold mb-3">{{ turma.nome }}</h5>
+                    <div class="d-flex justify-content-between text-muted small mb-2">
+                        <span>{{ turma.total_alunos }} aluno{{ 's' if turma.total_alunos != 1 else '' }}</span>
+                        <span>{{ turma.alunos_com_foto }} foto{{ 's' if turma.alunos_com_foto != 1 else '' }}</span>
+                    </div>
+                </a>
+                
+                <div class="d-flex gap-2 mt-auto">
+                    <button type="button" class="btn btn-sm btn-outline-primary flex-fill" 
+                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger flex-fill" 
+                            onclick="deleteTurma({{ turma.id }}, '{{ turma.nome }}', {{ turma.total_alunos }})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="container">
+        <div class="text-center py-4 mb-4">
+            <div class="display-1 mb-3">�</div>
+            <h3 class="mb-3">Nenhuma turma encontrada</h3>
+            <p class="text-muted">Comece por criar a sua primeira turma ou carregue dados via CSV.</p>
+        </div>
+        
+        <div class="row g-4 justify-content-center">
+            <!-- Cartão para criar primeira turma -->
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #4a5eaa;" onclick="addTurma()">
+                    <div class="text-center">
+                        <div class="display-4 mb-3 text-primary">➕</div>
+                        <h5 class="fw-bold mb-3 text-primary">Criar a primeira turma</h5>
+                        <p class="text-muted small">Adicione uma nova turma manualmente</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cartão para carregar via CSV -->
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #28a745;" onclick="window.location.href='/settings'">
+                    <div class="text-center">
+                        <div class="display-4 mb-3 text-success">📊</div>
+                        <h5 class="fw-bold mb-3 text-success">Carregar turmas via CSV</h5>
+                        <p class="text-muted small">Importe dados de um ficheiro CSV</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Mobile action buttons -->
+    <div class="d-lg-none fixed-bottom bg-light border-top p-3">
+        <div class="container">
+            <div class="row g-2">
+                <div class="col-4">
+                    <button onclick="addTurma()" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle d-block"></i>
+                        <small>Nova Turma</small>
+                    </button>
+                </div>
+                <div class="col-4">
+                    <a href="/settings" class="btn btn-secondary w-100">
+                        <i class="bi bi-gear d-block"></i>
+                        <small>Configurações</small>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-box-arrow-right d-block"></i>
+                        <small>Sair</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para adicionar turma -->
+    <div class="modal fade" id="addTurmaModal" tabindex="-1" aria-labelledby="addTurmaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addTurmaModalLabel">
+                        <i class="bi bi-plus-circle me-2"></i>Adicionar Nova Turma
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('turma_crud') }}" method="post" id="addTurmaForm">
+                    <input type="hidden" name="action" value="crud_turma_add_new">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="addTurmaNome" class="form-label">Nome da Turma</label>
+                            <input type="text" class="form-control" id="addTurmaNome" name="nome" required 
+                                   placeholder="Ex: 5A, 10º B, Matemática..." maxlength="100">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-circle me-1"></i>Criar Turma
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar turma -->
+    <div class="modal fade" id="editTurmaModal" tabindex="-1" aria-labelledby="editTurmaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editTurmaModalLabel">
+                        <i class="bi bi-pencil me-2"></i>Editar Turma
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('turma_crud') }}" method="post" id="editTurmaForm">
+                    <input type="hidden" name="action" value="crud_turma_edit">
+                    <input type="hidden" name="turma_id" id="editTurmaId">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="editTurmaNome" class="form-label">Nome da Turma</label>
+                            <input type="text" class="form-control" id="editTurmaNome" name="nome" required 
+                                   placeholder="Ex: 5A, 10º B, Matemática..." maxlength="100">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-pencil me-1"></i>Guardar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar eliminação de turma -->
+    <div class="modal fade" id="deleteTurmaModal" tabindex="-1" aria-labelledby="deleteTurmaModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteTurmaModalLabel">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Confirmar Eliminação
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('turma_crud') }}" method="post" id="deleteTurmaForm">
+                    <input type="hidden" name="action" value="crud_turma_delete">
+                    <input type="hidden" name="turma_id" id="deleteTurmaId">
+                    <div class="modal-body">
+                        <p class="mb-3">
+                            <strong>Tem certeza que deseja eliminar a turma "<span id="deleteTurmaNome"></span>"?</strong>
+                        </p>
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            <strong>Atenção:</strong> Esta ação irá eliminar:
+                            <ul class="mb-0 mt-2">
+                                <li>A turma e todos os seus <span id="deleteTurmaAlunos"></span> alunos</li>
+                                <li>Todas as fotos associadas à turma</li>
+                            </ul>
+                        </div>
+                        <p class="text-muted mb-0">
+                            <small><i class="bi bi-info-circle me-1"></i>Esta ação não pode ser desfeita.</small>
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i>Eliminar Turma
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmLogout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                window.location.href = '/logout';
+            }
+        }
+        
+        // Função para adicionar nova turma
+        function addTurma() {
+            const modal = new bootstrap.Modal(document.getElementById('addTurmaModal'));
+            document.getElementById('addTurmaNome').value = '';
+            modal.show();
+        }
+        
+        // Função para editar turma
+        function editTurma(turmaId, turmaNome) {
+            document.getElementById('editTurmaId').value = turmaId;
+            document.getElementById('editTurmaNome').value = turmaNome;
+            
+            const modal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
+            modal.show();
+        }
+        
+        // Função para confirmar eliminação de turma
+        function deleteTurma(turmaId, turmaNome, totalAlunos) {
+            document.getElementById('deleteTurmaId').value = turmaId;
+            document.getElementById('deleteTurmaNome').textContent = turmaNome;
+            document.getElementById('deleteTurmaAlunos').textContent = totalAlunos;
+            
+            const modal = new bootstrap.Modal(document.getElementById('deleteTurmaModal'));
+            modal.show();
+        }
+        
+        // Adicionar haptic feedback em dispositivos móveis
+        document.querySelectorAll('.turma-card, .btn').forEach(element => {
+            element.addEventListener('touchstart', function() {
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            });
+        });
+        
+        // Adicionar efeito de entrada escalonado nos cards
+        window.addEventListener('load', function() {
+            const cards = document.querySelectorAll('.turma-card-wrapper');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+</body>
+</html>

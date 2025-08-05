@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Turma {{ turma }} - Class Photo Booth</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+</head>
+<body class="turma-page">
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark navbar-custom navbar-expand-lg py-3">
+        <div class="container">
+            <div class="navbar-brand d-flex align-items-center">
+                <span class="display-6 me-2">🎓</span>
+                <div>
+                    <div class="fw-bold">Turma {{ turma }}</div>
+                    <small class="text-white-50 d-block">{{ alunos|length }} aluno{{ 's' if alunos|length != 1 else '' }} • {{ fotos_existentes }} foto{{ 's' if fotos_existentes != 1 else '' }}</small>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('turmas') }}" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Voltar">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    <span class="d-none d-md-inline">Voltar</span>
+                </a>
+                
+                <div class="dropdown">
+                    <button class="btn btn-light btn-sm rounded-pill px-3 dropdown-toggle" type="button" id="downloadDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Download">
+                        <i class="bi bi-download me-1"></i>
+                        <span class="d-none d-md-inline">Download</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" aria-labelledby="downloadDropdown">
+                        <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.zip') }}">
+                            <i class="bi bi-file-earmark-zip me-2 text-primary"></i> {{ nome_seguro }}.zip
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.thumbs.zip') }}">
+                            <i class="bi bi-file-earmark-zip-fill me-2 text-info"></i> {{ nome_seguro }}.thumbs.zip
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.docx') }}">
+                            <i class="bi bi-file-earmark-word me-2 text-success"></i> {{ nome_seguro }}.docx
+                        </a></li>
+                    </ul>
+                </div>
+                
+                <button onclick="confirmLogout()" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Sair">
+                    <i class="bi bi-box-arrow-right me-1"></i>
+                    <span class="d-none d-md-inline">Sair</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mensagens flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else ('info' if category == 'info' else 'success') }} alert-dismissible fade show" role="alert">
+                        {% if category == 'error' %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif category == 'info' %}
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                        {% else %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                        {% endif %}
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="container my-4">
+        <div class="row g-3">
+            <!-- Card para adicionar novo aluno -->
+            {% if current_user.role in ['editor', 'admin'] %}
+            <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+                <div class="student-card text-center h-100" data-bs-toggle="modal" data-bs-target="#addStudentModal" style="cursor: pointer;">
+                    <div class="student-photo">
+                        <div class="d-flex align-items-center justify-content-center h-100">
+                            <i class="bi bi-person-plus-fill text-primary" style="font-size: 3rem;"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h6 class="fw-bold text-primary mb-1">Adicionar Aluno</h6>
+                    <small class="text-muted">Novo aluno</small>
+                </div>
+                </div>
+            </div>
+            {% endif %}
+        
+        {% for aluno in alunos %}
+        <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+            {% if current_user.role in ['editor', 'admin'] %}
+            <div class="student-card h-100" onclick="goToCapturePhoto('{{ aluno.processo }}')" style="cursor: pointer;">
+            {% else %}
+            <div class="student-card h-100" style="cursor: default;">
+            {% endif %}
+                <div class="student-photo position-relative">
+                    {% if aluno.foto_tirada %}
+                    <img src="{{ url_for('get_photo', nome_seguro=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img">
+                    {% if current_user.role in ['editor', 'admin'] %}
+                    <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
+                         data-id="{{ aluno.id }}" 
+                         data-nome="{{ aluno.nome }}"
+                         data-bs-toggle="modal" 
+                         data-bs-target="#removePhotoModal"
+                         title="Clique para remover a foto"
+                         onclick="event.stopPropagation();"
+                         style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-x" style="font-size: 12px;"></i>
+                    </button>
+                    {% endif %}
+                    {% else %}
+                    <img src="{{ url_for('static', filename='student_icon.jpg') }}" alt="Sem foto" class="photo-img placeholder">
+                    {% if current_user.role in ['editor', 'admin'] %}
+                    <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle" 
+                         title="Clique para tirar foto"
+                         onclick="event.stopPropagation(); goToCapturePhoto('{{ aluno.processo }}');"
+                         style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-camera" style="font-size: 12px;"></i>
+                    </button>
+                    {% endif %}
+                    {% endif %}
+                </div>
+                <div class="student-info">
+                    <div class="student-name">{{ aluno.nome }}</div>
+                    <div class="student-number">
+                        {% if aluno.numero %}
+                            Nº {{ aluno.numero }} • Proc. {{ aluno.processo }}
+                        {% else %}
+                            Proc. {{ aluno.processo }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Botões de ação do aluno -->
+                <div class="student-actions mt-2">
+                    {% if aluno.foto_tirada %}
+                    <button class="btn btn-sm btn-outline-info preview-photo-btn" 
+                            data-processo="{{ aluno.processo }}" 
+                            data-nome="{{ aluno.nome }}"
+                            data-turma="{{ aluno.turma }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#previewPhotoModal"
+                            onclick="event.stopPropagation(); openPreviewModal('{{ aluno.processo }}', '{{ aluno.nome }}', '{{ aluno.turma }}');"
+                            title="Preview da foto original">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    {% endif %}
+                    {% if current_user.role in ['editor', 'admin'] %}
+                    <button class="btn btn-sm btn-outline-primary edit-student-btn stay-on-page" 
+                            data-id="{{ aluno.id }}" 
+                            data-nome="{{ aluno.nome }}" 
+                            data-processo="{{ aluno.processo }}" 
+                            data-numero="{{ aluno.numero or '' }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#editStudentModal"
+                            onclick="event.stopPropagation();">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning transfer-student-btn stay-on-page" 
+                            data-id="{{ aluno.id }}" 
+                            data-nome="{{ aluno.nome }}" 
+                            data-processo="{{ aluno.processo }}"
+                            data-turma-atual="{{ turma }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#transferStudentModal"
+                            onclick="event.stopPropagation();">
+                        <i class="bi bi-arrow-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger delete-student-btn stay-on-page" 
+                            data-id="{{ aluno.id }}" 
+                            data-nome="{{ aluno.nome }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#deleteStudentModal"
+                            onclick="event.stopPropagation();">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Modal para adicionar aluno -->
+    <div class="modal fade" id="addStudentModal" tabindex="-1" aria-labelledby="addStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addStudentModalLabel">
+                        <i class="bi bi-person-plus-fill me-2"></i>
+                        Adicionar Aluno - Turma {{ turma }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="addStudentForm">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_add_new">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        
+                        <div class="mb-3">
+                            <label for="studentName" class="form-label">Nome Completo</label>
+                            <input type="text" class="form-control input-base" id="studentName" name="nome" required 
+                                   placeholder="Digite o nome completo do aluno" maxlength="200">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="studentNumber" class="form-label">Número na Turma</label>
+                            <input type="number" class="form-control input-base" id="studentNumber" name="numero" 
+                                   placeholder="Digite o número na turma (opcional)" min="1" max="999">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="studentProcess" class="form-label">Número do Processo</label>
+                            <input type="number" class="form-control input-base" id="studentProcess" name="processo" required 
+                                   placeholder="Ex: NIF, número de estudante, etc." min="1" step="1">
+                            <div class="form-text">Apenas números inteiros positivos (ex: NIF, número de estudante)</div>
+                        </div>
+
+                        <div class="alert alert-info d-flex align-items-start">
+                            <i class="bi bi-info-circle me-2 mt-1"></i>
+                            <div>
+                                <strong>Informações importantes:</strong><br>
+                                • O número do processo deve ser único dentro da turma<br>
+                                • O número na turma é opcional e pode repetir<br>
+                                • A listagem será ordenada pelo número na turma<br>
+                                • O nome pode ter até 200 caracteres<br>
+                                • O número do processo pode ter até 50 caracteres
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-plus-circle"></i> Adicionar Aluno
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para editar aluno -->
+    <div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editStudentModalLabel">
+                        <i class="bi bi-pencil-fill me-2"></i>
+                        Editar Aluno
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="editStudentForm">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_edit">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        <input type="hidden" name="aluno_id" id="editAlunoId">
+                        
+                        <div class="mb-3">
+                            <label for="editStudentName" class="form-label">Nome Completo</label>
+                            <input type="text" class="form-control input-base" id="editStudentName" name="nome" required 
+                                   placeholder="Digite o nome completo do aluno" maxlength="200">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editStudentNumber" class="form-label">Número na Turma</label>
+                            <input type="number" class="form-control input-base" id="editStudentNumber" name="numero" 
+                                   placeholder="Digite o número na turma (opcional)" min="1" max="999">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editStudentProcess" class="form-label">Número do Processo</label>
+                            <input type="number" class="form-control input-base" id="editStudentProcess" name="processo" required 
+                                   placeholder="Ex: NIF, número de estudante, etc." min="1" step="1">
+                            <div class="form-text">Apenas números inteiros positivos (ex: NIF, número de estudante)</div>
+                        </div>
+
+                        <div class="alert alert-warning d-flex align-items-start">
+                            <i class="bi bi-exclamation-triangle me-2 mt-1"></i>
+                            <div>
+                                <strong>Atenção:</strong><br>
+                                • Alterar o número do processo pode afetar fotos já tiradas<br>
+                                • O número do processo deve ser único na turma
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para excluir aluno -->
+    <div class="modal fade" id="deleteStudentModal" tabindex="-1" aria-labelledby="deleteStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteStudentModalLabel">
+                        <i class="bi bi-trash-fill me-2"></i>
+                        Excluir Aluno
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="deleteStudentForm">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_delete">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        <input type="hidden" name="aluno_id" id="deleteAlunoId">
+                        
+                        <div class="alert alert-danger d-flex align-items-start">
+                            <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+                            <div>
+                                <strong>Atenção:</strong><br>
+                                Esta ação não pode ser desfeita!
+                            </div>
+                        </div>
+                        
+                        <p class="mb-0">
+                            Tem certeza que deseja excluir o aluno <strong id="deleteStudentName"></strong>?
+                        </p>
+                        <p class="text-muted small mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            A foto do aluno também será removida permanentemente.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash"></i> Excluir Aluno
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para transferir aluno -->
+    <div class="modal fade" id="transferStudentModal" tabindex="-1" aria-labelledby="transferStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="transferStudentModalLabel">
+                        <i class="bi bi-arrow-right-circle-fill me-2"></i>
+                        Transferir Aluno
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="transferStudentForm">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_transfer">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        <input type="hidden" name="aluno_id" id="transferAlunoId">
+                        
+                        <div class="mb-3">
+                            <p class="mb-2">
+                                <strong>Aluno:</strong> <span id="transferStudentName"></span><br>
+                                <strong>Turma atual:</strong> <span id="transferCurrentTurma"></span>
+                            </p>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="transferTargetTurma" class="form-label">Turma de Destino</label>
+                            <select class="form-select input-base" id="transferTargetTurma" name="turma_destino" required>
+                                <option value="">Selecione a turma de destino</option>
+                                <!-- Opções serão carregadas dinamicamente -->
+                            </select>
+                        </div>
+
+                        <div class="alert alert-info d-flex align-items-start">
+                            <i class="bi bi-info-circle me-2 mt-1"></i>
+                            <div>
+                                <strong>Informações importantes:</strong><br>
+                                • O aluno será movido para a turma selecionada<br>
+                                • A foto do aluno será transferida junto<br>
+                                • O número do processo deve ser único na turma de destino<br>
+                                • Esta operação não pode ser desfeita facilmente
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-arrow-right-circle"></i> Transferir Aluno
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para remover foto -->
+    <div class="modal fade" id="removePhotoModal" tabindex="-1" aria-labelledby="removePhotoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="removePhotoModalLabel">
+                        <i class="bi bi-camera-fill me-2"></i>
+                        Remover Foto
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="removePhotoForm">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_remove_photo">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        <input type="hidden" name="aluno_id" id="removePhotoAlunoId">
+                        
+                        <div class="alert alert-warning d-flex align-items-start">
+                            <i class="bi bi-exclamation-triangle-fill me-2 mt-1"></i>
+                            <div>
+                                <strong>Atenção:</strong><br>
+                                Esta ação irá remover apenas a foto do aluno!
+                            </div>
+                        </div>
+                        
+                        <p class="mb-0">
+                            Tem certeza que deseja remover a foto do aluno <strong id="removePhotoStudentName"></strong>?
+                        </p>
+                        <p class="text-muted small mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            O aluno permanecerá na turma, mas precisará tirar uma nova foto.
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-camera"></i> Remover Foto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para preview da foto original -->
+    <div class="modal fade" id="previewPhotoModal" tabindex="-1" aria-labelledby="previewPhotoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="previewPhotoModalLabel">
+                        <i class="bi bi-camera-fill me-2"></i>
+                        Preview - <span id="previewStudentName"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div class="position-relative d-inline-block">
+                        <!-- Placeholder inicial -->
+                        <img id="previewImage" 
+                             src="{{ url_for('static', filename='student_icon.jpg') }}" 
+                             alt="Carregando foto..." 
+                             class="img-fluid rounded shadow"
+                             style="max-height: 70vh; max-width: 100%;">
+                        
+                        <!-- Loading spinner -->
+                        <div id="previewSpinner" class="position-absolute top-50 start-50 translate-middle d-none">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 text-muted">
+                        <small><i class="bi bi-info-circle me-1"></i>Foto original em alta qualidade</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Fechar
+                    </button>
+                    <a id="downloadPhotoBtn" href="#" class="btn btn-primary" download>
+                        <i class="bi bi-download"></i> Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile bottom buttons -->
+    <div class="d-lg-none fixed-bottom bg-light border-top p-3">
+        <div class="container">
+            <div class="row g-2">
+                <div class="col-4">
+                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100 btn-sm">
+                        <i class="bi bi-arrow-left d-block"></i>
+                        <small>Voltar</small>
+                    </a>
+                </div>
+                <div class="col-4">
+                    <div class="dropdown w-100">
+                        <button class="btn btn-primary w-100 btn-sm dropdown-toggle" type="button" id="mobileDownloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-download d-block"></i>
+                            <small>Download</small>
+                        </button>
+                        <ul class="dropdown-menu w-100 shadow border-0" aria-labelledby="mobileDownloadDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.zip') }}">
+                                <i class="bi bi-file-earmark-zip me-2 text-primary"></i> {{ nome_seguro }}.zip
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.thumbs.zip') }}">
+                                <i class="bi bi-file-earmark-zip-fill me-2 text-info"></i> {{ nome_seguro }}.thumbs.zip
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('download', ficheiro=nome_seguro + '.docx') }}">
+                                <i class="bi bi-file-earmark-word me-2 text-success"></i> {{ nome_seguro }}.docx
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="col-4">
+                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100 btn-sm">
+                        <i class="bi bi-box-arrow-right d-block"></i>
+                        <small>Sair</small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Captura de Foto -->
+    <div class="modal fade" id="capturePhotoModal" tabindex="-1" aria-labelledby="capturePhotoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="capturePhotoModalLabel">
+                        <i class="bi bi-camera me-2"></i>Capturar Foto
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <div id="modalAlunoInfo" class="mb-3">
+                            <h6 class="fw-bold mb-1" id="modalAlunoNome"></h6>
+                            <small class="text-muted" id="modalAlunoProcesso"></small>
+                        </div>
+                        
+                        <div class="video-container mb-3">
+                            <video id="modalCameraVideo" autoplay class="img-fluid border rounded shadow-sm" style="max-height: 400px; width: 100%;"></video>
+                        </div>
+                        
+                        <div class="d-grid gap-2 mb-4">
+                            <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
+                                <i class="bi bi-camera me-2"></i>Capturar Foto
+                            </button>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-camera-video me-2"></i>Selecionar Câmera:
+                            </label>
+                            <div id="modalCameraButtons" class="d-flex flex-wrap gap-3 justify-content-center"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-gear me-2"></i>Qualidade da Foto:
+                            </label>
+                            <div class="btn-group w-100" role="group" aria-label="Qualidade da foto">
+                                <input type="radio" class="btn-check" name="photoQuality" id="qualityLow" value="low">
+                                <label class="btn btn-outline-primary" for="qualityLow">
+                                    <i class="bi bi-speedometer me-1"></i>LOW
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="photoQuality" id="qualityMed" value="med" checked>
+                                <label class="btn btn-outline-primary" for="qualityMed">
+                                    <i class="bi bi-speedometer2 me-1"></i>MED
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="photoQuality" id="qualityHigh" value="high">
+                                <label class="btn btn-outline-primary" for="qualityHigh">
+                                    <i class="bi bi-lightning me-1"></i>HIGH
+                                </label>
+                            </div>
+                            <small class="text-muted mt-2 d-block text-center">
+                                <i class="bi bi-info-circle me-1"></i>
+                                LOW: 640x480 • MED: 1280x720 • HIGH: 1920x1080
+                            </small>
+                        </div>
+                        
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Pressione <kbd>Enter</kbd> para capturar ou <kbd>Esc</kbd> para fechar
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmLogout() {
+            if (confirm('Tem certeza que deseja sair?')) {
+                window.location.href = "{{ url_for('logout') }}";
+            }
+        }
+        
+        // Gerenciar cliques nos cards dos alunos
+        document.querySelectorAll('.student-card').forEach(card => {
+            card.addEventListener('touchstart', function() {
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            });
+            
+            // Forçar navegação quando click for válido
+            card.addEventListener('click', function(e) {
+                
+                // Se o click for em botões ou na área de botões, ignorar
+                if (e.target.closest('.student-actions') || 
+                    e.target.closest('.btn') || 
+                    e.target.classList.contains('btn') ||
+                    e.target.closest('.remove-photo-btn') ||
+                    e.target.classList.contains('remove-photo-btn') ||
+                    e.target.tagName === 'I' && e.target.closest('.btn')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                }
+                
+                // Se chegou até aqui, redirecionar manualmente
+                if (this.href && this.href !== '#') {
+                    window.location.href = this.href;
+                }
+            });
+        });
+        
+        // Adicionar efeito de entrada escalonado nos cards dos alunos
+        window.addEventListener('load', function() {
+            const cards = document.querySelectorAll('.student-card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    card.style.transition = 'all 0.4s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 50);
+            });
+        });
+
+        // Modal de adicionar aluno
+        const addStudentModal = document.getElementById('addStudentModal');
+        const addStudentForm = document.getElementById('addStudentForm');
+        
+        // Limpar form quando modal abrir
+        addStudentModal.addEventListener('show.bs.modal', function() {
+            addStudentForm.reset();
+            setTimeout(() => {
+                document.getElementById('studentName').focus();
+            }, 500);
+        });
+        
+        // Validação do formulário
+        addStudentForm.addEventListener('submit', function(e) {
+            const nome = document.getElementById('studentName').value.trim();
+            const processo = document.getElementById('studentProcess').value.trim();
+            
+            if (!nome || !processo) {
+                e.preventDefault();
+                alert('Por favor, preencha todos os campos!');
+                return;
+            }
+        });
+        
+        // Permitir apenas números e letras no campo processo
+        document.getElementById('studentProcess').addEventListener('input', function(e) {
+            // Remove caracteres especiais exceto números, letras e alguns símbolos comuns
+            this.value = this.value.replace(/[^a-zA-Z0-9\/\-_.]/g, '');
+        });
+
+        // Gerenciar modal de editar aluno
+        document.querySelectorAll('.edit-student-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const nome = this.dataset.nome;
+                const processo = this.dataset.processo;
+                const numero = this.dataset.numero;
+                
+                document.getElementById('editAlunoId').value = id;
+                document.getElementById('editStudentName').value = nome;
+                document.getElementById('editStudentProcess').value = processo;
+                document.getElementById('editStudentNumber').value = numero;
+            });
+        });
+
+        // Gerenciar modal de excluir aluno
+        document.querySelectorAll('.delete-student-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const nome = this.dataset.nome;
+                
+                document.getElementById('deleteAlunoId').value = id;
+                document.getElementById('deleteStudentName').textContent = nome;
+            });
+        });
+
+        // Gerenciar modal de transferir aluno
+        document.querySelectorAll('.transfer-student-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const nome = this.dataset.nome;
+                const processo = this.dataset.processo;
+                const turmaAtual = this.dataset.turmaAtual;
+                
+                document.getElementById('transferAlunoId').value = id;
+                document.getElementById('transferStudentName').textContent = nome;
+                document.getElementById('transferCurrentTurma').textContent = turmaAtual;
+                
+                // Carregar lista de turmas via AJAX
+                loadTurmasForTransfer(turmaAtual);
+            });
+        });
+        
+        // Função para carregar turmas disponíveis para transferência
+        function loadTurmasForTransfer(turmaAtual) {
+            fetch("{{ url_for('turmas', api='true') }}")
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('transferTargetTurma');
+                    select.innerHTML = '<option value="">Selecione a turma de destino</option>';
+                    
+                    data.turmas.forEach(turma => {
+                        if (turma !== turmaAtual) {
+                            const option = document.createElement('option');
+                            option.value = turma;
+                            option.textContent = turma;
+                            select.appendChild(option);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar turmas:', error);
+                    const select = document.getElementById('transferTargetTurma');
+                    select.innerHTML = '<option value="">Erro ao carregar turmas</option>';
+                });
+        }
+
+        // Validação do formulário de edição
+        document.getElementById('editStudentForm').addEventListener('submit', function(e) {
+            const nome = document.getElementById('editStudentName').value.trim();
+            const processo = document.getElementById('editStudentProcess').value.trim();
+            
+            if (!nome || !processo) {
+                e.preventDefault();
+                alert('Por favor, preencha todos os campos obrigatórios!');
+                return;
+            }
+            
+            if (!confirm('Confirma as alterações no aluno?')) {
+                e.preventDefault();
+            }
+        });
+
+        // Validação do formulário de exclusão
+        document.getElementById('deleteStudentForm').addEventListener('submit', function(e) {
+            const nome = document.getElementById('deleteStudentName').textContent;
+            
+            if (!confirm(`ATENÇÃO: Tem certeza absoluta que deseja excluir o aluno "${nome}"?\n\nEsta ação é IRREVERSÍVEL!`)) {
+                e.preventDefault();
+            }
+        });
+
+        // Validação do formulário de transferência
+        document.getElementById('transferStudentForm').addEventListener('submit', function(e) {
+            const nome = document.getElementById('transferStudentName').textContent;
+            const turmaDestino = document.getElementById('transferTargetTurma').value;
+            
+            if (!turmaDestino) {
+                e.preventDefault();
+                alert('Por favor, selecione uma turma de destino!');
+                return;
+            }
+        });
+
+        // Gerenciar modal de preview da foto (usando delegação de eventos)
+        document.addEventListener('DOMContentLoaded', function() {
+            document.addEventListener('click', function(e) {
+                const previewBtn = e.target.closest('.preview-photo-btn');
+                if (previewBtn) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const processo = previewBtn.dataset.processo;
+                    const nome = previewBtn.dataset.nome;
+                    const turma = previewBtn.dataset.turma;
+                    
+                    // Preparar dados do modal
+                    document.getElementById('previewStudentName').textContent = nome;
+                    
+                    // Preparar URL da foto original
+                    const originalPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?size=original`;
+                    
+                    // Preparar botão de download
+                    const downloadBtn = document.getElementById('downloadPhotoBtn');
+                    downloadBtn.href = originalPhotoUrl;
+                    downloadBtn.download = `${nome}_${processo}.jpg`;
+                    
+                    // Reset da imagem para placeholder e mostrar spinner
+                    const previewImage = document.getElementById('previewImage');
+                    const spinner = document.getElementById('previewSpinner');
+                    
+                    previewImage.src = "{{ url_for('static', filename='student_icon.jpg') }}";
+                    previewImage.alt = "Carregando foto...";
+                    spinner.classList.remove('d-none');
+                    
+                    // Abrir modal usando Bootstrap diretamente
+                    const modal = new bootstrap.Modal(document.getElementById('previewPhotoModal'));
+                    modal.show();
+                    
+                    // Carregar foto original após pequeno delay
+                    setTimeout(() => {
+                        const img = new Image();
+                        
+                        img.onload = function() {
+                            spinner.classList.add('d-none');
+                            previewImage.src = originalPhotoUrl;
+                            previewImage.alt = `Foto original de ${nome}`;
+                        };
+                        
+                        img.onerror = function() {
+                            console.error('Erro ao carregar foto para preview:', originalPhotoUrl);
+                            spinner.classList.add('d-none');
+                            previewImage.alt = "Erro ao carregar foto";
+                        };
+                        
+                        img.src = originalPhotoUrl;
+                    }, 200);
+                }
+            });
+        });
+
+        // Gerenciar modal de remover foto
+        document.querySelectorAll('.remove-photo-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const id = this.dataset.id;
+                const nome = this.dataset.nome;
+                
+                document.getElementById('removePhotoAlunoId').value = id;
+                document.getElementById('removePhotoStudentName').textContent = nome;
+            });
+        });
+
+        // Validação do formulário de remoção de foto - agora com AJAX
+        document.getElementById('removePhotoForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevenir submit tradicional
+            
+            const formData = new FormData(this);
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            
+            // Mostrar feedback visual
+            submitButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Removendo...';
+            submitButton.disabled = true;
+            
+            // Enviar requisição AJAX
+            fetch("{{ url_for('student') }}", {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Fechar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('removePhotoModal'));
+                    modal.hide();
+                    
+                    // Restaurar botão
+                    submitButton.innerHTML = originalButtonText;
+                    submitButton.disabled = false;
+                    
+                    // Obter dados do aluno
+                    const alunoId = formData.get('aluno_id');
+                    const studentName = document.getElementById('removePhotoStudentName').textContent;
+                    
+                    // Atualizar foto dinamicamente
+                    updateStudentPhotoAfterRemoval(alunoId, studentName);
+                } else {
+                    throw new Error('Erro na remoção');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao remover foto:', error);
+                alert('Erro ao remover a foto. Tente novamente.');
+                
+                // Restaurar botão
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            });
+        });
+
+        // Permitir apenas números e letras no campo processo do modal de edição
+        document.getElementById('editStudentProcess').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^a-zA-Z0-9\/\-_.]/g, '');
+        });
+
+        // === SCROLL PRESERVATION ===
+        const turmaName = "{{ turma }}";
+        const scrollStorageKey = `turmaScrollPosition_${turmaName}`;
+        
+        // Dados dos alunos para uso nas funções JavaScript
+        const alunosData = {{ alunos|tojson|safe }};
+        
+        // Restaurar posição de scroll ao carregar a página
+        function restoreScrollPosition() {
+            const savedPosition = localStorage.getItem(scrollStorageKey);
+            if (savedPosition) {
+                const position = parseInt(savedPosition, 10);
+                if (!isNaN(position)) {
+                    // Aguardar um pouco para garantir que a página carregou completamente
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: position,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
+                }
+            }
+        }
+        
+        // Salvar posição de scroll antes de sair da página
+        function saveScrollPosition() {
+            const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            localStorage.setItem(scrollStorageKey, scrollPosition.toString());
+        }
+        
+        // Função para ir para captura de foto (salvando scroll)
+        function goToCapturePhoto(processo) {
+            // Verificar se o utilizador tem permissões
+            const userRole = '{{ current_user.role }}';
+            if (!['editor', 'admin'].includes(userRole)) {
+                alert('Não tem permissões para capturar fotografias.');
+                return;
+            }
+            
+            // Encontrar o card do aluno pelo processo
+            const alunoData = alunosData.find(a => a.processo === processo);
+            
+            if (alunoData) {
+                // Preencher informações no modal
+                document.getElementById('modalAlunoNome').textContent = alunoData.nome;
+                document.getElementById('modalAlunoProcesso').textContent = `Processo: ${alunoData.processo}`;
+            } else {
+                // Fallback se não encontrar
+                document.getElementById('modalAlunoNome').textContent = 'Aluno';
+                document.getElementById('modalAlunoProcesso').textContent = `Processo: ${processo}`;
+            }
+            
+            // Armazenar processo atual para uso na captura
+            window.currentProcesso = processo;
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(document.getElementById('capturePhotoModal'));
+            modal.show();
+        }
+        
+        // Salvar scroll em vários eventos de saída
+        window.addEventListener('beforeunload', saveScrollPosition);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                saveScrollPosition();
+            }
+        });
+        
+        // Salvar scroll quando um link for clicado
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && !link.classList.contains('stay-on-page')) {
+                saveScrollPosition();
+            }
+        });
+        
+        // Salvar scroll quando um formulário for submetido
+        document.addEventListener('submit', function(e) {
+            saveScrollPosition();
+        });
+        
+        // Restaurar posição ao carregar
+        document.addEventListener('DOMContentLoaded', restoreScrollPosition);
+        
+        // Limpar posição salva após 1 hora (para evitar acumulação)
+        setTimeout(() => {
+            localStorage.removeItem(scrollStorageKey);
+        }, 3600000); // 1 hora
+        
+        // Função para abrir modal de preview (fallback)
+        function openPreviewModal(processo, nome, turma) {
+            // Preparar dados do modal
+            document.getElementById('previewStudentName').textContent = nome;
+            
+            // Preparar URL da foto original
+            const originalPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?size=original`;
+            
+            // Preparar botão de download
+            const downloadBtn = document.getElementById('downloadPhotoBtn');
+            downloadBtn.href = originalPhotoUrl;
+            downloadBtn.download = `${nome}_${processo}.jpg`;
+            
+            // Reset da imagem para placeholder e mostrar spinner
+            const previewImage = document.getElementById('previewImage');
+            const spinner = document.getElementById('previewSpinner');
+            
+            previewImage.src = "{{ url_for('static', filename='student_icon.jpg') }}";
+            previewImage.alt = "Carregando foto...";
+            spinner.classList.remove('d-none');
+            
+            // Carregar foto original
+            setTimeout(() => {
+                const img = new Image();
+                
+                img.onload = function() {
+                    spinner.classList.add('d-none');
+                    previewImage.src = originalPhotoUrl;
+                    previewImage.alt = `Foto original de ${nome}`;
+                };
+                
+                img.onerror = function() {
+                    console.error('Erro ao carregar foto para preview (fallback):', originalPhotoUrl);
+                    spinner.classList.add('d-none');
+                    previewImage.alt = "Erro ao carregar foto";
+                };
+                
+                img.src = originalPhotoUrl;
+            }, 100);
+        }
+        
+        // Tornar função global
+        window.openPreviewModal = openPreviewModal;
+
+        // ============================================
+        // MODAL DE CAPTURA DE FOTO
+        // ============================================
+        
+        let modalStream;
+        // Constantes para localStorage
+        const CAMERA_STORAGE_KEY = 'classPhotoBooth_selectedCamera';
+        const QUALITY_STORAGE_KEY = 'classPhotoBooth_photoQuality';
+        
+        // Configurações de qualidade
+        const QUALITY_SETTINGS = {
+            'low': {
+                video: { width: { ideal: 640 }, height: { ideal: 480 } },
+                jpeg: 0.6,
+                label: 'LOW (640x480)'
+            },
+            'med': {
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+                jpeg: 0.8,
+                label: 'MED (1280x720)'
+            },
+            'high': {
+                video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+                jpeg: 0.95,
+                label: 'HIGH (1920x1080)'
+            }
+        };
+        
+        function initPhotoQuality() {
+            // Obter qualidade salva ou usar 'med' como padrão
+            const savedQuality = localStorage.getItem(QUALITY_STORAGE_KEY) || 'med';
+            
+            // Selecionar o radio button correto
+            const qualityRadio = document.querySelector(`input[name="photoQuality"][value="${savedQuality}"]`);
+            if (qualityRadio) {
+                qualityRadio.checked = true;
+            }
+            
+            // Adicionar evento para salvar quando mudar
+            document.querySelectorAll('input[name="photoQuality"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.checked) {
+                        localStorage.setItem(QUALITY_STORAGE_KEY, this.value);
+                        console.error('Qualidade alterada para:', QUALITY_SETTINGS[this.value].label);
+                        
+                        // Reiniciar câmera com nova qualidade se estiver ativa
+                        if (modalStream) {
+                            const savedCameraId = localStorage.getItem(CAMERA_STORAGE_KEY);
+                            startModalCamera(savedCameraId);
+                        }
+                    }
+                });
+            });
+        }
+        
+        async function initModalCamera() {
+            const modalVideo = document.getElementById('modalCameraVideo');
+            const modalCameraButtons = document.getElementById('modalCameraButtons');
+            
+            // Limpar botões anteriores
+            modalCameraButtons.innerHTML = '';
+            
+            try {
+                // Obter dispositivos de vídeo
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                // Criar botões para cada câmera
+                videoDevices.forEach((device, index) => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'btn btn-secondary';
+                    button.setAttribute('data-camera-id', device.deviceId);
+                    button.style.cssText = `
+                        width: 80px;
+                        height: 80px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 11px;
+                        line-height: 1.2;
+                        text-align: center;
+                        border-radius: 8px;
+                        padding: 8px 4px;
+                        white-space: normal;
+                        word-break: break-word;
+                    `;
+                    
+                    const cameraName = device.label || `Câmera ${index + 1}`;
+                    const shortName = cameraName.length > 12 ? cameraName.substring(0, 12) + '...' : cameraName;
+                    
+                    button.innerHTML = `
+                        <i class="bi bi-camera mb-1" style="font-size: 20px;"></i>
+                        <span style="font-size: 10px;">${shortName}</span>
+                    `;
+                    
+                    // Event listener para trocar de câmera
+                    button.addEventListener('click', () => {
+                        selectModalCamera(device.deviceId, button);
+                    });
+                    
+                    modalCameraButtons.appendChild(button);
+                });
+                
+                // Recuperar a câmera selecionada anteriormente
+                const savedCameraId = localStorage.getItem(CAMERA_STORAGE_KEY);
+                let initialCameraId = null;
+                let initialButton = null;
+                
+                // Verificar se a câmera salva ainda está disponível
+                if (savedCameraId) {
+                    const cameraExists = videoDevices.some(device => device.deviceId === savedCameraId);
+                    if (cameraExists) {
+                        initialCameraId = savedCameraId;
+                        initialButton = modalCameraButtons.querySelector(`[data-camera-id="${savedCameraId}"]`);
+                    }
+                }
+                
+                // Se não há câmera salva ou não está disponível, usar a primeira
+                if (!initialCameraId && videoDevices.length > 0) {
+                    initialCameraId = videoDevices[0].deviceId;
+                    initialButton = modalCameraButtons.firstElementChild;
+                }
+                
+                // Iniciar câmera (com a salva ou padrão)
+                if (initialCameraId && initialButton) {
+                    await selectModalCamera(initialCameraId, initialButton);
+                }
+                
+            } catch (error) {
+                console.error('Erro ao acessar câmeras:', error);
+                alert('Erro ao acessar câmeras. Verifique as permissões.');
+            }
+        }
+        
+        async function selectModalCamera(deviceId, selectedButton) {
+            // Atualizar estilos dos botões - todas as câmeras ficam secondary
+            const modalCameraButtons = document.getElementById('modalCameraButtons');
+            const allButtons = modalCameraButtons.querySelectorAll('button');
+            
+            allButtons.forEach(button => {
+                button.className = 'btn btn-secondary';
+            });
+            
+            // A câmera selecionada fica primary
+            if (selectedButton) {
+                selectedButton.className = 'btn btn-primary';
+            }
+            
+            // Iniciar a câmera selecionada
+            await startModalCamera(deviceId);
+        }
+        
+        async function startModalCamera(deviceId) {
+            const modalVideo = document.getElementById('modalCameraVideo');
+            
+            if (modalStream) {
+                modalStream.getTracks().forEach(track => track.stop());
+            }
+            
+            try {
+                // Obter qualidade selecionada
+                const selectedQuality = document.querySelector('input[name="photoQuality"]:checked')?.value || 'med';
+                const qualitySettings = QUALITY_SETTINGS[selectedQuality];
+                
+                // Construir constraints com qualidade e câmera
+                const constraints = {
+                    video: {
+                        ...qualitySettings.video,
+                        ...(deviceId ? { deviceId: { exact: deviceId } } : {})
+                    }
+                };
+                
+                console.error('Iniciando câmera com qualidade:', qualitySettings.label);
+                modalStream = await navigator.mediaDevices.getUserMedia(constraints);
+                modalVideo.srcObject = modalStream;
+                
+                // Salvar a câmera selecionada no localStorage
+                if (deviceId) {
+                    localStorage.setItem(CAMERA_STORAGE_KEY, deviceId);
+                }
+            } catch (error) {
+                console.error('Erro ao acessar câmera:', error);
+                // Se falhar com a câmera específica, tentar a padrão
+                if (deviceId) {
+                    await startModalCamera();
+                } else {
+                    alert('Erro ao acessar a câmera. Verifique as permissões.');
+                }
+            }
+        }
+        
+        function stopModalCamera() {
+            if (modalStream) {
+                modalStream.getTracks().forEach(track => track.stop());
+                modalStream = null;
+            }
+        }
+        
+        // Event listeners para o modal
+        document.getElementById('capturePhotoModal').addEventListener('shown.bs.modal', function () {
+            initPhotoQuality();
+            initModalCamera();
+        });
+        
+        document.getElementById('capturePhotoModal').addEventListener('hidden.bs.modal', function () {
+            stopModalCamera();
+        });
+        
+        // Captura de foto no modal
+        document.getElementById('modalCaptureButton').addEventListener('click', function() {
+            const modalVideo = document.getElementById('modalCameraVideo');
+            const captureButton = this;
+            
+            if (!window.currentProcesso) {
+                alert('Erro: processo não identificado.');
+                return;
+            }
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = modalVideo.videoWidth;
+            canvas.height = modalVideo.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(modalVideo, 0, 0, canvas.width, canvas.height);
+            
+            // Obter qualidade selecionada para compressão JPEG
+            const selectedQuality = document.querySelector('input[name="photoQuality"]:checked')?.value || 'med';
+            const jpegQuality = QUALITY_SETTINGS[selectedQuality].jpeg;
+            
+            console.error('Capturando foto com qualidade JPEG:', jpegQuality);
+            const photoData = canvas.toDataURL('image/jpeg', jpegQuality);
+            
+            // Mostrar feedback visual
+            captureButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Processando...';
+            captureButton.disabled = true;
+            
+            fetch(`/upload/photo/{{ nome_seguro }}/${window.currentProcesso}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: photoData })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Fechar modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('capturePhotoModal'));
+                    modal.hide();
+                    
+                    // Restaurar botão de captura
+                    captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
+                    captureButton.disabled = false;
+                    
+                    // Atualizar foto dinamicamente sem recarregar a página
+                    updateStudentPhotoAfterCapture(window.currentProcesso);
+                } else {
+                    alert('Erro ao capturar a foto.');
+                    captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
+                    captureButton.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao capturar foto:', error);
+                alert('Erro ao capturar a foto.');
+                captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
+                captureButton.disabled = false;
+            });
+        });
+        
+        // Função para atualizar a foto do aluno dinamicamente após captura
+        function updateStudentPhotoAfterCapture(processo) {
+            // Encontrar o card do aluno pelo processo
+            const alunoData = alunosData.find(a => a.processo === processo);
+            
+            if (!alunoData) {
+                return;
+            }
+            
+            // Encontrar os elementos do card do aluno
+            const allCards = document.querySelectorAll('.student-card');
+            let targetCard = null;
+            
+            // Procurar o card que contém este processo
+            allCards.forEach(card => {
+                const cardOnClick = card.getAttribute('onclick');
+                if (cardOnClick && cardOnClick.includes(processo)) {
+                    targetCard = card;
+                }
+            });
+            
+            if (!targetCard) {
+                return;
+            }
+            
+            // Encontrar a imagem dentro do card
+            const photoImg = targetCard.querySelector('.photo-img');
+            const photoContainer = targetCard.querySelector('.student-photo');
+            const studentActions = targetCard.querySelector('.student-actions');
+            
+            if (!photoImg || !photoContainer) {
+                return;
+            }
+            
+            // Adicionar timestamp para forçar reload da imagem (cache busting)
+            const timestamp = new Date().getTime();
+            const newPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?t=${timestamp}`;
+            
+            // Criar nova imagem para pré-carregar
+            const newImg = new Image();
+            
+            newImg.onload = function() {
+                // Atualizar a imagem principal
+                photoImg.src = newPhotoUrl;
+                photoImg.alt = `Foto de ${alunoData.nome}`;
+                photoImg.classList.remove('placeholder');
+                
+                // Remover botão de câmera e adicionar botão de remover foto
+                const cameraBtn = photoContainer.querySelector('.btn-secondary');
+                if (cameraBtn) {
+                    // Criar botão de remover foto
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn';
+                    removeBtn.setAttribute('data-id', String(alunoData.id));
+                    removeBtn.setAttribute('data-nome', alunoData.nome);
+                    removeBtn.setAttribute('data-bs-toggle', 'modal');
+                    removeBtn.setAttribute('data-bs-target', '#removePhotoModal');
+                    removeBtn.title = 'Clique para remover a foto';
+                    removeBtn.style.cssText = 'width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;';
+                    removeBtn.onclick = function(event) {
+                        event.stopPropagation();
+                    };
+                    removeBtn.innerHTML = '<i class="bi bi-x" style="font-size: 12px;"></i>';
+                    
+                    // Adicionar event listener para o modal de remover foto
+                    removeBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const id = this.dataset.id;
+                        const nome = this.dataset.nome;
+                        
+                        document.getElementById('removePhotoAlunoId').value = id;
+                        document.getElementById('removePhotoStudentName').textContent = nome;
+                    });
+                    
+                    // Substituir botão de câmera pelo de remover
+                    photoContainer.replaceChild(removeBtn, cameraBtn);
+                }
+                
+                // Adicionar botão de preview se não existir
+                if (studentActions && !studentActions.querySelector('.preview-photo-btn')) {
+                    const previewBtn = document.createElement('button');
+                    previewBtn.className = 'btn btn-sm btn-outline-info preview-photo-btn';
+                    previewBtn.setAttribute('data-processo', processo);
+                    previewBtn.setAttribute('data-nome', alunoData.nome);
+                    previewBtn.setAttribute('data-turma', alunoData.turma);
+                    previewBtn.setAttribute('data-bs-toggle', 'modal');
+                    previewBtn.setAttribute('data-bs-target', '#previewPhotoModal');
+                    previewBtn.title = 'Preview da foto original';
+                    previewBtn.onclick = function(event) {
+                        event.stopPropagation();
+                        openPreviewModal(processo, alunoData.nome, alunoData.turma);
+                    };
+                    previewBtn.innerHTML = '<i class="bi bi-eye"></i>';
+                    
+                    // Inserir como primeiro botão
+                    const firstActionBtn = studentActions.querySelector('.btn');
+                    if (firstActionBtn) {
+                        studentActions.insertBefore(previewBtn, firstActionBtn);
+                    } else {
+                        studentActions.appendChild(previewBtn);
+                    }
+                }
+                
+                // Atualizar contador de fotos na navbar
+                updatePhotoCounter();
+                
+                // Criar mensagem flash dinâmica usando o estilo do Flask
+                createFlashMessage(`Foto de ${alunoData.nome} capturada com sucesso!`, 'success');
+                
+                // Adicionar efeito visual de "nova foto"
+                photoImg.style.opacity = '0';
+                photoImg.style.transform = 'scale(0.8)';
+                
+                setTimeout(() => {
+                    photoImg.style.transition = 'all 0.3s ease';
+                    photoImg.style.opacity = '1';
+                    photoImg.style.transform = 'scale(1)';
+                }, 100);
+            };
+            
+            newImg.onerror = function() {
+                console.error('Erro ao carregar nova foto do aluno:', processo);
+                createFlashMessage('Erro ao atualizar foto. Tente novamente.', 'error');
+            };
+            
+            // Iniciar carregamento da nova imagem
+            newImg.src = newPhotoUrl;
+        }
+        
+        // Função para atualizar contador de fotos na navbar
+        function updatePhotoCounter() {
+            const navbarInfo = document.querySelector('.navbar-brand small');
+            if (navbarInfo) {
+                // Contar fotos atuais na página
+                const photosCount = document.querySelectorAll('.photo-img:not(.placeholder)').length;
+                const totalStudents = alunosData.length;
+                
+                navbarInfo.innerHTML = `${totalStudents} aluno${totalStudents !== 1 ? 's' : ''} • ${photosCount} foto${photosCount !== 1 ? 's' : ''}`;
+            }
+        }
+        
+        // Função para atualizar a foto do aluno dinamicamente após remoção
+        function updateStudentPhotoAfterRemoval(alunoId, studentName) {
+            // Encontrar o card do aluno pelo ID
+            const allCards = document.querySelectorAll('.student-card');
+            let targetCard = null;
+            
+            // Procurar o card que contém este aluno pelo botão de remoção
+            allCards.forEach(card => {
+                const removeBtn = card.querySelector('.remove-photo-btn');
+                if (removeBtn && removeBtn.dataset.id === alunoId) {
+                    targetCard = card;
+                }
+            });
+            
+            if (!targetCard) {
+                console.error('Card do aluno não encontrado para ID:', alunoId);
+                return;
+            }
+            
+            // Encontrar elementos dentro do card
+            const photoImg = targetCard.querySelector('.photo-img');
+            const photoContainer = targetCard.querySelector('.student-photo');
+            const studentActions = targetCard.querySelector('.student-actions');
+            const removeBtn = photoContainer.querySelector('.remove-photo-btn');
+            const previewBtn = studentActions ? studentActions.querySelector('.preview-photo-btn') : null;
+            
+            if (!photoImg || !photoContainer) {
+                console.error('Elementos da foto não encontrados no card');
+                return;
+            }
+            
+            // Reverter imagem para placeholder
+            photoImg.src = "{{ url_for('static', filename='student_icon.jpg') }}";
+            photoImg.alt = "Clique para capturar foto";
+            photoImg.classList.add('placeholder');
+            
+            // Remover botão de remoção de foto e adicionar botão de câmera
+            if (removeBtn) {
+                // Criar botão de câmera
+                const cameraBtn = document.createElement('button');
+                cameraBtn.className = 'btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle';
+                cameraBtn.title = 'Clique para capturar foto';
+                cameraBtn.style.cssText = 'width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;';
+                cameraBtn.onclick = function(event) {
+                    event.stopPropagation();
+                };
+                cameraBtn.innerHTML = '<i class="bi bi-camera" style="font-size: 12px;"></i>';
+                
+                // Substituir botão de remover pelo de câmera
+                photoContainer.replaceChild(cameraBtn, removeBtn);
+            }
+            
+            // Remover botão de preview se existir
+            if (previewBtn) {
+                previewBtn.remove();
+            }
+            
+            // Atualizar contador de fotos na navbar
+            updatePhotoCounter();
+            
+            // Criar mensagem flash dinâmica
+            createFlashMessage(`Foto de ${studentName} removida com sucesso!`, 'success');
+            
+            // Adicionar efeito visual de "foto removida"
+            photoImg.style.opacity = '0';
+            photoImg.style.transform = 'scale(0.8)';
+            
+            setTimeout(() => {
+                photoImg.style.transition = 'all 0.3s ease';
+                photoImg.style.opacity = '1';
+                photoImg.style.transform = 'scale(1)';
+            }, 100);
+        }
+        
+        // Função para criar mensagem flash dinâmica que imita o sistema Flask
+        function createFlashMessage(message, category) {
+            // Encontrar o container das mensagens flash existentes
+            const flashContainer = document.querySelector('.container .alert');
+            let targetContainer;
+            
+            if (flashContainer) {
+                // Se já existem mensagens flash, usar o mesmo container
+                targetContainer = flashContainer.parentElement;
+            } else {
+                // Se não existem mensagens, criar container após a navbar
+                const navbar = document.querySelector('.navbar');
+                targetContainer = document.createElement('div');
+                targetContainer.className = 'container mt-3';
+                navbar.parentNode.insertBefore(targetContainer, navbar.nextSibling);
+            }
+            
+            // Criar a mensagem flash com o mesmo estilo das mensagens Flask
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${category === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+            alertDiv.setAttribute('role', 'alert');
+            
+            const iconClass = category === 'error' ? 'bi-exclamation-triangle-fill' : 'bi-check-circle-fill';
+            
+            alertDiv.innerHTML = `
+                <i class="bi ${iconClass} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            targetContainer.appendChild(alertDiv);
+            
+            // Remover automaticamente após 5 segundos
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                    // Se não há mais mensagens, remover o container
+                    if (targetContainer.children.length === 0 && !targetContainer.querySelector('.alert')) {
+                        targetContainer.remove();
+                    }
+                }
+            }, 5000);
+        }
+
+        // Atalhos de teclado no modal
+        document.addEventListener('keydown', function(event) {
+            const modal = document.getElementById('capturePhotoModal');
+            const isModalOpen = modal.classList.contains('show');
+            
+            if (isModalOpen) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    document.getElementById('modalCaptureButton').click();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    modalInstance.hide();
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>

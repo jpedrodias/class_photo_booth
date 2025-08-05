@@ -1,0 +1,2162 @@
+# Standard library imports
+import base64
+import csv
+import os
+import re
+import shutil
+import traceback
+import zipfile
+from datetime import datetime, timedelta
+from functools import wraps
+from io import BytesIO
+
+# Third party imports
+import cv2
+import numpy as np
+from docx import Document
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Cm, Pt
+from flask import Flask, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
+from flask_mail import Mail, Message
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash, safe_join
+from werkzeug.utils import secure_filename
+
+
+app = Flask(__name__)
+app.config.from_object('config.DevelopmentConfig')  # Use DevelopmentConfig by default  
+
+# Inicializar SQLAlchemy
+db = SQLAlchemy(app)
+
+# Configurar Flask-Mail
+mail = Mail(app)
+
+# Configuração das pastas
+BASE_DIR = app.config['BASE_DIR'] 
+PHOTOS_DIR = app.config['PHOTOS_DIR']
+THUMBS_DIR = app.config['THUMBS_DIR']
+DEBUG = app.config['DEBUG']
+
+#DEBUG Environment
+print("DEBUG mode is set to:", DEBUG)
+print("Base directory is set to:", BASE_DIR)
+print('Email settings:')
+print(f"MAIL_USERNAME: {app.config['MAIL_USERNAME']}")
+
+
+# ========== Modelos SQLAlchemy ==========
+
+class AddUserSecurityCheck():
+    # to be inherited by PreUser and User
+    pattern_email = re.compile(r'([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+')
+    pattern_password = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$"
+
+    @classmethod
+    def validate_email_format(cls, email_to_test: str) -> bool:
+        """Validate email format using regex - can be called without instantiation"""
+        return bool(re.fullmatch(cls.pattern_email, email_to_test))
+
+    @classmethod
+    def validate_password_strength(cls, password: str) -> tuple[bool, str]:
+        """Validate password strength - at least 6 chars with mixed case and numbers"""
+        if len(password) < 6:
+            return False, "Password deve ter pelo menos 6 caracteres."
+        
+        if not re.search(r'[A-Z]', password):
+            return False, "Password deve conter pelo menos uma letra maiúscula."
+        
+        if not re.search(r'[a-z]', password):
+            return False, "Password deve conter pelo menos uma letra minúscula."
+        
+        if not re.search(r'\d', password):
+            return False, "Password deve conter pelo menos um número."
+        
+        return True, "Password válida."
+
+    def is_valid_email(self, email_to_test: str) -> bool:
+        """Instance method that calls the class method for backward compatibility"""
+        return self.validate_email_format(email_to_test)
+
+    def is_valid_password(self, password_to_test: str) -> bool:
+        if re.match(AddUserSecurityCheck.pattern_password, password_to_test):
+            return True
+        else:
+            return False
+#End class AddUserSecurityCheck
+
+
+class PreUser(db.Model, AddUserSecurityCheck):
+    __tablename__ = 'pre_users' 
+    id = db.Column(db.Integer, primary_key=True)
+    # Remember: to QUERY use "_email" and not "email"; to Instantiate use "email" and not "_email"
+    _email = db.Column('email', db.String(120), unique=True, nullable=False)
+    code = db.Column(db.String(120), unique=False, nullable=False)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<PreUser {self.email}>'
+
+    @property
+    def email(self):
+        return self._email
+    
+    @email.getter
+    def email(self):
+        return self._email
+
+    @email.setter
+    def email(self, value: str) -> None:
+        if self.is_valid_email(value):
+            self._email = value
+        else:
+            raise ValueError('Invalid email')
+    
+    @staticmethod
+    def create_random_code(length: int = 6) -> str:
+        """Returns random secret numbers with letters and numbers"""
+        from string import ascii_lowercase, digits
+        from random import sample
+        return ''.join(sample(ascii_lowercase + digits, length))
+#end class PreUser
+
+
+class User(db.Model, AddUserSecurityCheck):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    _email = db.Column('username', db.String(120), unique=True, nullable=False)
+    password_hash = db.Column('password', db.String(120), unique=False, nullable=False)
+    name = db.Column('name', db.String(120), unique=False, nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='none')  # none, viewer, editor, admin
+    is_verified = db.Column(db.Boolean, nullable=False, default=True)  # Por defeito verificado
+    logins = db.relationship('LoginLog', backref=db.backref('user', lazy='joined'))
+
+    def __repr__(self):
+        return f'<User {self.email}>'
+    
+    @property
+    def email(self):
+        return self._email
+    
+    @email.getter
+    def email(self):
+        return self._email
+
+    @email.setter
+    def email(self, value):
+        if self.is_valid_email(value):
+            self._email = value
+        else:
+            raise ValueError('Invalid email')
+    
+    @property
+    def password(self):
+        return self.password_hash
+    
+    @password.setter
+    def password(self, value):
+        # Para registo, aceitar passwords mais simples (mínimo 6 caracteres)
+        if len(value) >= 6:
+            self.password_hash = generate_password_hash(value)
+        else:
+            raise ValueError('Password deve ter pelo menos 6 caracteres.')
+    
+    def check_password(self, value):
+        return check_password_hash(self.password_hash, value)
+    
+    def has_permission(self, permission):
+        """Check if user has specific permission"""
+        permissions = {
+            'none': [],
+            'viewer': ['view_turmas', 'view_photos'],
+            'editor': ['view_turmas', 'view_photos', 'capture_photos', 'manage_students'],
+            'admin': ['view_turmas', 'view_photos', 'capture_photos', 'manage_students', 'edit_classes', 'manage_turmas', 'upload_csv', 'system_nuke']
+        }
+        return permission in permissions.get(self.role, [])
+    
+#end class User
+
+
+class Turma(db.Model):
+    __tablename__ = 'turmas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)  # Nome original (display)
+    nome_seguro = db.Column(db.String(100), nullable=False, unique=True)  # Nome sanitizado (filesystem)
+    alunos = db.relationship('Aluno', backref='turma', lazy=True, cascade='all, delete-orphan')
+    
+    def __init__(self, nome, **kwargs):
+        """Construtor que automaticamente gera nome seguro"""
+        super(Turma, self).__init__(**kwargs)
+        self.nome = nome
+        self.nome_seguro = self._generate_safe_name(nome)
+    
+    def _generate_safe_name(self, nome):
+        """Gera nome seguro usando secure_filename do Flask"""
+        nome_seguro = secure_filename(nome)
+        
+        # Garantir que não fica vazio
+        if not nome_seguro or nome_seguro.isspace():
+            nome_seguro = f"turma_{self.id or 'nova'}"
+        
+        # Limitar comprimento
+        nome_seguro = nome_seguro[:50]
+        
+        # Garantir unicidade (apenas se já existe uma sessão ativa)
+        if db.session:
+            counter = 1
+            original_nome = nome_seguro
+            while Turma.query.filter_by(nome_seguro=nome_seguro).first():
+                nome_seguro = f"{original_nome}_{counter}"
+                counter += 1
+        
+        return nome_seguro
+    
+    def get_safe_directory_path(self, base_dir):
+        """Retorna caminho seguro para diretório da turma"""
+        try:
+            return safe_join(base_dir, self.nome_seguro)
+        except ValueError:
+            # Se mesmo assim for perigoso, usar ID
+            safe_name = f"turma_{self.id}"
+            return safe_join(base_dir, safe_name)
+    
+    def get_foto_directory(self):
+        """Retorna diretório das fotos originais"""
+        return self.get_safe_directory_path(PHOTOS_DIR)
+    
+    def get_thumb_directory(self):
+        """Retorna diretório das thumbnails"""
+        return self.get_safe_directory_path(THUMBS_DIR)
+    
+    def create_directories(self):
+        """Cria diretórios da turma se não existirem"""
+        foto_dir = self.get_foto_directory()
+        thumb_dir = self.get_thumb_directory()
+        
+        safe_makedirs(foto_dir)
+        safe_makedirs(thumb_dir)
+        
+        return foto_dir, thumb_dir
+    
+    def update_nome(self, novo_nome):
+        """Atualiza nome da turma e renomeia diretórios se necessário"""
+        nome_antigo_seguro = self.nome_seguro
+        novo_nome_seguro = self._generate_safe_name(novo_nome)
+        
+        # Se o nome seguro mudou, renomear diretórios
+        if nome_antigo_seguro != novo_nome_seguro:
+            self._rename_directories(nome_antigo_seguro, novo_nome_seguro)
+        
+        self.nome = novo_nome
+        self.nome_seguro = novo_nome_seguro
+    
+    def _rename_directories(self, old_safe_name, new_safe_name):
+        """Renomeia diretórios quando nome seguro muda"""
+        import shutil
+        
+        try:
+            # Renomear diretório de fotos
+            old_foto_dir = safe_join(PHOTOS_DIR, old_safe_name)
+            new_foto_dir = safe_join(PHOTOS_DIR, new_safe_name)
+            if os.path.exists(old_foto_dir):
+                shutil.move(old_foto_dir, new_foto_dir)
+            
+            # Renomear diretório de thumbnails
+            old_thumb_dir = safe_join(THUMBS_DIR, old_safe_name)
+            new_thumb_dir = safe_join(THUMBS_DIR, new_safe_name)
+            if os.path.exists(old_thumb_dir):
+                shutil.move(old_thumb_dir, new_thumb_dir)
+        except (ValueError, OSError) as e:
+            print(f"Erro ao renomear diretórios: {e}")
+    
+    def delete_directories(self):
+        """Remove diretórios da turma"""
+        import shutil
+        
+        try:
+            foto_dir = self.get_foto_directory()
+            thumb_dir = self.get_thumb_directory()
+            
+            if os.path.exists(foto_dir):
+                shutil.rmtree(foto_dir)
+            
+            if os.path.exists(thumb_dir):
+                shutil.rmtree(thumb_dir)
+        except (ValueError, OSError) as e:
+            print(f"Erro ao remover diretórios: {e}")
+    
+    @classmethod
+    def create_safe(cls, nome):
+        """Factory method que cria turma com nome seguro"""
+        turma = cls(nome=nome)
+        db.session.add(turma)
+        db.session.flush()  # Para obter ID antes do commit
+        
+        # Recriar nome seguro com ID se necessário
+        if not turma.nome_seguro or turma.nome_seguro == "turma_nova":
+            turma.nome_seguro = turma._generate_safe_name(nome)
+        
+        turma.create_directories()
+        return turma
+    
+    @classmethod
+    def get_nome_seguro_by_nome(cls, nome):
+        """Retorna nome_seguro de uma turma pelo seu nome"""
+        turma = cls.query.filter_by(nome=nome).first()
+        return turma.nome_seguro if turma else nome
+    
+    def __repr__(self):
+        return f'<Turma {self.nome} ({self.nome_seguro})>'
+
+
+class Aluno(db.Model):
+    __tablename__ = 'alunos'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    processo = db.Column(db.String(50), nullable=False, unique=True, index=True)  # Único globalmente
+    nome = db.Column(db.String(200), nullable=False)
+    numero = db.Column(db.Integer, nullable=True)  # Número na turma (pode repetir)
+    foto_tirada = db.Column(db.Boolean, default=False, nullable=False)
+    turma_id = db.Column(db.Integer, db.ForeignKey('turmas.id'), nullable=False)
+    
+    @classmethod
+    def validate_and_sanitize_processo(cls, processo):
+        """
+        Valida e sanitiza o número do processo.
+        Retorna (processo_validado, erro_msg) onde erro_msg é None se válido.
+        """
+        if not processo or not processo.strip():
+            return None, "Número do processo é obrigatório!"
+        
+        processo = processo.strip()
+        
+        # Verificar se é um número inteiro
+        try:
+            processo_int = int(processo)
+            if processo_int <= 0:
+                return None, "O número do processo deve ser um número inteiro positivo!"
+            
+            # Converter de volta para string para manter consistência
+            return str(processo_int), None
+            
+        except ValueError:
+            return None, "O número do processo deve ser um número inteiro válido (ex: NIF, número de estudante, etc.)!"
+    
+    def __repr__(self):
+        return f'<Aluno {self.nome} ({self.processo})>'
+
+
+class LoginLog(db.Model):
+    __tablename__ = 'logs_login'
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    success = db.Column(db.Boolean, unique=False, nullable=False)
+    remote_addr = db.Column('ip_address', db.String(20), unique=False, nullable=False) # request.remote_addr
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    @classmethod
+    def check_failed_logins(cls, ip_address, max_attempts=5):
+        """Verifica tentativas falhadas de login e bane IP se necessário"""
+        from datetime import datetime, timedelta
+        
+        # Verificar tentativas nas últimas 15 minutos
+        time_threshold = datetime.utcnow() - timedelta(minutes=15)
+        failed_attempts = cls.query.filter(
+            cls.remote_addr == ip_address,
+            cls.success == False,
+            cls.date >= time_threshold
+        ).count()
+        
+        if failed_attempts >= max_attempts:
+            BannedIPs.ban_ip(ip_address)
+            return True
+        return False
+
+    @classmethod
+    def log_attempt(cls, user_id, ip_address, success):
+        """Regista tentativa de login"""
+        login_log = cls(
+            user_id=user_id,
+            remote_addr=ip_address,
+            success=success
+        )
+        db.session.add(login_log)
+        db.session.commit()
+
+#End class LoginLog
+
+
+class BannedIPs(db.Model):
+    """Anti Brute Force Attacks - based on the ip address"""
+    __tablename__ = 'banned_ips'
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    #define INET4_ADDRSTRLEN 16 + ...
+    #define INET6_ADDRSTRLEN 46 + date
+    remote_addr = db.Column('ip_address', db.String(64), unique=False, nullable=False) # request.remote_addr
+
+    @classmethod
+    def is_banned(cls, ip_address):
+        """Verifica se um IP está banido"""
+        banned_ip = cls.query.filter_by(remote_addr=ip_address).first()
+        return banned_ip is not None
+
+    @classmethod
+    def ban_ip(cls, ip_address):
+        """Bane um IP por tentativas excessivas de login"""
+        if not cls.is_banned(ip_address):
+            banned_ip = cls(remote_addr=ip_address)
+            db.session.add(banned_ip)
+            db.session.commit()
+            return True
+        return False
+
+#End BannedIPs
+
+
+# Funções auxiliares para autenticação e segurança
+def get_current_user():
+    """Obtém o utilizador atual da sessão"""
+    user_id = session.get('user_id')
+    if user_id:
+        return User.query.get(user_id)
+    return None
+
+# Decorator para rotas que requerem login
+def required_login(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Decorator para verificar permissões
+def required_permission(permission):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = get_current_user()
+            if not user:
+                return redirect(url_for('login'))
+            
+            if not user.has_permission(permission):
+                flash('Não tem permissões para aceder a esta funcionalidade.', 'error')
+                return redirect(url_for('index'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Decorator para verificar role mínimo
+def required_role(min_role):
+    """
+    Decorator que verifica se o utilizador tem pelo menos o role especificado.
+    Hierarquia: none < viewer < editor < admin
+    """
+    role_hierarchy = {
+        'none': 0,
+        'viewer': 1, 
+        'editor': 2,
+        'admin': 3
+    }
+    
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = get_current_user()
+            if not user:
+                return redirect(url_for('login'))
+            
+            user_level = role_hierarchy.get(user.role, 0)
+            required_level = role_hierarchy.get(min_role, 0)
+            
+            if user_level < required_level:
+                if user.role == 'none':
+                    flash('A sua conta está à espera de validação pelo administrador. Não tem permissões para aceder a esta funcionalidade.', 'info')
+                else:
+                    flash(f'Precisa de pelo menos permissões de {min_role} para aceder a esta funcionalidade.', 'error')
+                return redirect(url_for('index'))
+            
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# Certifique-se de que as pastas existem com permissões adequadas
+def create_directories_with_permissions():
+    for directory in [PHOTOS_DIR, THUMBS_DIR]:
+        if not safe_makedirs(directory, verbose=True):
+            print(f"Erro crítico: Não foi possível criar diretório {directory}")
+
+
+def safe_makedirs(directory, verbose=False):
+    """Cria diretórios de forma segura, compatível com Windows e Linux"""
+    try:
+        os.makedirs(directory, exist_ok=True)
+        # Apenas tenta definir permissões em sistemas Unix/Linux
+        if os.name != 'nt':
+            try:
+                os.chmod(directory, 0o777)
+            except (PermissionError, OSError) as e:
+                if verbose:
+                    print(f"Aviso: Não foi possível definir permissões para {directory}: {e}")
+        return True
+    except PermissionError as e:
+        if verbose:
+            print(f"Erro de permissão ao criar diretório {directory}: {e}")
+        return False
+    except Exception as e:
+        if verbose:
+            print(f"Erro ao criar diretório {directory}: {e}")
+        return False
+
+create_directories_with_permissions()
+
+
+def docx_replace(doc, dicionario):
+    """Substitui placeholders no documento DOCX"""
+    # Substituir em parágrafos
+    for paragraph in doc.paragraphs:
+        for key, value in dicionario.items():
+            if f'{{{key}}}' in paragraph.text:
+                paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+    
+    # Substituir em tabelas
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for key, value in dicionario.items():
+                    if f'{{{key}}}' in cell.text:
+                        cell.text = cell.text.replace(f'{{{key}}}', str(value))
+    
+    # Substituir em headers e footers
+    for section in doc.sections:
+        # Header
+        if section.header:
+            for paragraph in section.header.paragraphs:
+                for key, value in dicionario.items():
+                    if f'{{{key}}}' in paragraph.text:
+                        paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+        
+        # Footer
+        if section.footer:
+            for paragraph in section.footer.paragraphs:
+                for key, value in dicionario.items():
+                    if f'{{{key}}}' in paragraph.text:
+                        paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+
+
+def process_image_for_docx(image_path, target_width_cm, target_height_cm):
+    """Processa imagem para o DOCX: redimensiona mantendo proporção e faz crop"""
+    try:
+        import cv2
+        from PIL import Image
+        from io import BytesIO
+        
+        # Ler imagem
+        if image_path.endswith('.jpg') or image_path.endswith('.jpeg'):
+            # Usar OpenCV para ler
+            img = cv2.imread(image_path)
+            if img is None:
+                return None
+            # Converter de BGR para RGB
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # Converter para PIL
+            img_pil = Image.fromarray(img)
+        else:
+            # Usar PIL diretamente
+            img_pil = Image.open(image_path)
+        
+        # Converter dimensões de cm para pixels (assumindo 150 DPI)
+        dpi = 150
+        target_width_px = int(target_width_cm * dpi / 2.54)
+        target_height_px = int(target_height_cm * dpi / 2.54)
+        
+        # Obter dimensões originais
+        original_width, original_height = img_pil.size
+        
+        # Calcular proporções
+        width_ratio = target_width_px / original_width
+        height_ratio = target_height_px / original_height
+        
+        # Usar a maior proporção para garantir que a imagem cubra completamente o target
+        scale_ratio = max(width_ratio, height_ratio)
+        
+        # Redimensionar
+        new_width = int(original_width * scale_ratio)
+        new_height = int(original_height * scale_ratio)
+        img_resized = img_pil.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Calcular posição para crop central
+        left = (new_width - target_width_px) // 2
+        top = (new_height - target_height_px) // 2
+        right = left + target_width_px
+        bottom = top + target_height_px
+        
+        # Fazer crop
+        img_cropped = img_resized.crop((left, top, right, bottom))
+        
+        # Salvar em BytesIO
+        output = BytesIO()
+        img_cropped.save(output, format='JPEG', quality=85)
+        output.seek(0)
+        
+        return output
+        
+    except Exception as e:
+        print(f"Erro ao processar imagem {image_path}: {e}")
+        return None
+
+
+def create_docx_with_photos(turma_nome):
+    """Cria documento DOCX com fotos dos alunos da turma"""
+    try:
+        # Buscar turma na base de dados
+        turma_obj = Turma.query.filter_by(nome=turma_nome).first()
+        if not turma_obj:
+            return None
+        
+        # Caminho do template
+        template_path = os.path.join(BASE_DIR, 'docx_templates', 'template_relacao_alunos_fotos.docx')
+        if not os.path.exists(template_path):
+            return None
+        
+        # Criar documento a partir do template
+        doc = Document(template_path)
+        
+        # Definir propriedades do documento
+        doc.core_properties.author = 'Class Photo Booth by Pedro Dias'
+        doc.core_properties.title = f'Relação de Alunos - {turma_nome}'
+        doc.core_properties.subject = f'Relação de Alunos - {turma_nome}'
+        
+        # Dicionário para substituições
+        current_date = datetime.now().strftime('%d/%m/%Y')
+        dicionario = {
+            'turma': turma_nome,
+            'date': current_date,
+            'fullname_dt': 'Professor/a da Turma'  # Pode ser personalizado
+        }
+        
+        # Substituir placeholders no template
+        docx_replace(doc, dicionario)
+        
+        # Obter alunos da turma ordenados
+        alunos_ordenados = sorted(
+            turma_obj.alunos, 
+            key=lambda x: (x.numero is None, x.numero if x.numero is not None else 0, x.nome)
+        )
+        
+        # Incluir todos os alunos (com e sem fotos)
+        if not alunos_ordenados:
+            return None
+        
+        # Configurar tabela
+        NUM_PER_ROW = 4
+        table = doc.add_table(rows=0, cols=NUM_PER_ROW)
+        table.style = 'Table Grid'
+        table.width = Cm(20)
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # Configurar largura das colunas
+        for i in range(NUM_PER_ROW):
+            table.columns[i].alignment = WD_TABLE_ALIGNMENT.CENTER
+            table.columns[i].width = Cm(20/NUM_PER_ROW)
+        
+        # Determinar tamanho das imagens baseado no número total de alunos
+        num_alunos = len(alunos_ordenados)
+        if num_alunos > 28:
+            img_width, img_height = 3.6, 2.7
+        else:
+            img_width, img_height = 4, 3
+        
+        # Adicionar fotos dos alunos à tabela
+        for index, aluno in enumerate(alunos_ordenados):
+            # Adicionar nova linha a cada NUM_PER_ROW alunos
+            if index % NUM_PER_ROW == 0:
+                row = table.add_row().cells
+            
+            coluna = index % NUM_PER_ROW
+            
+            # Caminho da thumbnail (imagem otimizada)
+            thumb_path = os.path.join(turma_obj.get_thumb_directory(), f'{aluno.processo}.jpg')
+            placeholder_path = os.path.join(BASE_DIR, 'static', 'student_icon.jpg')
+            
+            # Usar foto do aluno se existir, senão usar placeholder
+            image_path = thumb_path if os.path.exists(thumb_path) else placeholder_path
+            
+            if os.path.exists(image_path):
+                # Adicionar imagem à célula
+                paragraph = row[coluna].paragraphs[0]
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = paragraph.add_run()
+                
+                try:
+                    # Processar imagem para ajustar dimensões e fazer crop
+                    processed_image = process_image_for_docx(image_path, img_width, img_height)
+                    
+                    if processed_image:
+                        run.add_picture(processed_image, width=Cm(img_width), height=Cm(img_height))
+                    else:
+                        # Fallback: usar imagem original
+                        run.add_picture(image_path, width=Cm(img_width), height=Cm(img_height))
+                    
+                    run.add_break()
+                    
+                    # Adicionar texto com número e nome
+                    numero_display = aluno.numero if aluno.numero else index + 1
+                    run.add_text(f'{numero_display} {aluno.nome}')
+                except Exception as e:
+                    # Se houver erro ao adicionar imagem, adicionar apenas o texto
+                    numero_display = aluno.numero if aluno.numero else index + 1
+                    run.add_text(f'{numero_display} {aluno.nome}')
+                    print(f"Erro ao adicionar imagem para {aluno.nome}: {e}")
+        
+        table.alignment = WD_TABLE_ALIGNMENT.CENTER
+        
+        # Salvar documento na memória
+        memory_file = BytesIO()
+        doc.save(memory_file)
+        memory_file.seek(0)
+        
+        return memory_file
+        
+    except Exception as e:
+        print(f"Erro ao criar documento DOCX: {e}")
+        return None
+
+
+@app.before_request
+def require_login():
+    # Endpoints que não requerem autenticação
+    public_endpoints = ['login', 'static']
+    
+    if request.endpoint not in public_endpoints and not get_current_user():
+        return redirect(url_for('login'))
+
+
+def no_cache(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        response = f(*args, **kwargs)
+        if isinstance(response, str):
+            response = make_response(response)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
+    return wrapper
+
+
+@app.route('/')
+@required_login
+def index():
+    user = get_current_user()
+    
+    # Se o utilizador não tem permissões, mostrar página de boas-vindas
+    if user.role == 'none':
+        return render_template('home.html', user=user, current_user=user)
+    
+    # Para utilizadores com permissões, redirecionar para turmas
+    return redirect(url_for('turmas'))
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Verificar se o IP está banido
+    ip_address = request.remote_addr
+    if BannedIPs.is_banned(ip_address):
+        flash('O seu IP foi bloqueado devido a tentativas excessivas de login. Contacte o administrador.', 'error')
+        return render_template('login.html', action='login')
+    
+    if request.method == 'POST':
+        action = request.form.get('action', 'login')
+        
+        if action == 'login':
+            email = request.form.get('email', '').strip()
+            password = request.form.get('password', '')
+            remember_me = request.form.get('remember_me') == 'on'
+            
+            if not email or not password:
+                flash('Email e palavra-passe são obrigatórios.', 'error')
+                return render_template('login.html', action='login')
+            
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='login')
+            
+            # Verificar utilizador
+            user = User.query.filter_by(_email=email).first()
+            
+            if not user:
+                # Log da tentativa mesmo sem utilizador para detectar ataques
+                LoginLog.log_attempt(None, ip_address, False)
+                
+                # Verificar se deve banir o IP
+                if LoginLog.check_failed_logins(ip_address):
+                    flash('Demasiadas tentativas falhadas. O seu IP foi bloqueado.', 'error')
+                else:
+                    flash('Email ou palavra-passe incorretos.', 'error')
+                
+                return render_template('login.html', action='login')
+            
+            # Verificar se a conta está verificada
+            if not user.is_verified:
+                flash('Conta não verificada. Verifique o seu email ou registe-se novamente.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Verificar se o utilizador tem password definida
+            if not user.password_hash:
+                flash('Password não definida. Defina a sua password primeiro.', 'error')
+                return render_template('login.html', action='login', email=email)
+            
+            if user.check_password(password):
+                # Login bem-sucedido
+                session['user_id'] = user.id
+                session['user_email'] = user.email
+                session['user_role'] = user.role
+                
+                # Configurar duração da sessão baseado no "remember me"
+                if remember_me:
+                    session.permanent = True
+                    app.permanent_session_lifetime = timedelta(days=30)  # 30 dias
+                else:
+                    session.permanent = False
+                    app.permanent_session_lifetime = timedelta(hours=2)  # 2 horas
+                
+                LoginLog.log_attempt(user.id, ip_address, True)
+                
+                # Verificar se o utilizador tem permissões
+                if user.role == 'none':
+                    flash(f'Bem-vindo, {user.name}! A sua conta foi criada com sucesso mas encontra-se à espera de validação pelo administrador.', 'info')
+                else:
+                    flash(f'Bem-vindo, {user.name}!', 'success')
+                
+                return redirect(url_for('index'))
+            else:
+                # Password incorreta
+                LoginLog.log_attempt(user.id if user else None, ip_address, False)
+                
+                # Verificar se deve banir o IP
+                if LoginLog.check_failed_logins(ip_address):
+                    flash('Demasiadas tentativas falhadas. O seu IP foi bloqueado.', 'error')
+                else:
+                    flash('Email ou palavra-passe incorretos.', 'error')
+                
+                return render_template('login.html', action='login')
+        
+        elif action == 'register':
+            email = request.form.get('email', '').strip()
+            
+            if not email:
+                flash('Email é obrigatório.', 'error')
+                return render_template('login.html', action='register')
+            
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='register')
+            
+            # Verificar se já existe
+            if User.query.filter_by(_email=email).first() or PreUser.query.filter_by(_email=email).first():
+                flash('Já existe um utilizador com este email.', 'error')
+                return render_template('login.html', action='register')
+            
+            try:
+                # Gerar código de verificação
+                code = PreUser.create_random_code()
+                
+                # Renderizar template HTML para o corpo do email
+                html_body = render_template('template_email_send_verification.html', code=code)
+                
+                msg = Message(
+                    subject='Verificação de Email - Class Photo Booth',
+                    sender=app.config.get('MAIL_DEFAULT_SENDER'),
+                    recipients=[email],
+                    html=html_body
+                )
+                
+                # Tentar enviar email
+                try:
+                    mail.send(msg)
+                    print(f"Email de verificação enviado com sucesso para: {email}")
+                    email_sent = True
+                except Exception as e:
+                    print(f"Erro ao enviar email para {email}: {e}")
+                    # Log mais detalhado do erro para debugging
+                    import traceback
+                    print(f"Traceback completo: {traceback.format_exc()}")
+                    email_sent = False
+                
+                if email_sent:
+                    # Só criar pré-utilizador se o email foi enviado com sucesso
+                    pre_user = PreUser()
+                    pre_user._email = email  # Set directly to avoid validation during construction
+                    pre_user.code = code
+                    db.session.add(pre_user)
+                    db.session.commit()
+                    
+                    flash('Email de verificação enviado. Verifique a sua caixa de entrada.', 'success')
+                    return render_template('login.html', action='verify', email=email)
+                else:
+                    # Email falhou - não criar PreUser
+                    flash('Erro ao enviar email de verificação. Verifique o seu endereço de email e tente novamente.', 'error')
+                    return render_template('login.html', action='register')
+            
+            except Exception as e:
+                db.session.rollback()
+                flash('Erro ao criar conta. Tente novamente.', 'error')
+                return render_template('login.html', action='register')
+        
+        elif action == 'verify':
+            email = request.form.get('email', '').strip()
+            name = request.form.get('name', '').strip()
+            password = request.form.get('password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            code = request.form.get('verification_code', '').strip()
+            
+            if not all([email, name, password, confirm_password, code]):
+                flash('Todos os campos são obrigatórios.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Validar se as passwords coincidem
+            if password != confirm_password:
+                flash('As passwords não coincidem.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Validar força da password
+            is_strong, password_error = AddUserSecurityCheck.validate_password_strength(password)
+            if not is_strong:
+                flash(password_error, 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Validar formato do código (6 caracteres alfanuméricos)
+            if len(code) != 6 or not code.isalnum():
+                flash('Código de verificação deve ter 6 caracteres alfanuméricos.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Verificar código
+            pre_user = PreUser.query.filter_by(_email=email, code=code).first()
+            if not pre_user:
+                flash('Código de verificação inválido.', 'error')
+                return render_template('login.html', action='verify', email=email)
+            
+            # Verificar se não expirou (24 horas)
+            if datetime.utcnow() - pre_user.date > timedelta(hours=24):
+                flash('Código de verificação expirado. Solicite um novo registo.', 'error')
+                db.session.delete(pre_user)
+                db.session.commit()
+                return render_template('login.html', action='register')
+            
+            try:
+                # Verificar se é o primeiro utilizador (será administrador)
+                is_first_user = User.query.count() == 0
+                
+                # Criar utilizador final
+                user = User()
+                user._email = email  # Set directly to avoid validation during construction
+                user.name = name  # Agora o nome vem do formulário de verificação
+                user.password = password  # Definir password imediatamente
+                user.role = 'admin' if is_first_user else 'none'  # Primeiro user é admin
+                user.is_verified = True
+                
+                db.session.add(user)
+                db.session.delete(pre_user)  # Remover pré-utilizador
+                db.session.commit()
+                
+                if is_first_user:
+                    flash('Conta de administrador criada com sucesso!', 'success')
+                else:
+                    flash('Conta criada com sucesso!', 'success')
+                
+                # Fazer login automático
+                session['user_id'] = user.id
+                session['user_email'] = user.email
+                session['user_name'] = user.name
+                session['user_role'] = user.role
+                
+                return redirect(url_for('index'))
+            
+            except Exception as e:
+                db.session.rollback()
+                flash('Erro ao criar conta. Tente novamente.', 'error')
+                return render_template('login.html', action='verify', email=email)
+        
+        elif action == 'forgot_password':
+            email = request.form.get('email', '').strip()
+            
+            if not email:
+                flash('Email é obrigatório.', 'error')
+                return render_template('login.html', action='forgot_password')
+            
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='forgot_password')
+            
+            # Verificar se o utilizador existe
+            user = User.query.filter_by(_email=email).first()
+            if not user:
+                # Por segurança, não revelar se o email existe ou não
+                flash('Se o email existir na nossa base de dados, receberá instruções para recuperar a sua password.', 'info')
+                return render_template('login.html', action='login')
+            
+            try:
+                # Remover entradas PreUser anteriores para este email (password reset anteriores)
+                PreUser.query.filter_by(_email=email).delete()
+                
+                # Gerar código de recuperação (igual ao de verificação)
+                reset_code = PreUser.create_random_code()
+                
+                # Renderizar template HTML para o corpo do email
+                html_body = render_template('template_email_send_password_reset.html', code=reset_code)
+                
+                msg = Message(
+                    subject='Recuperação de Password - Class Photo Booth',
+                    sender=app.config.get('MAIL_DEFAULT_SENDER'),
+                    recipients=[email],
+                    html=html_body
+                )
+                
+                # Tentar enviar email
+                try:
+                    mail.send(msg)
+                    print(f"Email de recuperação de password enviado com sucesso para: {email}")
+                    email_sent = True
+                except Exception as e:
+                    print(f"Erro ao enviar email de recuperação para {email}: {e}")
+                    # Log mais detalhado do erro para debugging
+                    import traceback
+                    print(f"Traceback completo: {traceback.format_exc()}")
+                    email_sent = False
+                
+                if email_sent:
+                    # Só criar entrada PreUser se o email foi enviado com sucesso
+                    pre_user_reset = PreUser()
+                    pre_user_reset._email = email  # Set directly to avoid validation during construction
+                    pre_user_reset.code = reset_code
+                    db.session.add(pre_user_reset)
+                    db.session.commit()
+                    
+                    flash('Instruções para recuperar a sua password foram enviadas por email. Use o link "Já tenho código de recuperação" para introduzir o código recebido.', 'success')
+                    return render_template('login.html', action='login')
+                else:
+                    # Email falhou
+                    flash('Erro ao enviar email de recuperação. Tente novamente mais tarde.', 'error')
+                    return render_template('login.html', action='forgot_password')
+            
+            except Exception as e:
+                db.session.rollback()
+                flash('Erro ao processar pedido de recuperação. Tente novamente.', 'error')
+                return render_template('login.html', action='forgot_password')
+        
+        elif action == 'reset_password':
+            email = request.form.get('email', '').strip()
+            code = request.form.get('verification_code', '').strip()
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+            
+            if not all([email, code, new_password, confirm_password]):
+                flash('Todos os campos são obrigatórios.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Validar se as passwords coincidem
+            if new_password != confirm_password:
+                flash('As passwords não coincidem.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Validar força da password
+            is_strong, password_error = AddUserSecurityCheck.validate_password_strength(new_password)
+            if not is_strong:
+                flash(password_error, 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Validar formato do código (6 caracteres alfanuméricos)
+            if len(code) != 6 or not code.isalnum():
+                flash('Código de recuperação deve ter 6 caracteres alfanuméricos.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Verificar código na tabela PreUser
+            pre_user_reset = PreUser.query.filter_by(_email=email, code=code).first()
+            if not pre_user_reset:
+                flash('Código de recuperação inválido.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Verificar se não expirou (24 horas)
+            if datetime.utcnow() - pre_user_reset.date > timedelta(hours=24):
+                flash('Código de recuperação expirado. Solicite uma nova recuperação.', 'error')
+                db.session.delete(pre_user_reset)
+                db.session.commit()
+                return render_template('login.html', action='forgot_password')
+            
+            # Verificar se o utilizador existe
+            user = User.query.filter_by(_email=email).first()
+            if not user:
+                flash('Utilizador não encontrado.', 'error')
+                return render_template('login.html', action='login')
+            
+            try:
+                # Atualizar password do utilizador
+                user.password = new_password
+                
+                # Remover entrada PreUser (código foi usado)
+                db.session.delete(pre_user_reset)
+                db.session.commit()
+                
+                flash('Password alterada com sucesso! Pode agora fazer login.', 'success')
+                return render_template('login.html', action='login')
+            
+            except Exception as e:
+                db.session.rollback()
+                flash('Erro ao alterar password. Tente novamente.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+    
+    # GET request
+    action = request.args.get('action', 'login')
+    email = request.args.get('email', '')
+    return render_template('login.html', action=action, email=email)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Sessão terminada com sucesso.', 'success')
+    return redirect(url_for('login'))
+
+
+@app.route('/turmas')
+@required_login
+@required_role('viewer')
+def turmas():
+    # Verificar se é uma chamada API
+    is_api = request.args.get('api') == 'true'
+    
+    # Obter todas as turmas da base de dados
+    turmas_query = Turma.query.all()
+    
+    # Se não há turmas e é chamada API, retornar lista vazia
+    if len(turmas_query) == 0 and is_api:
+        return {'turmas': []}
+    
+    # Se for chamada API, retornar apenas lista de nomes
+    if is_api:
+        turmas_list = [turma.nome for turma in turmas_query]
+        return {'turmas': turmas_list}
+    
+    # Para chamada normal, obter informações detalhadas
+    turmas_data = []
+    for turma in turmas_query:
+        total_alunos = len(turma.alunos)
+        alunos_com_foto = sum(1 for aluno in turma.alunos if aluno.foto_tirada)
+        
+        turmas_data.append({
+            'id': turma.id,
+            'nome': turma.nome,
+            'nome_seguro': turma.nome_seguro,
+            'total_alunos': total_alunos,
+            'alunos_com_foto': alunos_com_foto
+        })
+    
+    return render_template('turmas.html', turmas=turmas_data)
+
+@app.route('/turma/<nome_seguro>')
+@no_cache
+@required_login
+@required_role('viewer')
+def turma(nome_seguro):
+    # Buscar turma na base de dados usando nome_seguro
+    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
+    if not turma_obj:
+        return redirect(url_for('settings'))
+    
+    # Obter utilizador atual
+    current_user = get_current_user()
+    
+    # Obter alunos da turma ordenados por número (nulls last) e depois por nome
+    alunos = []
+    fotos_existentes = 0
+    
+    # Ordenar: primeiro por número (None/NULL por último), depois por nome
+    alunos_ordenados = sorted(
+        turma_obj.alunos, 
+        key=lambda x: (x.numero is None, x.numero if x.numero is not None else 0, x.nome)
+    )
+    
+    for aluno in alunos_ordenados:
+        alunos.append({
+            'id': aluno.id,
+            'processo': aluno.processo,
+            'nome': aluno.nome,
+            'numero': aluno.numero,
+            'turma': turma_obj.nome,
+            'foto_tirada': aluno.foto_tirada
+        })
+        
+        if aluno.foto_tirada:
+            fotos_existentes += 1
+    
+    return render_template('turma.html', 
+                         turma=turma_obj.nome, 
+                         nome_seguro=turma_obj.nome_seguro, 
+                         alunos=alunos, 
+                         fotos_existentes=fotos_existentes,
+                         current_user=current_user)
+
+
+
+@app.route('/turma/', methods=['POST'])
+@required_login
+@required_role('admin')
+def turma_crud():
+    action = request.form.get('action', '').strip()
+    
+    if action == 'crud_turma_add_new':
+        nome = request.form.get('nome', '').strip()
+        
+        if not nome:
+            flash('Nome da turma é obrigatório!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Verificar se a turma já existe
+        turma_existente = Turma.query.filter_by(nome=nome).first()
+        if turma_existente:
+            flash(f'Já existe uma turma com o nome "{nome}"!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Criar nova turma usando o método seguro
+        try:
+            nova_turma = Turma.create_safe(nome)
+            db.session.commit()
+            flash(f'Turma "{nome}" criada com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao criar turma. Tente novamente.', 'error')
+        
+        return redirect(url_for('turmas'))
+    
+    elif action == 'crud_turma_edit':
+        turma_id = request.form.get('turma_id', '').strip()
+        nome = request.form.get('nome', '').strip()
+        
+        if not turma_id or not nome:
+            flash('Dados obrigatórios não fornecidos!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Buscar turma
+        turma = db.session.get(Turma, turma_id)
+        if not turma:
+            flash('Turma não encontrada!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Verificar se o novo nome já existe (exceto para a própria turma)
+        if nome != turma.nome:
+            turma_existente = Turma.query.filter_by(nome=nome).first()
+            if turma_existente:
+                flash(f'Já existe outra turma com o nome "{nome}"!', 'error')
+                return redirect(url_for('turmas'))
+        
+        nome_antigo = turma.nome
+        
+        try:
+            # Atualizar nome da turma usando método seguro
+            turma.update_nome(nome)
+            db.session.commit()
+            flash(f'Turma editada com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao editar turma. Tente novamente.', 'error')
+        
+        return redirect(url_for('turmas'))
+    
+    elif action == 'crud_turma_delete':
+        turma_id = request.form.get('turma_id', '').strip()
+        
+        if not turma_id:
+            flash('ID da turma não fornecido!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Buscar turma
+        turma = db.session.get(Turma, turma_id)
+        if not turma:
+            flash('Turma não encontrada!', 'error')
+            return redirect(url_for('turmas'))
+        
+        nome_turma = turma.nome
+        
+        try:
+            # Remover diretórios de fotos e thumbnails usando método seguro
+            turma.delete_directories()
+            
+            # Remover turma da base de dados (alunos são removidos automaticamente pelo cascade)
+            db.session.delete(turma)
+            db.session.commit()
+            flash(f'Turma "{nome_turma}" removida com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao remover turma. Tente novamente.', 'error')
+        
+        return redirect(url_for('turmas'))
+    
+    # Se a ação não for reconhecida, redirecionar
+    flash('Ação não reconhecida!', 'error')
+    return redirect(url_for('turmas'))
+
+
+@app.route('/student/', methods=['POST'])
+@required_login
+@required_role('editor')
+def student():
+    action = request.form.get('action', '').strip()
+    turma = request.form.get('turma', '').strip()
+    
+    if action == 'crud_student_add_new':
+        nome = request.form.get('nome', '').strip()
+        processo = request.form.get('processo', '').strip()
+        numero = request.form.get('numero', '').strip()
+        
+        if not nome:
+            flash('Nome é obrigatório!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Validar e sanitizar processo
+        processo_validado, erro_processo = Aluno.validate_and_sanitize_processo(processo)
+        if erro_processo:
+            flash(erro_processo, 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Converter número para inteiro se fornecido
+        numero_int = None
+        if numero:
+            try:
+                numero_int = int(numero)
+            except ValueError:
+                flash('O número na turma deve ser um número válido!', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Verificar se a turma existe
+        turma_obj = Turma.query.filter_by(nome=turma).first()
+        if not turma_obj:
+            flash('Turma não encontrada!', 'error')
+            return redirect(url_for('turmas'))
+        
+        # Verificar se o processo já existe globalmente
+        aluno_existente = Aluno.query.filter_by(processo=processo_validado).first()
+        if aluno_existente:
+            flash(f'Já existe um aluno com o número {processo_validado} na turma "{aluno_existente.turma.nome}"!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Criar novo aluno
+        novo_aluno = Aluno(
+            nome=nome,
+            processo=processo_validado,
+            numero=numero_int,
+            turma_id=turma_obj.id,
+            foto_tirada=False
+        )
+        
+        try:
+            db.session.add(novo_aluno)
+            db.session.commit()
+            flash(f'Aluno {nome} adicionado com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao adicionar aluno. Tente novamente.', 'error')
+        
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    elif action == 'crud_student_edit':
+        aluno_id = request.form.get('aluno_id', '').strip()
+        nome = request.form.get('nome', '').strip()
+        processo = request.form.get('processo', '').strip()
+        numero = request.form.get('numero', '').strip()
+        
+        if not aluno_id or not nome:
+            flash('Dados obrigatórios não fornecidos!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Validar e sanitizar processo
+        processo_validado, erro_processo = Aluno.validate_and_sanitize_processo(processo)
+        if erro_processo:
+            flash(erro_processo, 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Converter número para inteiro se fornecido
+        numero_int = None
+        if numero:
+            try:
+                numero_int = int(numero)
+            except ValueError:
+                flash('O número na turma deve ser um número válido!', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Buscar aluno
+        aluno = db.session.get(Aluno, aluno_id)
+        if not aluno:
+            flash('Aluno não encontrado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Verificar se o novo processo já existe globalmente (exceto para o próprio aluno)
+        if processo_validado != aluno.processo:
+            aluno_existente = Aluno.query.filter_by(processo=processo_validado).first()
+            if aluno_existente and aluno_existente.id != aluno.id:
+                flash(f'Já existe outro aluno com o número {processo_validado} na turma "{aluno_existente.turma.nome}"!', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Atualizar dados do aluno
+        try:
+            aluno.nome = nome
+            aluno.processo = processo_validado
+            aluno.numero = numero_int
+            db.session.commit()
+            flash(f'Aluno {nome} editado com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao editar aluno. Tente novamente.', 'error')
+        
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    elif action == 'crud_student_transfer':
+        aluno_id = request.form.get('aluno_id', '').strip()
+        turma_destino = request.form.get('turma_destino', '').strip()
+        
+        if not aluno_id or not turma_destino:
+            flash('Dados obrigatórios não fornecidos!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Buscar aluno
+        aluno = db.session.get(Aluno, aluno_id)
+        if not aluno:
+            flash('Aluno não encontrado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Buscar turma de destino
+        turma_destino_obj = Turma.query.filter_by(nome=turma_destino).first()
+        if not turma_destino_obj:
+            flash('Turma de destino não encontrada!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        nome_aluno = aluno.nome
+        processo_aluno = aluno.processo
+        turma_origem = aluno.turma.nome
+        
+        try:
+            # Mover arquivos de foto se existirem
+            old_photo_path = os.path.join(aluno.turma.get_foto_directory(), f'{processo_aluno}.jpg')
+            old_thumb_path = os.path.join(aluno.turma.get_thumb_directory(), f'{processo_aluno}.jpg')
+            new_photo_path = os.path.join(turma_destino_obj.get_foto_directory(), f'{processo_aluno}.jpg')
+            new_thumb_path = os.path.join(turma_destino_obj.get_thumb_directory(), f'{processo_aluno}.jpg')
+            
+            # Criar diretórios de destino se não existirem
+            safe_makedirs(os.path.dirname(new_photo_path))
+            safe_makedirs(os.path.dirname(new_thumb_path))
+            
+            # Mover arquivos se existirem
+            import shutil
+            if os.path.exists(old_photo_path):
+                shutil.move(old_photo_path, new_photo_path)
+            if os.path.exists(old_thumb_path):
+                shutil.move(old_thumb_path, new_thumb_path)
+            
+            # Atualizar turma do aluno na base de dados
+            aluno.turma_id = turma_destino_obj.id
+            db.session.commit()
+            flash(f'Aluno {nome_aluno} transferido com sucesso para a turma {turma_destino}!', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao transferir aluno. Tente novamente.', 'error')
+            print(f"Erro na transferência: {e}")
+        
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    elif action == 'crud_student_delete':
+        aluno_id = request.form.get('aluno_id', '').strip()
+        
+        if not aluno_id:
+            flash('ID do aluno não fornecido!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Buscar aluno
+        aluno = db.session.get(Aluno, aluno_id)
+        if not aluno:
+            flash('Aluno não encontrado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        nome_aluno = aluno.nome
+        processo_aluno = aluno.processo
+        
+        try:
+            # Remover arquivos de foto se existirem usando métodos seguros
+            foto_dir = aluno.turma.get_foto_directory()
+            thumb_dir = aluno.turma.get_thumb_directory()
+            photo_path = os.path.join(foto_dir, f'{processo_aluno}.jpg')
+            thumb_path = os.path.join(thumb_dir, f'{processo_aluno}.jpg')
+            
+            if os.path.exists(photo_path):
+                os.remove(photo_path)
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+            
+            # Remover aluno da base de dados
+            db.session.delete(aluno)
+            db.session.commit()
+            flash(f'Aluno {nome_aluno} removido com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao remover aluno. Tente novamente.', 'error')
+        
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    elif action == 'crud_student_remove_photo':
+        aluno_id = request.form.get('aluno_id', '').strip()
+        
+        if not aluno_id:
+            flash('ID do aluno não fornecido!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Buscar aluno
+        aluno = db.session.get(Aluno, aluno_id)
+        if not aluno:
+            flash('Aluno não encontrado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Verificar se o aluno tem foto
+        if not aluno.foto_tirada:
+            flash('Este aluno não tem foto para remover!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        nome_aluno = aluno.nome
+        processo_aluno = aluno.processo
+        
+        try:
+            # Remover arquivos de foto se existirem usando métodos seguros
+            foto_dir = aluno.turma.get_foto_directory()
+            thumb_dir = aluno.turma.get_thumb_directory()
+            photo_path = os.path.join(foto_dir, f'{processo_aluno}.jpg')
+            thumb_path = os.path.join(thumb_dir, f'{processo_aluno}.jpg')
+            
+            if os.path.exists(photo_path):
+                os.remove(photo_path)
+            if os.path.exists(thumb_path):
+                os.remove(thumb_path)
+            
+            # Atualizar flag de foto na base de dados
+            aluno.foto_tirada = False
+            db.session.commit()
+            flash(f'Foto do aluno {nome_aluno} removida com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao remover foto. Tente novamente.', 'error')
+            print(f"Erro ao remover foto: {e}")
+        
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    # Se a ação não for reconhecida, redirecionar
+    flash('Ação não reconhecida!', 'error')
+    return redirect(url_for('turmas'))
+
+
+@app.route('/capture_photo/<nome_seguro>/<processo>')
+@required_login
+@required_role('editor')
+def capture_photo(nome_seguro, processo):
+    # Buscar turma usando nome_seguro
+    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
+    if not turma_obj:
+        return redirect(url_for('settings'))
+    
+    return render_template('capture_photo.html', turma=turma_obj.nome, nome_seguro=turma_obj.nome_seguro, processo=processo)
+
+
+@app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
+@required_login
+@required_role('editor')
+def upload_photo(nome_seguro, processo):
+    data = request.get_json()
+    if not data or 'image' not in data:
+        return "Dados inválidos.", 400
+
+    # Buscar a turma usando nome_seguro
+    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
+    if not turma_obj:
+        return "Turma não encontrada.", 404
+
+    image_data = data['image'].split(',')[1]
+    foto_dir = turma_obj.get_foto_directory()
+    thumb_dir = turma_obj.get_thumb_directory()
+    photo_path = os.path.join(foto_dir, f'{processo}.jpg')
+    
+    # Criar diretório da foto de forma segura
+    if not safe_makedirs(os.path.dirname(photo_path)):
+        return "Erro ao criar diretório para fotos.", 500
+
+    try:
+        with open(photo_path, 'wb') as photo_file:
+            photo_file.write(BytesIO(base64.b64decode(image_data)).getvalue())
+    except Exception as e:
+        return f"Erro ao salvar foto: {e}", 500
+
+    thumb_path = os.path.join(thumb_dir, f'{processo}.jpg')
+    
+    # Criar diretório da thumbnail de forma segura
+    if not safe_makedirs(os.path.dirname(thumb_path)):
+        return "Erro ao criar diretório para thumbnails.", 500
+
+    with open(photo_path, 'rb') as photo_file:
+        image = cv2.imdecode(np.frombuffer(photo_file.read(), np.uint8), cv2.IMREAD_COLOR)
+        height, width, _ = image.shape
+        min_dim = min(height, width)
+        start_x = (width - min_dim) // 2
+        start_y = (height - min_dim) // 2
+        cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
+        thumbnail = cv2.resize(cropped_image, (250, 250))
+        cv2.imwrite(photo_path, cv2.imdecode(cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 95])[1], cv2.IMREAD_COLOR))
+        cv2.imwrite(thumb_path, cv2.imdecode(cv2.imencode('.jpg', thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])[1], cv2.IMREAD_COLOR))
+
+    # Atualizar flag de foto tirada na base de dados
+    aluno_obj = Aluno.query.join(Turma).filter(
+        Turma.nome_seguro == nome_seguro,
+        Aluno.processo == processo
+    ).first()
+    
+    if aluno_obj:
+        aluno_obj.foto_tirada = True
+        db.session.commit()
+    else:
+        # Retornar erro se não conseguir atualizar aluno
+        return "Erro ao atualizar informações do aluno.", 500
+
+    return "Foto enviada com sucesso.", 200
+
+
+@app.route('/photos/<nome_seguro>/<processo>.jpg')
+@no_cache
+@required_login
+@required_role('viewer')
+def get_photo(nome_seguro, processo):
+    # Determinar se é pedido de thumbnail ou foto original
+    # Usar parâmetro 'size' na query string: ?size=original ou ?size=thumb
+    size = request.args.get('size', 'thumb')
+    is_original = size == 'original'
+    
+    # Buscar a turma usando nome_seguro
+    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
+    if not turma_obj:
+        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+    
+    foto_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
+    photo_path = os.path.join(foto_dir, f'{processo}.jpg')
+    
+    if not os.path.exists(photo_path):
+        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+    return send_file(photo_path)
+
+
+@app.route('/download/<ficheiro>')
+@required_login
+def download(ficheiro):
+    # Extrair nome da turma e extensão do ficheiro
+    if '.' in ficheiro:
+        turma, extensao = ficheiro.rsplit('.', 1)
+    else:
+        # Se não houver extensão, assumir que é zip
+        turma = ficheiro
+        extensao = 'zip'
+    
+    # Processar baseado na extensão
+    if extensao.lower() == 'zip':
+        # Verificar se é download de thumbnails
+        if turma.endswith('.thumbs'):
+            # Remove '.thumbs' do nome da turma
+            turma_nome = turma[:-7]  # Remove '.thumbs'
+            is_thumb = True
+            download_filename = f'{turma_nome}.thumbs.zip'
+        else:
+            # Download normal das fotos
+            turma_nome = turma
+            is_thumb = False
+            download_filename = f'{turma_nome}.zip'
+        
+        # Buscar a turma para usar métodos seguros
+        # Primeiro tentar procurar por nome_seguro (novo formato), depois por nome (compatibilidade)
+        turma_obj = Turma.query.filter_by(nome_seguro=turma_nome).first()
+        if not turma_obj:
+            turma_obj = Turma.query.filter_by(nome=turma_nome).first()
+        
+        if not turma_obj:
+            return "Turma não encontrada.", 404
+        
+        # Para o nome do ficheiro de download, usar sempre o nome original da turma
+        real_turma_nome = turma_obj.nome
+        download_filename = f'{real_turma_nome}.thumbs.zip' if is_thumb else f'{real_turma_nome}.zip'
+        
+        turma_dir = turma_obj.get_thumb_directory() if is_thumb else turma_obj.get_foto_directory()
+        
+        # Cria e envia o ZIP com as imagens
+        files = [file for root, dirs, files in os.walk(turma_dir) for file in files]
+
+        if not files:
+            return "Nenhuma imagem disponível para download.", 400
+
+        memory_file = BytesIO()
+        with zipfile.ZipFile(memory_file, 'w') as zipf:
+            for file in files:
+                zipf.write(os.path.join(turma_dir, file), arcname=file)
+        memory_file.seek(0)
+        return send_file(memory_file, as_attachment=True, download_name=download_filename)
+    
+    elif extensao.lower() == 'docx':
+        # Buscar a turma para usar métodos seguros
+        # Primeiro tentar procurar por nome_seguro (novo formato), depois por nome (compatibilidade)
+        turma_obj = Turma.query.filter_by(nome_seguro=turma).first()
+        if not turma_obj:
+            turma_obj = Turma.query.filter_by(nome=turma).first()
+        
+        if not turma_obj:
+            return "Turma não encontrada.", 404
+        
+        # Cria e envia o documento DOCX com as fotos da turma
+        docx_file = create_docx_with_photos(turma_obj.nome)
+        
+        if not docx_file:
+            return "Erro ao criar documento ou nenhuma foto disponível.", 400
+        
+        return send_file(
+            docx_file, 
+            as_attachment=True, 
+            download_name=f'{turma_obj.nome}.docx',
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+    else:
+        return "Tipo de ficheiro não suportado.", 400
+
+
+@app.route('/settings')
+@required_login
+@required_role('admin')
+def settings():
+    user = get_current_user()
+    # Verificar se existem dados na base de dados
+    has_data = Turma.query.count() > 0
+    
+    # Obter todos os utilizadores para gestão
+    users = User.query.all()
+    
+    return render_template('settings.html', 
+                         has_data=has_data, 
+                         user=user,
+                         users=users,
+                         current_user=user,
+                         can_upload_csv=True,
+                         can_system_nuke=True,
+                         can_manage_turmas=True)
+
+
+@app.route('/settings/csv', methods=['POST'])
+@required_login
+@required_role('admin')
+def settings_csv():
+    """Upload CSV com substituição ou merge dos dados baseado no campo action"""
+    action = request.form.get('action', 'replace')
+    replace_all = (action == 'replace')
+    
+    if 'file' not in request.files:
+        flash('Nenhum ficheiro foi selecionado!', 'error')
+        return redirect(url_for('settings'))
+
+    file = request.files['file']
+    if file.filename == '':
+        flash('Nenhum ficheiro foi selecionado!', 'error')
+        return redirect(url_for('settings'))
+
+    if file:
+        try:
+            # Ler o conteúdo do ficheiro diretamente da memória
+            csv_content = file.read().decode('utf-8')
+            
+            # Usar StringIO para simular um ficheiro
+            from io import StringIO
+            csv_file = StringIO(csv_content)
+            
+            # Mapear fotos existentes antes das alterações
+            existing_photos = {}
+            for turma_dir in os.listdir(PHOTOS_DIR) if os.path.exists(PHOTOS_DIR) else []:
+                turma_path = os.path.join(PHOTOS_DIR, turma_dir)
+                if os.path.isdir(turma_path):
+                    for photo_file in os.listdir(turma_path):
+                        if photo_file.endswith('.jpg'):
+                            processo = photo_file[:-4]  # Remove .jpg
+                            existing_photos[processo] = turma_dir
+            
+            # Mapear thumbnails existentes
+            existing_thumbs = {}
+            for turma_dir in os.listdir(THUMBS_DIR) if os.path.exists(THUMBS_DIR) else []:
+                turma_path = os.path.join(THUMBS_DIR, turma_dir)
+                if os.path.isdir(turma_path):
+                    for thumb_file in os.listdir(turma_path):
+                        if thumb_file.endswith('.jpg'):
+                            processo = thumb_file[:-4]  # Remove .jpg
+                            existing_thumbs[processo] = turma_dir
+            
+            if replace_all:
+                # Limpar dados existentes da base de dados (mas manter fotos)
+                db.session.query(Aluno).delete()
+                db.session.query(Turma).delete()
+                turmas_dict = {}
+            else:
+                # Para merge, carregar turmas existentes
+                turmas_dict = {turma.nome: turma for turma in Turma.query.order_by(Turma.nome).all()}
+            
+            # Ler CSV e importar dados
+            reader = csv.DictReader(csv_file)
+            photos_moved = 0
+            photos_kept = 0
+            alunos_processados = 0
+            processos_csv = set()  # Controlar duplicatas no CSV
+            
+            for row in reader:
+                turma_nome = row['turma']
+                processo_original = row['processo']
+                
+                # Validar e sanitizar processo
+                processo, erro_processo = Aluno.validate_and_sanitize_processo(processo_original)
+                if erro_processo:
+                    flash(f'Erro no CSV - linha com turma "{turma_nome}": {erro_processo}', 'error')
+                    return redirect(url_for('settings'))
+                
+                # Verificar duplicata no próprio CSV
+                if processo in processos_csv:
+                    flash(f'Erro no CSV: Processo {processo} aparece duplicado no ficheiro!', 'error')
+                    return redirect(url_for('settings'))
+                processos_csv.add(processo)
+                
+                # Criar turma se não existir
+                if turma_nome not in turmas_dict:
+                    turma = Turma(nome=turma_nome)
+                    db.session.add(turma)
+                    db.session.flush()  # Para obter o ID
+                    turmas_dict[turma_nome] = turma
+                else:
+                    turma = turmas_dict[turma_nome]
+                
+                # Verificar se aluno já existe globalmente (para merge)
+                if not replace_all:
+                    aluno_existente = Aluno.query.filter_by(processo=processo).first()
+                    
+                    if aluno_existente:
+                        # Se o aluno existe mas está numa turma diferente, é um erro
+                        if aluno_existente.turma.nome != turma_nome:
+                            flash(f'Erro no CSV: Aluno com processo {processo} já existe na turma "{aluno_existente.turma.nome}" mas CSV indica turma "{turma_nome}"!', 'error')
+                            return redirect(url_for('settings'))
+                        
+                        # Atualizar dados do aluno existente na mesma turma
+                        aluno_existente.nome = row['nome']
+                        # Atualizar número se disponível
+                        if 'numero' in row and row['numero']:
+                            try:
+                                aluno_existente.numero = int(row['numero'])
+                            except ValueError:
+                                pass  # Ignorar se não for um número válido
+                        alunos_processados += 1
+                        continue
+                
+                # Preparar número
+                numero_val = None
+                if 'numero' in row and row['numero']:
+                    try:
+                        numero_val = int(row['numero'])
+                    except ValueError:
+                        pass  # Ignorar se não for um número válido
+                
+                # Verificar se existe foto para este processo
+                foto_tirada = False
+                if processo in existing_photos:
+                    foto_tirada = True
+                    old_turma = existing_photos[processo]
+                    
+                    # Se a foto está numa turma diferente, mover
+                    if old_turma != turma_nome:
+                        try:
+                            # Mover foto
+                            old_photo_path = os.path.join(PHOTOS_DIR, old_turma, f'{processo}.jpg')
+                            new_photo_path = os.path.join(PHOTOS_DIR, turma_nome, f'{processo}.jpg')
+                            
+                            # Criar diretório de destino se não existir
+                            safe_makedirs(os.path.dirname(new_photo_path))
+                            
+                            if os.path.exists(old_photo_path):
+                                import shutil
+                                shutil.move(old_photo_path, new_photo_path)
+                                photos_moved += 1
+                            
+                            # Mover thumbnail se existir
+                            if processo in existing_thumbs:
+                                old_thumb_path = os.path.join(THUMBS_DIR, old_turma, f'{processo}.jpg')
+                                new_thumb_path = os.path.join(THUMBS_DIR, turma_nome, f'{processo}.jpg')
+                                
+                                safe_makedirs(os.path.dirname(new_thumb_path))
+                                
+                                if os.path.exists(old_thumb_path):
+                                    shutil.move(old_thumb_path, new_thumb_path)
+                        
+                        except Exception as e:
+                            print(f"Erro ao mover foto do processo {processo}: {e}")
+                    else:
+                        photos_kept += 1
+                
+                # Criar novo aluno
+                aluno = Aluno(
+                    processo=processo,
+                    nome=row['nome'],
+                    numero=numero_val,
+                    turma_id=turma.id,
+                    foto_tirada=foto_tirada
+                )
+                db.session.add(aluno)
+                alunos_processados += 1
+            
+            db.session.commit()
+            
+            # Construir mensagem de sucesso detalhada
+            messages = []
+            if replace_all:
+                messages.append(f'Dados substituídos com sucesso! {alunos_processados} alunos processados.')
+            else:
+                messages.append(f'Dados atualizados com sucesso! {alunos_processados} alunos processados.')
+            
+            if photos_moved > 0:
+                messages.append(f'{photos_moved} foto(s) movida(s) para nova(s) turma(s).')
+            
+            if photos_kept > 0:
+                messages.append(f'{photos_kept} foto(s) mantida(s) na turma correta.')
+            
+            # Adicionar informação sobre continuar
+            messages.append('Pode agora visualizar as turmas ou carregar mais dados.')
+            
+            flash(' '.join(messages), 'success')
+            return redirect(url_for('settings'))
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao processar CSV: {e}")
+            flash(f'Erro ao processar ficheiro CSV: {str(e)}', 'error')
+            return redirect(url_for('settings'))
+
+
+@app.route('/settings/nuke', methods=['POST'])
+@required_login
+@required_role('admin')
+def settings_nuke():
+    """Limpeza completa de todos os dados e fotos - requer permissão de administrador"""
+    try:
+        # Remover todos os dados da base de dados
+        db.session.query(Aluno).delete()
+        db.session.query(Turma).delete()
+        db.session.commit()
+        
+        # Remover todos os diretórios de fotos e thumbnails
+        import shutil
+        
+        if os.path.exists(PHOTOS_DIR):
+            shutil.rmtree(PHOTOS_DIR)
+            safe_makedirs(PHOTOS_DIR)
+        
+        if os.path.exists(THUMBS_DIR):
+            shutil.rmtree(THUMBS_DIR)
+            safe_makedirs(THUMBS_DIR)
+        
+        flash('Limpeza completa realizada com sucesso! Todos os dados e fotos foram removidos.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro na limpeza completa: {e}")
+        flash(f'Erro ao realizar limpeza completa: {str(e)}', 'error')
+    
+    return redirect(url_for('settings'))
+
+
+# Rotas para gestão de utilizadores integradas em /settings
+
+@app.route('/settings/users/', methods=['POST'])
+@app.route('/settings/users/<int:user_id>/', methods=['POST'])
+@required_login
+@required_role('admin')
+def user_management(user_id=None):
+    """Gestão completa de utilizadores baseada em actions"""
+    action = request.form.get('action', '').strip()
+    
+    if action == 'crud_user_add_new':
+        """Criar novos utilizadores"""
+        email = request.form.get('email', '').strip()
+        name = request.form.get('name', '').strip()
+        password = request.form.get('password', '')
+        role = request.form.get('role', 'none').strip()
+        
+        # Validar campos obrigatórios
+        if not email or not name or not password:
+            flash('Email, nome e password são obrigatórios!', 'error')
+            return redirect(url_for('settings'))
+        
+        # Validar formato do email
+        if not AddUserSecurityCheck.validate_email_format(email):
+            flash('Formato de email inválido.', 'error')
+            return redirect(url_for('settings'))
+        
+        # Validar força da password
+        is_strong, password_error = AddUserSecurityCheck.validate_password_strength(password)
+        if not is_strong:
+            flash(password_error, 'error')
+            return redirect(url_for('settings'))
+        
+        # Validar role
+        valid_roles = ['none', 'viewer', 'editor', 'admin']
+        if role not in valid_roles:
+            flash('Role inválido.', 'error')
+            return redirect(url_for('settings'))
+        
+        # Verificar se o email já existe
+        existing_user = User.query.filter_by(_email=email).first()
+        if existing_user:
+            flash('Já existe um utilizador com este email.', 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            # Criar novo utilizador
+            new_user = User()
+            new_user._email = email  # Set directly to avoid validation during construction
+            new_user.name = name
+            new_user.password = password  # Uses the setter that hashes the password
+            new_user.role = role
+            new_user.is_verified = True  # Admin-created users are pre-verified
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            flash(f'Utilizador "{name}" criado com sucesso com role "{role}"!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao criar utilizador: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
+    elif action == 'crud_user_edit':
+        """Editar dados de um utilizador"""
+        if user_id is None:
+            flash('ID do utilizador não fornecido para edição.', 'error')
+            return redirect(url_for('settings'))
+            
+        user = User.query.get_or_404(user_id)
+        current_admin = get_current_user()
+        
+        # Não permitir que um admin se remova a si próprio do papel de admin
+        if user.id == current_admin.id and request.form.get('role') != 'admin':
+            flash('Não pode remover o seu próprio papel de administrador.', 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            # Atualizar dados do utilizador
+            user.name = request.form.get('name', '').strip()
+            user.email = request.form.get('email', '').strip()
+            user.role = request.form.get('role', 'none')
+            
+            # Validações básicas
+            if not user.name or not user.email:
+                flash('Nome e email são obrigatórios.', 'error')
+                return redirect(url_for('settings'))
+            
+            # Verificar se email já existe (exceto para o próprio utilizador)
+            existing_email = User.query.filter(User._email == user.email, User.id != user_id).first()
+            if existing_email:
+                flash('Email já existe.', 'error')
+                return redirect(url_for('settings'))
+            
+            db.session.commit()
+            flash(f'Utilizador {user.name} atualizado com sucesso.', 'success')
+            return redirect(url_for('settings'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar utilizador: {str(e)}', 'error')
+            return redirect(url_for('settings'))
+    
+    elif action == 'crud_user_delete':
+        """Eliminar um utilizador"""
+        if user_id is None:
+            flash('ID do utilizador não fornecido para eliminação.', 'error')
+            return redirect(url_for('settings'))
+            
+        user = User.query.get_or_404(user_id)
+        current_admin = get_current_user()
+        
+        # Não permitir que um admin se elimine a si próprio
+        if user.id == current_admin.id:
+            flash('Não pode eliminar a sua própria conta.', 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            name = user.name
+            db.session.delete(user)
+            db.session.commit()
+            flash(f'Utilizador {name} eliminado com sucesso.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao eliminar utilizador: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
+    elif action == 'crud_user_reset_password':
+        """Resetar password de um utilizador"""
+        if user_id is None:
+            flash('ID do utilizador não fornecido para reset de password.', 'error')
+            return redirect(url_for('settings'))
+            
+        user = User.query.get_or_404(user_id)
+        new_password = request.form.get('new_password', '')
+        
+        if not new_password:
+            flash('Nova password é obrigatória!', 'error')
+            return redirect(url_for('settings'))
+        
+        # Validar força da password
+        is_strong, password_error = AddUserSecurityCheck.validate_password_strength(new_password)
+        if not is_strong:
+            flash(password_error, 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            # Atualizar password
+            user.password = new_password  # Uses the setter that hashes the password
+            db.session.commit()
+            flash(f'Password do utilizador "{user.name}" alterada com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao alterar password: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
+    # Se a ação não for reconhecida, redirecionar
+    flash('Ação não reconhecida!', 'error')
+    return redirect(url_for('settings'))
+
+
+if __name__ == '__main__':
+    # Inicializar base de dados quando o script é executado diretamente
+    with app.app_context():
+        db.create_all()
+        print("Base de dados inicializada. O primeiro utilizador a registar-se receberá permissões de administrador.")
+    
+    app.run(debug=DEBUG, host='0.0.0.0', port=5000)

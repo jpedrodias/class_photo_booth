@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Class Photo Booth - Autenticação</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='favicon.svg') }}">
+</head>
+<body>
+    <div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
+        <div class="card shadow-sm" style="width: 100%; max-width: 450px;">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div style="font-size: 3rem;" class="mb-3">📸</div>
+                    <h1 class="h3 fw-bold text-primary mb-2">Class Photo Booth</h1>
+                    <p class="text-muted" id="form-description">Sistema de gestão de fotografias escolares</p>
+                </div>
+                
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'danger' if category == 'error' else ('info' if category == 'info' else 'success') }} alert-dismissible fade show" role="alert">
+                                {% if category == 'error' %}
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                {% elif category == 'info' %}
+                                    <i class="bi bi-info-circle-fill me-2"></i>
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill me-2"></i>
+                                {% endif %}
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Login Form -->
+                <form method="POST" id="loginForm">
+                    <input type="hidden" name="action" id="actionInput" value="login">
+                    
+                    <!-- Login Container -->
+                    <div id="loginContainer">
+                        <div class="mb-3">
+                            <label for="loginEmail" class="form-label">Email</label>
+                            <input type="email" name="email" id="loginEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <div class="invalid-feedback" id="loginEmailError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="loginPassword" class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" name="password" id="loginPassword" class="form-control" placeholder="••••••••">
+                                <button class="btn btn-outline-secondary" type="button" id="loginTogglePassword" onclick="togglePasswordVisibility('login')">
+                                    <i class="bi bi-eye" id="loginTogglePasswordIcon"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback" id="loginPasswordError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="remember_me" id="rememberMe">
+                                <label class="form-check-label" for="rememberMe">
+                                    Manter sessão iniciada
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Register Container -->
+                    <div id="registerContainer" style="display: none;">
+                        <div class="mb-3">
+                            <label for="registerEmail" class="form-label">Email</label>
+                            <input type="email" name="email" id="registerEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <div class="invalid-feedback" id="registerEmailError"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Verify Container -->
+                    <div id="verifyContainer" style="display: none;">
+                        <div class="mb-3">
+                            <label for="verifyEmail" class="form-label">Email</label>
+                            <input type="email" name="email" id="verifyEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <div class="invalid-feedback" id="verifyEmailError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verifyName" class="form-label">Nome</label>
+                            <input type="text" name="name" id="verifyName" class="form-control" placeholder="O seu nome completo">
+                            <div class="invalid-feedback" id="verifyNameError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verifyPassword" class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" name="password" id="verifyPassword" class="form-control" placeholder="Escolha uma password segura">
+                                <button class="btn btn-outline-secondary" type="button" id="verifyTogglePassword" onclick="togglePasswordVisibility('verify')">
+                                    <i class="bi bi-eye" id="verifyTogglePasswordIcon"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback" id="verifyPasswordError"></div>
+                            <div class="form-text" id="verifyPasswordStrength" style="display: none;">
+                                <small id="verifyStrengthText"></small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar" id="verifyStrengthBar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verifyConfirmPassword" class="form-label">Confirmar Password</label>
+                            <input type="password" name="confirm_password" id="verifyConfirmPassword" class="form-control" placeholder="••••••••">
+                            <div class="invalid-feedback" id="verifyConfirmPasswordError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="verifyCode" class="form-label">Código de Verificação</label>
+                            <input type="text" name="verification_code" id="verifyCode" class="form-control text-center" placeholder="XXXXXX" maxlength="6">
+                            <div class="invalid-feedback" id="verifyCodeError"></div>
+                            <small class="form-text text-muted">Verifique o seu email para o código de verificação</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Forgot Password Container -->
+                    <div id="forgotPasswordContainer" style="display: none;">
+                        <div class="mb-3">
+                            <label for="forgotEmail" class="form-label">Email</label>
+                            <input type="email" name="email" id="forgotEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <div class="invalid-feedback" id="forgotEmailError"></div>
+                            <small class="form-text text-muted">Introduza o seu email para receber instruções de recuperação</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Reset Password Container -->
+                    <div id="resetPasswordContainer" style="display: none;">
+                        <div class="mb-3">
+                            <label for="resetEmail" class="form-label">Email</label>
+                            <input type="email" name="email" id="resetEmail" class="form-control" placeholder="seu.email@exemplo.com" value="{{ email or '' }}">
+                            <div class="invalid-feedback" id="resetEmailError"></div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="resetCode" class="form-label">Código de Recuperação</label>
+                            <input type="text" name="verification_code" id="resetCode" class="form-control text-center" placeholder="XXXXXX" maxlength="6">
+                            <div class="invalid-feedback" id="resetCodeError"></div>
+                            <small class="form-text text-muted">Verifique o seu email para o código de recuperação</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="resetNewPassword" class="form-label">Nova Password</label>
+                            <div class="input-group">
+                                <input type="password" name="new_password" id="resetNewPassword" class="form-control" placeholder="Escolha uma password segura">
+                                <button class="btn btn-outline-secondary" type="button" id="resetTogglePassword" onclick="togglePasswordVisibility('reset')">
+                                    <i class="bi bi-eye" id="resetTogglePasswordIcon"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback" id="resetNewPasswordError"></div>
+                            <div class="form-text" id="resetPasswordStrength" style="display: none;">
+                                <small id="resetStrengthText"></small>
+                                <div class="progress mt-1" style="height: 4px;">
+                                    <div class="progress-bar" id="resetStrengthBar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="resetConfirmPassword" class="form-label">Confirmar Nova Password</label>
+                            <input type="password" name="confirm_password" id="resetConfirmPassword" class="form-control" placeholder="••••••••">
+                            <div class="invalid-feedback" id="resetConfirmPasswordError"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mb-3" id="submitButton">
+                        🔓 Entrar
+                    </button>
+                </form>
+                
+                <!-- Action Links -->
+                <div class="text-center">
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="registerLink" onclick="switchForm('register')">
+                            📝 Criar nova conta
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" id="verifyLink" onclick="switchForm('verify')" style="display: none;">
+                            ✉️ Verificar conta
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" id="forgotPasswordLink" onclick="switchForm('forgot_password')">
+                            🔑 Esqueci a palavra-passe
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="resetPasswordLink" onclick="switchForm('reset_password')" style="display: none;">
+                            🔓 Já tenho código de recuperação
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm" id="backToLoginLink" onclick="switchForm('login')" style="display: none;">
+                            ← Voltar ao login
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Suppress chrome extension errors
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('Extension context invalidated')) {
+                e.preventDefault();
+                return true;
+            }
+        });
+        
+        // Suppress unhandled promise rejections from extensions
+        window.addEventListener('unhandledrejection', function(e) {
+            if (e.reason && e.reason.message && e.reason.message.includes('Extension context invalidated')) {
+                e.preventDefault();
+                return true;
+            }
+        });
+    
+        function switchForm(action) {
+            try {
+                // Reset form
+                document.getElementById('loginForm').reset();
+                document.getElementById('actionInput').value = action;
+                
+                // Clear validation errors
+                clearValidationErrors();
+                
+                // Hide all containers
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('registerContainer').style.display = 'none';
+                document.getElementById('verifyContainer').style.display = 'none';
+                document.getElementById('forgotPasswordContainer').style.display = 'none';
+                document.getElementById('resetPasswordContainer').style.display = 'none';
+                
+                // Disable all fields (so they won't be sent in the form)
+                const allFields = [
+                    'loginEmail', 'loginPassword', 'rememberMe',
+                    'registerEmail',
+                    'verifyEmail', 'verifyName', 'verifyPassword', 'verifyConfirmPassword', 'verifyCode',
+                    'forgotEmail',
+                    'resetEmail', 'resetCode', 'resetNewPassword', 'resetConfirmPassword'
+                ];
+                allFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.required = false;
+                        field.disabled = true;
+                    }
+                });
+                
+                // Hide all action links
+                document.getElementById('registerLink').style.display = 'none';
+                document.getElementById('verifyLink').style.display = 'none';
+                document.getElementById('forgotPasswordLink').style.display = 'none';
+                document.getElementById('resetPasswordLink').style.display = 'none';
+                document.getElementById('backToLoginLink').style.display = 'none';
+                
+                // Configure form based on action
+                switch(action) {
+                    case 'login':
+                        document.getElementById('form-description').textContent = 'Faça login para aceder ao sistema';
+                        document.getElementById('loginContainer').style.display = 'block';
+                        document.getElementById('loginEmail').required = true;
+                        document.getElementById('loginEmail').disabled = false;
+                        document.getElementById('loginPassword').required = true;
+                        document.getElementById('loginPassword').disabled = false;
+                        document.getElementById('rememberMe').disabled = false;
+                        document.getElementById('submitButton').innerHTML = '🔓 Entrar';
+                        document.getElementById('registerLink').style.display = 'block';
+                        document.getElementById('verifyLink').style.display = 'block';
+                        document.getElementById('forgotPasswordLink').style.display = 'block';
+                        document.getElementById('resetPasswordLink').style.display = 'block';
+                        setTimeout(() => {
+                            try {
+                                document.getElementById('loginEmail').focus();
+                            } catch (e) {
+                                // Focus error ignored
+                            }
+                        }, 100);
+                        break;
+                        
+                    case 'register':
+                        document.getElementById('form-description').textContent = 'Insira o seu email para criar uma nova conta';
+                        document.getElementById('registerContainer').style.display = 'block';
+                        document.getElementById('registerEmail').required = true;
+                        document.getElementById('registerEmail').disabled = false;
+                        document.getElementById('submitButton').innerHTML = '📝 Enviar Código';
+                        document.getElementById('backToLoginLink').style.display = 'block';
+                        setTimeout(() => {
+                            try {
+                                document.getElementById('registerEmail').focus();
+                            } catch (e) {
+                                // Focus error ignored
+                            }
+                        }, 100);
+                        break;
+                        
+                    case 'verify':
+                        document.getElementById('form-description').textContent = 'Complete o seu registo com nome, password e código de verificação';
+                        document.getElementById('verifyContainer').style.display = 'block';
+                        document.getElementById('verifyEmail').required = true;
+                        document.getElementById('verifyEmail').disabled = false;
+                        document.getElementById('verifyName').required = true;
+                        document.getElementById('verifyName').disabled = false;
+                        document.getElementById('verifyPassword').required = true;
+                        document.getElementById('verifyPassword').disabled = false;
+                        document.getElementById('verifyConfirmPassword').required = true;
+                        document.getElementById('verifyConfirmPassword').disabled = false;
+                        document.getElementById('verifyCode').required = true;
+                        document.getElementById('verifyCode').disabled = false;
+                        document.getElementById('submitButton').innerHTML = '✅ Criar Conta';
+                        document.getElementById('backToLoginLink').style.display = 'block';
+                        setTimeout(() => {
+                            try {
+                                document.getElementById('verifyEmail').focus();
+                            } catch (e) {
+                                // Focus error ignored
+                            }
+                        }, 100);
+                        break;
+                        
+                    case 'forgot_password':
+                        document.getElementById('form-description').textContent = 'Introduza o seu email para recuperar a palavra-passe';
+                        document.getElementById('forgotPasswordContainer').style.display = 'block';
+                        document.getElementById('forgotEmail').required = true;
+                        document.getElementById('forgotEmail').disabled = false;
+                        document.getElementById('submitButton').innerHTML = '🔑 Enviar Instruções';
+                        document.getElementById('backToLoginLink').style.display = 'block';
+                        setTimeout(() => {
+                            try {
+                                document.getElementById('forgotEmail').focus();
+                            } catch (e) {
+                                // Focus error ignored
+                            }
+                        }, 100);
+                        break;
+                        
+                    case 'reset_password':
+                        document.getElementById('form-description').textContent = 'Introduza o código recebido por email e defina a sua nova palavra-passe';
+                        document.getElementById('resetPasswordContainer').style.display = 'block';
+                        document.getElementById('resetEmail').required = true;
+                        document.getElementById('resetEmail').disabled = false;
+                        document.getElementById('resetCode').required = true;
+                        document.getElementById('resetCode').disabled = false;
+                        document.getElementById('resetNewPassword').required = true;
+                        document.getElementById('resetNewPassword').disabled = false;
+                        document.getElementById('resetConfirmPassword').required = true;
+                        document.getElementById('resetConfirmPassword').disabled = false;
+                        document.getElementById('submitButton').innerHTML = '🔒 Alterar Password';
+                        document.getElementById('backToLoginLink').style.display = 'block';
+                        
+                        // Pré-preencher email se fornecido
+                        const emailParam = new URLSearchParams(window.location.search).get('email');
+                        if (emailParam) {
+                            document.getElementById('resetEmail').value = emailParam;
+                        }
+                        
+                        setTimeout(() => {
+                            try {
+                                if (document.getElementById('resetEmail').value) {
+                                    document.getElementById('resetCode').focus();
+                                } else {
+                                    document.getElementById('resetEmail').focus();
+                                }
+                            } catch (e) {
+                                // Focus error ignored
+                            }
+                        }, 100);
+                        break;
+                }
+            } catch (error) {
+                console.error('Error in switchForm:', error);
+            }
+        }
+        
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Check URL parameters for action
+                const urlParams = new URLSearchParams(window.location.search);
+                const action = urlParams.get('action') || 'login';
+                switchForm(action);
+            } catch (error) {
+                console.error('Error initializing form:', error);
+                // Fallback to login form
+                try {
+                    switchForm('login');
+                } catch (fallbackError) {
+                    console.error('Fallback initialization failed:', fallbackError);
+                }
+            }
+        });
+        
+        // Form validation
+        try {
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                try {
+                    const action = document.getElementById('actionInput').value;
+                    let isValid = true;
+                    
+                    // Clear previous errors
+                    clearValidationErrors();
+                    
+                    // Get field values based on current form
+                    let email, password, confirmPassword, verificationCode, newPassword;
+                    
+                    if (action === 'login') {
+                        email = document.getElementById('loginEmail').value.trim();
+                        password = document.getElementById('loginPassword').value;
+                    } else if (action === 'register') {
+                        email = document.getElementById('registerEmail').value.trim();
+                    } else if (action === 'verify') {
+                        email = document.getElementById('verifyEmail').value.trim();
+                        password = document.getElementById('verifyPassword').value;
+                        confirmPassword = document.getElementById('verifyConfirmPassword').value;
+                        verificationCode = document.getElementById('verifyCode').value.trim();
+                    } else if (action === 'forgot_password') {
+                        email = document.getElementById('forgotEmail').value.trim();
+                    } else if (action === 'reset_password') {
+                        email = document.getElementById('resetEmail').value.trim();
+                        verificationCode = document.getElementById('resetCode').value.trim();
+                        newPassword = document.getElementById('resetNewPassword').value;
+                        confirmPassword = document.getElementById('resetConfirmPassword').value;
+                    }
+                    
+                    // Email validation (except for reset_password)
+                    if (action !== 'reset_password') {
+                        if (!validateEmail(email)) {
+                            const emailField = action === 'forgot_password' ? 'forgotEmail' : action + 'Email';
+                            showFieldError(emailField, 'Por favor, insira um email válido');
+                            isValid = false;
+                        }
+                    }
+                    
+                    // Password validation
+                    if (action === 'login') {
+                        if (!password) {
+                            showFieldError('loginPassword', 'Password é obrigatória');
+                            isValid = false;
+                        }
+                    } else if (action === 'verify') {
+                        if (!password) {
+                            showFieldError('verifyPassword', 'Password é obrigatória');
+                            isValid = false;
+                        } else if (!validatePasswordStrength(password)) {
+                            showFieldError('verifyPassword', 'Password deve ter pelo menos 6 caracteres, incluir maiúsculas, minúsculas e números');
+                            isValid = false;
+                        }
+                        
+                        if (password !== confirmPassword) {
+                            showFieldError('verifyConfirmPassword', 'As passwords não coincidem');
+                            isValid = false;
+                        }
+                        
+                        // Verification code validation
+                        if (!verificationCode || verificationCode.length !== 6) {
+                            showFieldError('verifyCode', 'Código de verificação deve ter 6 caracteres');
+                            isValid = false;
+                        }
+                    } else if (action === 'reset_password') {
+                        if (!validateEmail(email)) {
+                            showFieldError('resetEmail', 'Por favor, insira um email válido');
+                            isValid = false;
+                        }
+                        
+                        if (!verificationCode || verificationCode.length !== 6) {
+                            showFieldError('resetCode', 'Código de recuperação deve ter 6 caracteres');
+                            isValid = false;
+                        }
+                        
+                        if (!newPassword) {
+                            showFieldError('resetNewPassword', 'Nova password é obrigatória');
+                            isValid = false;
+                        } else if (!validatePasswordStrength(newPassword)) {
+                            showFieldError('resetNewPassword', 'Password deve ter pelo menos 6 caracteres, incluir maiúsculas, minúsculas e números');
+                            isValid = false;
+                        }
+                        
+                        if (newPassword !== confirmPassword) {
+                            showFieldError('resetConfirmPassword', 'As passwords não coincidem');
+                            isValid = false;
+                        }
+                    }
+                    
+                    if (!isValid) {
+                        e.preventDefault();
+                        return false;
+                    }
+                } catch (error) {
+                    // Form validation error ignored - allow form to submit
+                    // Allow form to submit if validation fails due to JavaScript error
+                }
+            });
+        } catch (error) {
+            // Form submit event listener setup failed - ignored
+        }
+        
+        // Email validation function
+        function validateEmail(email) {
+            try {
+                if (!email || typeof email !== 'string') return false;
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            } catch (error) {
+                // Email validation function error - ignored
+                return false;
+            }
+        }
+        
+        // Password strength validation
+        function validatePasswordStrength(password) {
+            try {
+                if (!password || typeof password !== 'string') return false;
+                if (password.length < 6) return false;
+                
+                const hasUpperCase = /[A-Z]/.test(password);
+                const hasLowerCase = /[a-z]/.test(password);
+                const hasNumbers = /\d/.test(password);
+                
+                return hasUpperCase && hasLowerCase && hasNumbers;
+            } catch (error) {
+                // Password strength validation error - ignored
+                return false;
+            }
+        }
+        
+        // Show field error
+        function showFieldError(fieldId, message) {
+            try {
+                const field = document.getElementById(fieldId);
+                const errorDiv = document.getElementById(fieldId + 'Error');
+                
+                if (field) field.classList.add('is-invalid');
+                if (errorDiv) errorDiv.textContent = message;
+            } catch (error) {
+                // Show field error failed - ignored
+            }
+        }
+        
+        // Clear validation errors
+        function clearValidationErrors() {
+            try {
+                const fields = [
+                    'loginEmail', 'loginPassword',
+                    'registerEmail',
+                    'verifyEmail', 'verifyName', 'verifyPassword', 'verifyConfirmPassword', 'verifyCode',
+                    'forgotEmail',
+                    'resetEmail', 'resetCode', 'resetNewPassword', 'resetConfirmPassword'
+                ];
+                fields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    const errorDiv = document.getElementById(fieldId + 'Error');
+                    
+                    if (field) field.classList.remove('is-invalid', 'is-valid');
+                    if (errorDiv) errorDiv.textContent = '';
+                });
+            } catch (error) {
+                // Clear validation errors failed - ignored
+            }
+        }
+        
+        // Toggle password visibility
+        function togglePasswordVisibility(formType) {
+            try {
+                let passwordField, toggleIcon;
+                
+                if (formType === 'login') {
+                    passwordField = document.getElementById('loginPassword');
+                    toggleIcon = document.getElementById('loginTogglePasswordIcon');
+                } else if (formType === 'verify') {
+                    passwordField = document.getElementById('verifyPassword');
+                    toggleIcon = document.getElementById('verifyTogglePasswordIcon');
+                } else if (formType === 'reset') {
+                    passwordField = document.getElementById('resetNewPassword');
+                    toggleIcon = document.getElementById('resetTogglePasswordIcon');
+                }
+                
+                if (passwordField && toggleIcon) {
+                    if (passwordField.type === 'password') {
+                        passwordField.type = 'text';
+                        toggleIcon.className = 'bi bi-eye-slash';
+                    } else {
+                        passwordField.type = 'password';
+                        toggleIcon.className = 'bi bi-eye';
+                    }
+                }
+            } catch (error) {
+                // Toggle password visibility failed - ignored
+            }
+        }
+        
+        // Real-time email validation
+        try {
+            // Login email validation
+            document.getElementById('loginEmail').addEventListener('input', function() {
+                validateEmailRealTime(this, 'loginEmailError');
+            });
+            
+            // Register email validation
+            document.getElementById('registerEmail').addEventListener('input', function() {
+                validateEmailRealTime(this, 'registerEmailError');
+            });
+            
+            // Verify email validation
+            document.getElementById('verifyEmail').addEventListener('input', function() {
+                validateEmailRealTime(this, 'verifyEmailError');
+            });
+        } catch (error) {
+            // Email event listeners setup failed - ignored
+        }
+        
+        // Email validation helper function
+        function validateEmailRealTime(emailField, errorId) {
+            try {
+                const email = emailField.value.trim();
+                if (email && validateEmail(email)) {
+                    emailField.classList.remove('is-invalid');
+                    emailField.classList.add('is-valid');
+                    document.getElementById(errorId).textContent = '';
+                } else if (email) {
+                    emailField.classList.remove('is-valid');
+                    emailField.classList.add('is-invalid');
+                    document.getElementById(errorId).textContent = 'Email inválido';
+                } else {
+                    emailField.classList.remove('is-invalid', 'is-valid');
+                    document.getElementById(errorId).textContent = '';
+                }
+            } catch (error) {
+                // Email validation error - ignored
+            }
+        }
+        
+        // Real-time password strength indicator
+        try {
+            document.getElementById('verifyPassword').addEventListener('input', function() {
+                try {
+                    const password = this.value;
+                    showPasswordStrength(password);
+                } catch (error) {
+                    // Password strength error - ignored
+                }
+            });
+        } catch (error) {
+            // Password event listener setup failed - ignored
+        }
+        
+        // Password strength indicator
+        function showPasswordStrength(password) {
+            try {
+                const strengthDiv = document.getElementById('verifyPasswordStrength');
+                const strengthText = document.getElementById('verifyStrengthText');
+                const strengthBar = document.getElementById('verifyStrengthBar');
+                
+                if (!password) {
+                    strengthDiv.style.display = 'none';
+                    return;
+                }
+                
+                strengthDiv.style.display = 'block';
+                
+                let strength = 0;
+                let feedback = [];
+                
+                // Length check
+                if (password.length >= 6) strength += 20;
+                else feedback.push('pelo menos 6 caracteres');
+                
+                // Uppercase check
+                if (/[A-Z]/.test(password)) strength += 20;
+                else feedback.push('letra maiúscula');
+                
+                // Lowercase check
+                if (/[a-z]/.test(password)) strength += 20;
+                else feedback.push('letra minúscula');
+                
+                // Number check
+                if (/\d/.test(password)) strength += 20;
+                else feedback.push('número');
+                
+                // Special character check
+                if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength += 20;
+                else feedback.push('símbolo especial');
+                
+                // Update progress bar
+                strengthBar.style.width = strength + '%';
+                
+                // Update colors and text
+                if (strength < 40) {
+                    strengthBar.className = 'progress-bar bg-danger';
+                    strengthText.textContent = 'Fraca - Adicione: ' + feedback.join(', ');
+                    strengthText.className = 'text-danger';
+                } else if (strength < 60) {
+                    strengthBar.className = 'progress-bar bg-warning';
+                    strengthText.textContent = 'Razoável - Adicione: ' + feedback.join(', ');
+                    strengthText.className = 'text-warning';
+                } else if (strength < 80) {
+                    strengthBar.className = 'progress-bar bg-info';
+                    strengthText.textContent = 'Boa - Adicione: ' + feedback.join(', ');
+                    strengthText.className = 'text-info';
+                } else {
+                    strengthBar.className = 'progress-bar bg-success';
+                    strengthText.textContent = 'Muito forte';
+                    strengthText.className = 'text-success';
+                }
+            } catch (error) {
+                // Password strength indicator error - ignored
+            }
+        }
+    </script>
+</body>
+</html>

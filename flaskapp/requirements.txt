@@ -1,0 +1,6 @@
+Flask
+Flask-SQLAlchemy
+Flask-Mail
+opencv-python
+python-docx
+Pillow

@@ -1,0 +1,34 @@
+# Lista de ficheiros a incluir no contexto de construção do Docker
+
+# Diretório com os ficheiros executátais da aplicação do IAVE
+flaskapp/download
+
+# Diretórios e arquivos gerados pelo sistema operacional
+.DS_Store
+Thumbs.db
+
+# Diretórios de controle de versão
+.git
+.gitignore
+
+
+# Diretórios de dependências (gerados localmente)
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos temporários ou de cache
+*.log
+*.tmp
+*.swp
+*.bak
+*.old
+
+# Dados sensíveis ou grandes
+postgres_data/
+pgadmin_data/
+*.sqlite3
+*.db
