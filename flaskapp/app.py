@@ -1523,48 +1523,62 @@ def student():
         
         return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
     
+
     elif action == 'crud_student_remove_photo':
         aluno_id = request.form.get('aluno_id', '').strip()
-        
         if not aluno_id:
             flash('ID do aluno não fornecido!', 'error')
             return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
-        
+
         # Buscar aluno
         aluno = db.session.get(Aluno, aluno_id)
         if not aluno:
             flash('Aluno não encontrado!', 'error')
             return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
-        
+
         # Verificar se o aluno tem foto
         if not aluno.foto_tirada:
             flash('Este aluno não tem foto para remover!', 'error')
             return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
-        
+
         nome_aluno = aluno.nome
         processo_aluno = aluno.processo
-        
+        turma_obj = aluno.turma
+
         try:
             # Remover arquivos de foto se existirem usando métodos seguros
-            foto_dir = aluno.turma.get_foto_directory()
-            thumb_dir = aluno.turma.get_thumb_directory()
+            foto_dir = turma_obj.get_foto_directory()
+            thumb_dir = turma_obj.get_thumb_directory()
             photo_path = os.path.join(foto_dir, f'{processo_aluno}.jpg')
             thumb_path = os.path.join(thumb_dir, f'{processo_aluno}.jpg')
-            
+
             if os.path.exists(photo_path):
                 os.remove(photo_path)
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
-            
+
             # Atualizar flag de foto na base de dados
             aluno.foto_tirada = False
             db.session.commit()
+
+            # Verificar se a turma ficou sem fotos tiradas
+            fotos_tiradas = sum(1 for a in turma_obj.alunos if a.foto_tirada)
+            if fotos_tiradas == 0:
+                # Remover as pastas da turma se estiverem vazias
+                try:
+                    if os.path.isdir(foto_dir) and len(os.listdir(foto_dir)) == 0:
+                        os.rmdir(foto_dir)
+                    if os.path.isdir(thumb_dir) and len(os.listdir(thumb_dir)) == 0:
+                        os.rmdir(thumb_dir)
+                except Exception as e:
+                    print(f"Erro ao remover pastas vazias da turma: {e}")
+
             flash(f'Foto do aluno {nome_aluno} removida com sucesso!', 'success')
         except Exception as e:
             db.session.rollback()
             flash('Erro ao remover foto. Tente novamente.', 'error')
             print(f"Erro ao remover foto: {e}")
-        
+
         return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
     
     # Se a ação não for reconhecida, redirecionar
