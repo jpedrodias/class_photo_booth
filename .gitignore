@@ -28,5 +28,5 @@ venv.bak/
 
 # Ignorar pastas geradas pelo aplicativo
 flaskapp/instance/
-flaskapp/fotos/
-flaskapp/thumbs/
+flaskapp/photos_originals/
+flaskapp/photos_thumbs/
