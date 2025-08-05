@@ -422,7 +422,7 @@ def get_current_user():
     """Obtém o utilizador atual da sessão"""
     user_id = session.get('user_id')
     if user_id:
-        return User.query.get(user_id)
+        return db.session.get(User, user_id)
     return None
 
 # Decorator para rotas que requerem login
