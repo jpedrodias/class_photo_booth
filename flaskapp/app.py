@@ -18,14 +18,19 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
+from flask_session import Session
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash, safe_join
 from werkzeug.utils import secure_filename
 
 
+
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')  # Use DevelopmentConfig by default  
+
+# Inicializar Flask-Session
+Session(app)
 
 # Inicializar SQLAlchemy
 db = SQLAlchemy(app)
