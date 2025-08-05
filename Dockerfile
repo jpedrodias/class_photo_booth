@@ -4,14 +4,10 @@ FROM python:3.12-bookworm
 WORKDIR /app
 COPY ./flaskapp/ /app/
 
+# Linux updates and installations
 RUN apt update -y && \
     apt upgrade -y && \
     apt install -y nano dos2unix cron && \
-    apt autoclean -y && \
-    apt autoremove -y
-
-RUN apt update -y && \
-    apt install -y libgl1-mesa-glx && \
     apt autoclean -y && \
     apt autoremove -y
 
