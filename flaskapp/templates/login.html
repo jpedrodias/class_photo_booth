@@ -50,14 +50,14 @@
                     <div id="loginContainer">
                         <div class="mb-3">
                             <label for="loginEmail" class="form-label">Email</label>
-                            <input type="email" name="email" id="loginEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <input type="email" name="email" id="loginEmail" class="form-control" placeholder="email@exemplo.com">
                             <div class="invalid-feedback" id="loginEmailError"></div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="loginPassword" class="form-label">Password</label>
                             <div class="input-group">
-                                <input type="password" name="password" id="loginPassword" class="form-control" placeholder="••••••••">
+                                <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Escolha uma password segura">
                                 <button class="btn btn-outline-secondary" type="button" id="loginTogglePassword" onclick="togglePasswordVisibility('login')">
                                     <i class="bi bi-eye" id="loginTogglePasswordIcon"></i>
                                 </button>
@@ -79,7 +79,7 @@
                     <div id="registerContainer" style="display: none;">
                         <div class="mb-3">
                             <label for="registerEmail" class="form-label">Email</label>
-                            <input type="email" name="email" id="registerEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <input type="email" name="email" id="registerEmail" class="form-control" placeholder="email@exemplo.com">
                             <div class="invalid-feedback" id="registerEmailError"></div>
                         </div>
                     </div>
@@ -88,13 +88,13 @@
                     <div id="verifyContainer" style="display: none;">
                         <div class="mb-3">
                             <label for="verifyEmail" class="form-label">Email</label>
-                            <input type="email" name="email" id="verifyEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <input type="email" name="email" id="verifyEmail" class="form-control" placeholder="email@exemplo.com">
                             <div class="invalid-feedback" id="verifyEmailError"></div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="verifyName" class="form-label">Nome</label>
-                            <input type="text" name="name" id="verifyName" class="form-control" placeholder="O seu nome completo">
+                            <input type="text" name="name" id="verifyName" class="form-control" placeholder="Primeiro e último nome">
                             <div class="invalid-feedback" id="verifyNameError"></div>
                         </div>
                         
@@ -117,7 +117,7 @@
                         
                         <div class="mb-3">
                             <label for="verifyConfirmPassword" class="form-label">Confirmar Password</label>
-                            <input type="password" name="confirm_password" id="verifyConfirmPassword" class="form-control" placeholder="••••••••">
+                            <input type="password" name="confirm_password" id="verifyConfirmPassword" class="form-control" placeholder="Escolha uma password segura">
                             <div class="invalid-feedback" id="verifyConfirmPasswordError"></div>
                         </div>
                         
@@ -133,7 +133,7 @@
                     <div id="forgotPasswordContainer" style="display: none;">
                         <div class="mb-3">
                             <label for="forgotEmail" class="form-label">Email</label>
-                            <input type="email" name="email" id="forgotEmail" class="form-control" placeholder="seu.email@exemplo.com">
+                            <input type="email" name="email" id="forgotEmail" class="form-control" placeholder="email@exemplo.com">
                             <div class="invalid-feedback" id="forgotEmailError"></div>
                             <small class="form-text text-muted">Introduza o seu email para receber instruções de recuperação</small>
                         </div>
@@ -143,7 +143,7 @@
                     <div id="resetPasswordContainer" style="display: none;">
                         <div class="mb-3">
                             <label for="resetEmail" class="form-label">Email</label>
-                            <input type="email" name="email" id="resetEmail" class="form-control" placeholder="seu.email@exemplo.com" value="{{ email or '' }}">
+                            <input type="email" name="email" id="resetEmail" class="form-control" placeholder="email@exemplo.com" value="{{ email or '' }}">
                             <div class="invalid-feedback" id="resetEmailError"></div>
                         </div>
                         
@@ -173,7 +173,7 @@
                         
                         <div class="mb-3">
                             <label for="resetConfirmPassword" class="form-label">Confirmar Nova Password</label>
-                            <input type="password" name="confirm_password" id="resetConfirmPassword" class="form-control" placeholder="••••••••">
+                            <input type="password" name="confirm_password" id="resetConfirmPassword" class="form-control" placeholder="Escolha uma password segura">
                             <div class="invalid-feedback" id="resetConfirmPasswordError"></div>
                         </div>
                     </div>
