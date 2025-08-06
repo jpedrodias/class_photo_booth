@@ -787,7 +787,7 @@ def login(action_url=None):
         ip_address = request.access_route[-1] # request.remote_addr
 
     #ip_address = request.remote_addr
-    if BannedIPs.is_banned(ip_address):
+    if BannedIPs.is_banned(ip_address) and 0:
         flash('O seu IP foi bloqueado devido a tentativas excessivas de login. Contacte o administrador.', 'error')
         return render_template('login.html', action='login')
     
