@@ -769,7 +769,11 @@ def index():
 @app.route('/login/<action_url>', methods=['GET', 'POST'])
 def login(action_url=None):
     # Verificar se o IP está banido
-    ip_address = request.remote_addr
+    ip_address = request.headers.get('Cf-Connecting-Ip', None) # NEED if client/server is behind Cloudflare Proxy
+    if not ip_address:
+        ip_address = request.access_route[-1] # request.remote_addr
+
+    #ip_address = request.remote_addr
     if BannedIPs.is_banned(ip_address):
         flash('O seu IP foi bloqueado devido a tentativas excessivas de login. Contacte o administrador.', 'error')
         return render_template('login.html', action='login')
