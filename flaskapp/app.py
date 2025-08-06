@@ -1709,9 +1709,9 @@ def get_photo(folder_name, processo):
     
     #print(photo_path)
     if not os.path.exists(photo_path):
-        print(f"Foto não encontrada: {photo_path}")
+        #print(f"Foto não encontrada: {photo_path}")
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
-    print(f"Enviando foto: {photo_path}")
+    #print(f"Enviando foto: {photo_path}")
     return send_file(photo_path)
 
 
