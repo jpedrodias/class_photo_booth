@@ -304,7 +304,68 @@
             });
         });
         
+
+        // === SCROLL PRESERVATION ===
+        // const turmaName = "";
+        const scrollStorageKey = "turmasScrollPosition";        
+        // Restaurar posição de scroll ao carregar a página
+        function restoreScrollPosition() {
+            const savedPosition = localStorage.getItem(scrollStorageKey);
+            if (savedPosition) {
+                const position = parseInt(savedPosition, 10);
+                if (!isNaN(position)) {
+                    // Aguardar um pouco para garantir que a página carregou completamente
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: position,
+                            behavior: 'smooth'
+                        });
+                    }, 100);
+                }
+            }
+        }
+        
+        // Salvar posição de scroll antes de sair da página
+        function saveScrollPosition() {
+            const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            localStorage.setItem(scrollStorageKey, scrollPosition.toString());
+        }
+
+
+
+// Salvar scroll em vários eventos de saída
+        window.addEventListener('beforeunload', saveScrollPosition);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') {
+                saveScrollPosition();
+            }
+        });
+        
+        // Salvar scroll quando um link for clicado
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && !link.classList.contains('stay-on-page')) {
+                saveScrollPosition();
+            }
+        });
+        
+        // Salvar scroll quando um formulário for submetido
+        document.addEventListener('submit', function(e) {
+            saveScrollPosition();
+        });
+        
+        // Restaurar posição ao carregar
+        document.addEventListener('DOMContentLoaded', restoreScrollPosition);
+        
+        // Limpar posição salva após 1 hora (para evitar acumulação)
+        setTimeout(() => {
+            localStorage.removeItem(scrollStorageKey);
+        }, 3600000); // 1 hora
+
+
+
         // Adicionar efeito de entrada escalonado nos cards
+        /*
         window.addEventListener('load', function() {
             const cards = document.querySelectorAll('.turma-card-wrapper');
             cards.forEach((card, index) => {
@@ -318,6 +379,10 @@
                 }, index * 100);
             });
         });
+        */
+
+
+        
     </script>
 </body>
 </html>
