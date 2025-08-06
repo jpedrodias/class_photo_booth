@@ -11,12 +11,18 @@ from functools import wraps
 from io import BytesIO
 
 # Third party imports
+
+# OpenCV and numpy for image processing
 import cv2
 import numpy as np
+
+# DOCX imports
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
+
+# Flask imports
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
@@ -417,6 +423,7 @@ class BannedIPs(db.Model):
 
 #End BannedIPs
 
+# ========== TOOLS ==========
 
 # Funções auxiliares para autenticação e segurança
 def get_current_user():
@@ -425,6 +432,7 @@ def get_current_user():
     if user_id:
         return db.session.get(User, user_id)
     return None
+
 
 # Decorator para rotas que requerem login
 def required_login(f):
@@ -435,6 +443,7 @@ def required_login(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
+
 
 # Decorator para verificar permissões
 def required_permission(permission):
@@ -453,6 +462,7 @@ def required_permission(permission):
         return decorated_function
     return decorator
 
+
 # Decorator para verificar role mínimo
 def required_role(min_role):
     """
@@ -460,10 +470,10 @@ def required_role(min_role):
     Hierarquia: none < viewer < editor < admin
     """
     role_hierarchy = {
-        'none': 0,
+        'none':   0,
         'viewer': 1, 
         'editor': 2,
-        'admin': 3
+        'admin':  3
     }
     
     def decorator(f):
@@ -486,6 +496,7 @@ def required_role(min_role):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
 
 # Certifique-se de que as pastas existem com permissões adequadas
 def create_directories_with_permissions():
@@ -515,9 +526,9 @@ def safe_makedirs(directory, verbose=False):
             print(f"Erro ao criar diretório {directory}: {e}")
         return False
 
-create_directories_with_permissions()
 
 
+# Funções para manipulação de documentos DOCX
 def docx_replace(doc, dicionario):
     """Substitui placeholders no documento DOCX"""
     # Substituir em parágrafos
@@ -730,6 +741,7 @@ def create_docx_with_photos(turma_nome):
         return None
 
 
+# ========== Rotas Flask ==========
 @app.before_request
 def require_login():
     # Endpoints que não requerem autenticação
@@ -2200,6 +2212,7 @@ def user_management(user_id=None):
 
 
 if __name__ == '__main__':
+    create_directories_with_permissions()
     # Inicializar base de dados quando o script é executado diretamente
     with app.app_context():
         db.create_all()
