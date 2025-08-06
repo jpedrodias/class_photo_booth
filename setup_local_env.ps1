@@ -10,6 +10,6 @@ $env:FLASK_DEBUG = "1"            # Ativar debug mode
 
 Write-Host "Ambiente Flask configurado:"
 Write-Host "`tMAIL_SENDER = $env:MAIL_SENDER"
-Write-Host "`tFLASK_APP = $env:FLASK_APP"
-Write-Host "`tFLASK_ENV = $env:FLASK_ENV"
+Write-Host "`tFLASK_APP   = $env:FLASK_APP"
+Write-Host "`tFLASK_ENV   = $env:FLASK_ENV"
 Write-Host "`tFLASK_DEBUG = $env:FLASK_DEBUG"
