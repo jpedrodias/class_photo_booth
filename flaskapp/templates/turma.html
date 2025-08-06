@@ -102,7 +102,7 @@
             {% endif %}
                 <div class="student-photo position-relative">
 
-                    {% if aluno.foto_existe %}
+                    {% if aluno.foto_existe or aluno.foto_tirada %}
                         <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img">
                         {% if current_user.role in ['editor', 'admin'] and not aluno.foto_tirada %}
                         <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
