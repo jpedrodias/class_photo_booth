@@ -1624,18 +1624,6 @@ def student():
     return redirect(url_for('turmas'))
 
 
-@app.route('/capture_photo/<nome_seguro>/<processo>')
-@required_login
-@required_role('editor')
-def capture_photo(nome_seguro, processo):
-    # Buscar turma usando nome_seguro
-    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
-    if not turma_obj:
-        return redirect(url_for('settings'))
-    
-    return render_template('capture_photo.html', turma=turma_obj.nome, nome_seguro=turma_obj.nome_seguro, processo=processo)
-
-
 @app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
 @required_login
 @required_role('editor')
