@@ -101,34 +101,35 @@
             <div class="student-card h-100" style="cursor: default;">
             {% endif %}
                 <div class="student-photo position-relative">
-                    {% if aluno.foto_tirada %}
-                    <img src="{{ url_for('get_photo', nome_seguro=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img">
-                    {% if current_user.role in ['editor', 'admin'] %}
-                    <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
-                         data-id="{{ aluno.id }}" 
-                         data-nome="{{ aluno.nome }}"
-                         data-bs-toggle="modal" 
-                         data-bs-target="#removePhotoModal"
-                         title="Clique para remover a foto"
-                         onclick="event.stopPropagation();"
-                         style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-x" style="font-size: 12px;"></i>
-                    </button>
-                    {% endif %}
+
+                    {% if aluno.foto_existe %}
+                        <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img">
+                        {% if current_user.role in ['editor', 'admin'] and not aluno.foto_tirada %}
+                        <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
+                            data-id="{{ aluno.id }}" 
+                            data-nome="{{ aluno.nome }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#removePhotoModal"
+                            title="Clique para remover a foto"
+                            onclick="event.stopPropagation();"
+                            style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-x" style="font-size: 12px;"></i>
+                        </button>
+                        {% endif %}
                     {% else %}
-                    <img src="{{ url_for('static', filename='student_icon.jpg') }}" alt="Sem foto" class="photo-img placeholder">
-                    {% if current_user.role in ['editor', 'admin'] %}
-                    <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle" 
-                         title="Clique para tirar foto"
-                         onclick="event.stopPropagation(); goToCapturePhoto('{{ aluno.processo }}');"
-                         style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
-                        <i class="bi bi-camera" style="font-size: 12px;"></i>
-                    </button>
-                    {% endif %}
+                        <img src="{{ url_for('static', filename='student_icon.jpg') }}" alt="Sem foto" class="photo-img placeholder">
+                        {% if current_user.role in ['editor', 'admin'] %}
+                        <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle" 
+                            title="Clique para tirar foto"
+                            onclick="event.stopPropagation(); goToCapturePhoto('{{ aluno.processo }}');"
+                            style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-camera" style="font-size: 12px;"></i>
+                        </button>
+                        {% endif %}
                     {% endif %}
                 </div>
                 <div class="student-info">
-                    <div class="student-name">{{ aluno.nome }}</div>
+                    <div class="student-name">{{ aluno.nome }} </div>
                     <div class="student-number">
                         {% if aluno.numero %}
                             Nº {{ aluno.numero }} • Proc. {{ aluno.processo }}
@@ -140,7 +141,7 @@
                 
                 <!-- Botões de ação do aluno -->
                 <div class="student-actions mt-2">
-                    {% if aluno.foto_tirada %}
+                    {% if aluno.foto_existe %}
                     <button class="btn btn-sm btn-outline-info preview-photo-btn" 
                             data-processo="{{ aluno.processo }}" 
                             data-nome="{{ aluno.nome }}"

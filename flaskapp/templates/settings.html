@@ -434,7 +434,30 @@
             </div>
             {% endif %}
 
-            <!-- Card 3: Limpeza Completa (só se houver dados) -->
+            <!-- Card 3: Fazer rescan aos ficheiros que já existam -->
+            {% if has_data and can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-primary mb-3">➕</div>
+                        <h5 class="card-title fw-bold">Fazer rescan</h5>
+                        <p class="card-text text-muted">
+                            Fazer <strong>rescan</strong> das fotos existentes em disco.
+                        </p>
+                        
+                        <form action="{{ url_for('settings_rescan_photos') }}" method="post" enctype="multipart/form-data" id="rescanForm">
+                            <input type="hidden" name="action" value="rescan">
+                            <button type="submit" class="btn btn-primary w-100" id="rescanBtn">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Fazer Rescan
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 4: Limpeza Completa (só se houver dados) -->
             {% if has_data and can_system_nuke %}
             <div class="col-lg-4">
                 <div class="card h-100 border-danger border-2 shadow">

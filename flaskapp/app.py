@@ -326,6 +326,7 @@ class Aluno(db.Model):
     processo = db.Column(db.String(50), nullable=False, unique=True, index=True)  # Único globalmente
     nome = db.Column(db.String(200), nullable=False)
     numero = db.Column(db.Integer, nullable=True)  # Número na turma (pode repetir)
+    foto_existe = db.Column(db.Boolean, default=False, nullable=False)  # Nova propriedade
     foto_tirada = db.Column(db.Boolean, default=False, nullable=False)
     turma_id = db.Column(db.Integer, db.ForeignKey('turmas.id'), nullable=False)
     
@@ -1243,7 +1244,8 @@ def turma(nome_seguro):
             'nome': aluno.nome,
             'numero': aluno.numero,
             'turma': turma_obj.nome,
-            'foto_tirada': aluno.foto_tirada
+            'foto_tirada': aluno.foto_tirada,
+            'foto_existe': aluno.foto_existe
         })
         
         if aluno.foto_tirada:
@@ -1597,6 +1599,7 @@ def student():
 
             # Atualizar flag de foto na base de dados
             aluno.foto_tirada = False
+            aluno.foto_existe = False  # Sempre que foto é removida, foto_existe também
             db.session.commit()
 
             # Verificar se a turma ficou sem fotos tiradas
@@ -1677,6 +1680,7 @@ def upload_photo(nome_seguro, processo):
     
     if aluno_obj:
         aluno_obj.foto_tirada = True
+        aluno_obj.foto_existe = True  # Sempre que foto é tirada, foto_existe também
         db.session.commit()
     else:
         # Retornar erro se não conseguir atualizar aluno
@@ -1685,26 +1689,29 @@ def upload_photo(nome_seguro, processo):
     return "Foto enviada com sucesso.", 200
 
 
-@app.route('/photos/<nome_seguro>/<processo>.jpg')
+@app.route('/photos/<folder_name>/<processo>.jpg')
 @no_cache
 @required_login
 @required_role('viewer')
-def get_photo(nome_seguro, processo):
+def get_photo(folder_name, processo):
     # Determinar se é pedido de thumbnail ou foto original
     # Usar parâmetro 'size' na query string: ?size=original ou ?size=thumb
     size = request.args.get('size', 'thumb')
     is_original = size == 'original'
     
     # Buscar a turma usando nome_seguro
-    turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
+    turma_obj = Turma.query.filter_by(nome_seguro=folder_name).first()
     if not turma_obj:
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
-    foto_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
-    photo_path = os.path.join(foto_dir, f'{processo}.jpg')
+    photo_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
+    photo_path = os.path.join(photo_dir, f'{processo}.jpg')
     
+    #print(photo_path)
     if not os.path.exists(photo_path):
+        print(f"Foto não encontrada: {photo_path}")
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+    print(f"Enviando foto: {photo_path}")
     return send_file(photo_path)
 
 
@@ -1806,6 +1813,30 @@ def settings():
                          can_upload_csv=True,
                          can_system_nuke=True,
                          can_manage_turmas=True)
+
+
+# Rota para rescan de fotos e atualização de flag foto_tirada
+@app.route('/settings/rescan_photos', methods=['POST'])
+@required_login
+@required_role('admin')
+def settings_rescan_photos():
+    """Percorre todas as pastas de fotos e atualiza foto_existe=True para alunos com foto encontrada"""
+    import os
+    updated_count = 0
+    for turma_dir in os.listdir(PHOTOS_DIR) if os.path.exists(PHOTOS_DIR) else []:
+        turma_path = os.path.join(PHOTOS_DIR, turma_dir)
+        if os.path.isdir(turma_path):
+            for photo_file in os.listdir(turma_path):
+                if photo_file.endswith('.jpg'):
+                    processo = photo_file[:-4]  # Remove .jpg
+                    aluno = Aluno.query.filter_by(processo=processo).first()
+                    if aluno:
+                        aluno.foto_existe = True
+                        #aluno.foto_tirada = False
+                        updated_count += 1
+    db.session.commit()
+    flash(f'Atualização concluída: {updated_count} alunos marcados com foto existente.', 'success')
+    return redirect(url_for('settings'))
 
 
 @app.route('/settings/csv', methods=['POST'])
@@ -1997,6 +2028,8 @@ def settings_csv():
             print(f"Erro ao processar CSV: {e}")
             flash(f'Erro ao processar ficheiro CSV: {str(e)}', 'error')
             return redirect(url_for('settings'))
+
+
 
 
 @app.route('/settings/nuke', methods=['POST'])
