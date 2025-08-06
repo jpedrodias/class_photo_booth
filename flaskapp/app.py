@@ -766,7 +766,8 @@ def index():
 
 
 @app.route('/login', methods=['GET', 'POST'])
-def login():
+@app.route('/login/<action_url>', methods=['GET', 'POST'])
+def login(action_url=None):
     # Verificar se o IP está banido
     ip_address = request.remote_addr
     if BannedIPs.is_banned(ip_address):
@@ -774,7 +775,7 @@ def login():
         return render_template('login.html', action='login')
     
     if request.method == 'POST':
-        action = request.form.get('action', 'login')
+        action = action_url or 'login'
         
         if action == 'login':
             email = request.form.get('email', '').strip()
@@ -872,7 +873,8 @@ def login():
                 code = PreUser.create_random_code()
                 
                 # Renderizar template HTML para o corpo do email
-                html_body = render_template('template_email_send_verification.html', code=code)
+                verify_link = f"{request.url_root.rstrip('/')}/login/verify?email={email}&code={code}"
+                html_body = render_template('template_email_send_verification.html', code=code, verify_link=verify_link)
                 
                 msg = Message(
                     subject='Verificação de Email - Class Photo Booth',
@@ -952,7 +954,11 @@ def login():
                 return render_template('login.html', action='verify', email=email)
             
             # Verificar se não expirou (10 minutos)
-            if datetime.now(timezone.utc) - pre_user.date > timedelta(minutes=10):
+            now_utc = datetime.now(timezone.utc)
+            pre_user_date = pre_user.date
+            if pre_user_date.tzinfo is None:
+                pre_user_date = pre_user_date.replace(tzinfo=timezone.utc)
+            if now_utc - pre_user_date > timedelta(minutes=10):
                 flash('Código de verificação expirado. Solicite um novo registo.', 'error')
                 db.session.delete(pre_user)
                 db.session.commit()
@@ -1010,16 +1016,6 @@ def login():
                 # Por segurança, não revelar se o email existe ou não
                 flash('Se o email existir na nossa base de dados, receberá instruções para recuperar a sua password.', 'info')
                 return render_template('login.html', action='login')
-            
-                # Verificar se já existe um pedido de recuperação recente
-                pre_user_reset = PreUser.query.filter_by(_email=email).first()
-                now_utc = datetime.now(timezone.utc)
-                if pre_user_reset and (now_utc - pre_user_reset.date <= timedelta(minutes=10)):
-                    flash('Já existe um pedido de recuperação recente. Por favor, verifique o seu email ou aguarde alguns minutos antes de pedir novamente.', 'info')
-                    return render_template('login.html', action='forgot_password')
-
-                # Remover entradas PreUser anteriores para este email (password reset anteriores)
-                PreUser.query.filter_by(_email=email).delete()
 
             # Verificar se já existe um pedido de recuperação recente
             pre_user_reset = PreUser.query.filter_by(_email=email).first()
@@ -1040,8 +1036,9 @@ def login():
             # Gerar código de recuperação (igual ao de verificação)
             reset_code = PreUser.create_random_code()
 
-            # Renderizar template HTML para o corpo do email
-            html_body = render_template('template_email_send_password_reset.html', code=reset_code)
+            # Gerar link direto para recuperação de senha
+            reset_link = f"{request.url_root.rstrip('/')}/login/reset_password?email={email}&code={reset_code}"
+            html_body = render_template('template_email_send_password_reset.html', code=reset_code, reset_link=reset_link)
 
             msg = Message(
                 subject='Recuperação de Password - Class Photo Booth',
@@ -1058,6 +1055,7 @@ def login():
             except Exception as e:
                 print(f"Erro ao enviar email de recuperação para {email}: {e}")
                 # Log mais detalhado do erro para debugging
+                import traceback
                 print(f"Traceback completo: {traceback.format_exc()}")
                 email_sent = False
 
@@ -1070,14 +1068,37 @@ def login():
                 db.session.commit()
 
                 flash('Instruções para recuperar a sua password foram enviadas por email. Use o link "Já tenho código de recuperação" para introduzir o código recebido.', 'success')
-                return render_template('login.html', action='login')
+                #return render_template('login.html', action='login')
+                return render_template('login.html', action='reset_password', email=email)
+            
             else:
                 # Email falhou
                 flash('Erro ao enviar email de recuperação. Tente novamente mais tarde.', 'error')
                 return render_template('login.html', action='forgot_password')
+                
+        elif action == 'reset_password':
+            email = request.form.get('email', '').strip()
+            code = request.form.get('verification_code', '').strip()
+            new_password = request.form.get('new_password', '')
+            confirm_password = request.form.get('confirm_password', '')
+
+            print(email, code, new_password, confirm_password)
+
+            if not all([email, code, new_password, confirm_password]):
+                flash('Todos os campos são obrigatórios.', 'error')
                 return render_template('login.html', action='reset_password', email=email)
             
-            # Validar força da password
+            # Validar formato do email
+            if not AddUserSecurityCheck.validate_email_format(email):
+                flash('Formato de email inválido.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+
+            # Validar se as passwords coincidem
+            if new_password != confirm_password:
+                flash('As passwords não coincidem.', 'error')
+                return render_template('login.html', action='reset_password', email=email)
+            
+            # Validar se a password é forte
             is_strong, password_error = AddUserSecurityCheck.validate_password_strength(new_password)
             if not is_strong:
                 flash(password_error, 'error')
@@ -1095,7 +1116,11 @@ def login():
                 return render_template('login.html', action='reset_password', email=email)
             
             # Verificar se não expirou (10 minutos)
-            if datetime.now(timezone.utc) - pre_user_reset.date > timedelta(minutes=10):
+            now_utc = datetime.now(timezone.utc)
+            pre_user_reset_date = pre_user_reset.date
+            if pre_user_reset_date.tzinfo is None:
+                pre_user_reset_date = pre_user_reset_date.replace(tzinfo=timezone.utc)
+            if now_utc - pre_user_reset_date > timedelta(minutes=10):
                 flash('Código de recuperação expirado. Solicite uma nova recuperação.', 'error')
                 db.session.delete(pre_user_reset)
                 db.session.commit()
@@ -1110,13 +1135,14 @@ def login():
             try:
                 # Atualizar password do utilizador
                 user.password = new_password
-                
+
                 # Remover entrada PreUser (código foi usado)
-                db.session.delete(pre_user_reset)
-                db.session.commit()
-                
+                if pre_user_reset:
+                    db.session.delete(pre_user_reset)
+                    db.session.commit()
+
                 flash('Password alterada com sucesso! Pode agora fazer login.', 'success')
-                return render_template('login.html', action='login')
+                return redirect(url_for('login'))
             
             except Exception as e:
                 db.session.rollback()
@@ -2121,6 +2147,10 @@ def user_management(user_id=None):
         
         try:
             name = user.name
+            # Eliminar também da tabela PreUser se existir
+            preuser = PreUser.query.filter_by(_email=user.email).first()
+            if preuser:
+                db.session.delete(preuser)
             db.session.delete(user)
             db.session.commit()
             flash(f'Utilizador {name} eliminado com sucesso.', 'success')

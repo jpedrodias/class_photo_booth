@@ -44,7 +44,7 @@
                 
                 <!-- Login Form -->
                 <form method="POST" id="loginForm">
-                    <input type="hidden" name="action" id="actionInput" value="login">
+                    <!-- Form action will be set dynamically by JS -->
                     
                     <!-- Login Container -->
                     <div id="loginContainer">
@@ -191,7 +191,7 @@
                             📝 Criar nova conta
                         </button>
                         <button type="button" class="btn btn-outline-info btn-sm" id="verifyLink" onclick="switchForm('verify')" style="display: none;">
-                            ✉️ Verificar conta
+                            ✉️ Criar nova conta - Já tenho código
                         </button>
                         <button type="button" class="btn btn-outline-warning btn-sm" id="forgotPasswordLink" onclick="switchForm('forgot_password')">
                             🔑 Esqueci a palavra-passe
@@ -230,7 +230,8 @@
             try {
                 // Reset form
                 document.getElementById('loginForm').reset();
-                document.getElementById('actionInput').value = action;
+                // Set form action URL to /login/<action>
+                document.getElementById('loginForm').setAttribute('action', '/login/' + action);
                 
                 // Clear validation errors
                 clearValidationErrors();
@@ -320,9 +321,23 @@
                         document.getElementById('verifyCode').disabled = false;
                         document.getElementById('submitButton').innerHTML = '✅ Criar Conta';
                         document.getElementById('backToLoginLink').style.display = 'block';
+                        // Auto-fill email and code from URL if present
+                        let urlParams = new URLSearchParams(window.location.search);
+                        let emailParam = urlParams.get('email');
+                        let codeParam = urlParams.get('code');
+                        if (emailParam) {
+                            document.getElementById('verifyEmail').value = emailParam;
+                        }
+                        if (codeParam) {
+                            document.getElementById('verifyCode').value = codeParam;
+                        }
                         setTimeout(() => {
                             try {
-                                document.getElementById('verifyEmail').focus();
+                                if (document.getElementById('verifyEmail').value) {
+                                    document.getElementById('verifyName').focus();
+                                } else {
+                                    document.getElementById('verifyEmail').focus();
+                                }
                             } catch (e) {
                                 // Focus error ignored
                             }
@@ -359,15 +374,22 @@
                         document.getElementById('submitButton').innerHTML = '🔒 Alterar Password';
                         document.getElementById('backToLoginLink').style.display = 'block';
                         
-                        // Pré-preencher email se fornecido
-                        const emailParam = new URLSearchParams(window.location.search).get('email');
-                        if (emailParam) {
-                            document.getElementById('resetEmail').value = emailParam;
+                        // Pré-preencher email e código se fornecidos
+                        let resetParams = new URLSearchParams(window.location.search);
+                        let resetEmailParam = resetParams.get('email');
+                        let resetCodeParam = resetParams.get('code');
+                        if (resetEmailParam) {
+                            document.getElementById('resetEmail').value = resetEmailParam;
                         }
-                        
+                        if (resetCodeParam) {
+                            document.getElementById('resetCode').value = resetCodeParam;
+                        }
+
                         setTimeout(() => {
                             try {
-                                if (document.getElementById('resetEmail').value) {
+                                if (document.getElementById('resetEmail').value && document.getElementById('resetCode').value) {
+                                    document.getElementById('resetNewPassword').focus();
+                                } else if (document.getElementById('resetEmail').value) {
                                     document.getElementById('resetCode').focus();
                                 } else {
                                     document.getElementById('resetEmail').focus();
@@ -386,9 +408,18 @@
         // Initialize form
         document.addEventListener('DOMContentLoaded', function() {
             try {
-                // Check URL parameters for action
-                const urlParams = new URLSearchParams(window.location.search);
-                const action = urlParams.get('action') || 'login';
+                // Check URL path for /login/<action>
+                let action = 'login';
+                const pathMatch = window.location.pathname.match(/\/login\/(\w+)/);
+                if (pathMatch && pathMatch[1]) {
+                    action = pathMatch[1];
+                } else {
+                    // Fallback to ?action= param if present
+                    const urlParams = new URLSearchParams(window.location.search);
+                    action = urlParams.get('action') || 'login';
+                }
+                // Set initial form action
+                document.getElementById('loginForm').setAttribute('action', '/login/' + action);
                 switchForm(action);
             } catch (error) {
                 console.error('Error initializing form:', error);
@@ -405,7 +436,8 @@
         try {
             document.getElementById('loginForm').addEventListener('submit', function(e) {
                 try {
-                    const action = document.getElementById('actionInput').value;
+                    // Get action from form action URL
+                    const action = this.getAttribute('action').split('/').pop() || 'login';
                     let isValid = true;
                     
                     // Clear previous errors
