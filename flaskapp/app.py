@@ -1787,7 +1787,7 @@ def download(ficheiro):
         return send_file(
             docx_file, 
             as_attachment=True, 
-            download_name=f'{turma_obj.nome}.docx',
+            download_name=f'{turma_obj.nome_seguro}.docx',
             mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
         )
     else:
