@@ -101,7 +101,8 @@ class PreUser(db.Model, AddUserSecurityCheck):
     # Remember: to QUERY use "_email" and not "email"; to Instantiate use "email" and not "_email"
     _email = db.Column('email', db.String(120), unique=True, nullable=False)
     code = db.Column(db.String(120), unique=False, nullable=False)
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.DateTime, unique=False, nullable=False, default=datetime.utcnow)
+    reason = db.Column(db.String(255), unique=False, nullable=True, default='')  # Motivo opcional para o pré-registo
 
     def __repr__(self):
         return f'<PreUser {self.email}>'
@@ -917,6 +918,7 @@ def login(action_url=None):
                     pre_user = PreUser()
                     pre_user._email = email  # Set directly to avoid validation during construction
                     pre_user.code = code
+                    pre_user.reason = 'Registo de novo utilizador'
                     db.session.add(pre_user)
                     db.session.commit()
                     
@@ -1081,6 +1083,7 @@ def login(action_url=None):
                 pre_user_reset = PreUser()
                 pre_user_reset._email = email  # Set directly to avoid validation during construction
                 pre_user_reset.code = reset_code
+                pre_user_reset.reason = 'Recuperação de password'
                 db.session.add(pre_user_reset)
                 db.session.commit()
 
@@ -1804,15 +1807,21 @@ def settings():
     
     # Obter todos os utilizadores para gestão
     users = User.query.all()
+    preusers = PreUser.query.all()
+    login_logs = LoginLog.query.order_by(LoginLog.date.desc()).limit(100).all()
     
-    return render_template('settings.html', 
-                         has_data=has_data, 
-                         user=user,
-                         users=users,
-                         current_user=user,
-                         can_upload_csv=True,
-                         can_system_nuke=True,
-                         can_manage_turmas=True)
+    return render_template(
+        'settings.html', 
+        has_data=has_data, 
+        user=user,
+        users=users,
+        preusers=preusers,
+        login_logs=login_logs,
+        current_user=user,
+        can_upload_csv=True,
+        can_system_nuke=True,
+        can_manage_turmas=True
+    )
 
 
 # Rota para rescan de fotos e atualização de flag foto_tirada
@@ -2031,7 +2040,6 @@ def settings_csv():
 
 
 
-
 @app.route('/settings/nuke', methods=['POST'])
 @required_login
 @required_role('admin')
@@ -2226,7 +2234,47 @@ def user_management(user_id=None):
             flash(f'Erro ao alterar password: {str(e)}', 'error')
         
         return redirect(url_for('settings'))
-    
+
+    elif action == 'crud_preuser_delete':
+        if user_id is None:
+            flash('ID do utilizador não fornecido para eliminação.', 'error')
+            return redirect(url_for('settings'))
+
+        preuser = PreUser.query.get_or_404(user_id)
+
+        try:
+            db.session.delete(preuser)
+            db.session.commit()
+            flash(f'Pré-utilizador {preuser.email} eliminado com sucesso.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao eliminar pré-utilizador: {str(e)}', 'error')
+        return redirect(url_for('settings'))
+
+    elif action == 'crud_login_delete':
+        """Eliminar um log de login"""
+        log_id = user_id
+        
+        if not log_id:
+            flash('ID do log de login não fornecido!', 'error')
+            return redirect(url_for('settings'))
+        
+        # Buscar log de login
+        log = db.session.get(LoginLog, log_id)
+        if not log:
+            flash('Log de login não encontrado!', 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            db.session.delete(log)
+            db.session.commit()
+            flash(f'Log de login {log.id} eliminado com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao eliminar log de login: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))    
+
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida!', 'error')
     return redirect(url_for('settings'))

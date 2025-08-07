@@ -80,7 +80,7 @@
     <!-- Conteúdo principal -->
     <main class="container my-5">
         <!-- Gestão de Utilizadores -->
-        <div class="row justify-content-center mb-5">
+        <div class="row mb-5">
             <div class="col-12">
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
@@ -88,6 +88,7 @@
                             <i class="bi bi-people me-2"></i>
                             Gestão de Utilizadores
                         </h5>
+                        <span class="badge bg-light text-primary">{{ users|length }} utilizador{{ 'es' if users|length != 1 else '' }}</span>
                         <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
                             <i class="bi bi-person-plus me-1"></i>
                             Adicionar Utilizador
@@ -186,6 +187,139 @@
                 </div>
             </div>
         </div>
+
+
+
+
+<!-- Seção de Gestão de Pré Utilizadores -->
+        {% if preusers %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-people-fill me-2"></i>
+                                Pré Utilizadores do Sistema
+                            </h5>
+                            <div>
+                                <span class="badge bg-light text-primary">{{ preusers|length }} registo{{ 's' if preusers|length != 1 else '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Email</th>
+                                        <th>Código</th>
+                                        <th>Motivo</th>
+                                        <th>Data</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for preuser in preusers %}
+                                    <tr>
+                                        <td class="text-muted">#{{ user.id }}</td>
+                                        <td>{{ preuser._email }}</td>
+                                        <td>{{ preuser.code }}</td>
+                                        <td>{{ preuser.reason }}</td>
+                                        <td>{{ preuser.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <form action="/settings/users/{{ preuser.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ preuser._email }}?')">
+                                                    <input type="hidden" name="action" value="crud_preuser_delete">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Seção de Gestão de LoginLog -->
+        {% if login_logs %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-people-fill me-2"></i>
+                                Login Logs
+                            </h5>
+                            <div>
+                                <span class="badge bg-light text-primary">{{ login_logs|length }} registo{{ 's' if login_logs|length != 1 else '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>utilizador</th>
+                                        <th>Email</th>
+                                        <th>Remote addr</th>
+                                        <th>Data</th>
+                                        <th>Sucesso</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for login in login_logs %}
+                                    <tr>
+                                        <td class="text-muted">#{{ login.id }}</td>
+                                        <td>{{ login.user.email }}</td>
+                                        <td>{{ login.user.name }}</td>
+                                        <td>{{ login.remote_addr }}</td>
+                                        <td>{{ '✓' if login.success else '❌' }}</td>
+                                        <td>{{ login.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <form action="/settings/users/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ login.user.email }}?')">
+                                                    <input type="hidden" name="action" value="crud_login_delete">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                                
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+
+
+
+
+
+
+
+
+
 
         <!-- Modais para Edição e Eliminação de Utilizadores -->
         {% for user in users %}
@@ -351,7 +485,12 @@
             </div>
         </div>
 
+
+
         <!-- Info sobre formato CSV -->
+         <div class="row justify-content-center mb-4">
+
+         </div>
         <div class="row justify-content-center mb-4">
             <div class="col-lg-8">
                 <div class="alert alert-info">
@@ -481,96 +620,6 @@
             {% endif %}
         </div>
         
-        <!-- Seção de Gestão de Utilizadores -->
-        {% if show_users and users %}
-        <div class="row mt-5">
-            <div class="col-12">
-                <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="bi bi-people-fill me-2"></i>
-                                Utilizadores do Sistema
-                            </h5>
-                            <div>
-                                <span class="badge bg-light text-primary">{{ users|length }} utilizador{{ 'es' if users|length != 1 else '' }}</span>
-                                <a href="{{ url_for('settings') }}" class="btn btn-light btn-sm ms-2">
-                                    <i class="bi bi-arrow-left me-1"></i>
-                                    Voltar
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Utilizador</th>
-                                        <th>Email</th>
-                                        <th>Papel</th>
-                                        <th>Estado</th>
-                                        <th class="text-center">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for user in users %}
-                                    <tr>
-                                        <td class="text-muted">#{{ user.id }}</td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="avatar-circle me-2">
-                                                    {{ user.name[0].upper() if user.name else user.email[0].upper() }}
-                                                </div>
-                                                <div>
-                                                    <strong>{{ user.name }}</strong>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>{{ user.email }}</td>
-                                        <td>
-                                            {% if user.role == 'admin' %}
-                                                <span class="badge bg-danger">👑 Administrador</span>
-                                            {% elif user.role == 'editor' %}
-                                                <span class="badge bg-warning">✏️ Editor</span>
-                                            {% elif user.role == 'viewer' %}
-                                                <span class="badge bg-info">👁️ Visualizador</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">⏳ Sem Permissões</span>
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if user.is_verified %}
-                                                <span class="badge bg-success">✅ Verificado</span>
-                                            {% else %}
-                                                <span class="badge bg-warning">⏳ Pendente</span>
-                                            {% endif %}
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editModal{{ user.id }}">
-                                                    <i class="bi bi-pencil"></i>
-                                                </button>
-                                                {% if user.id != current_user.id %}
-                                                <form action="/settings/users/{{ user.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ user.name }}?')">
-                                                    <input type="hidden" name="action" value="crud_user_delete">
-                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Modais de Edição -->
         {% for user in users %}
@@ -625,8 +674,8 @@
             </div>
         </div>
         {% endfor %}
-        {% endif %}
     </main>
+
 
     <!-- Mobile bottom buttons -->
     <div class="d-lg-none fixed-bottom bg-light border-top p-3">
