@@ -682,7 +682,7 @@ def create_docx_with_photos(turma_nome):
         # Determinar tamanho das imagens baseado no número total de alunos
         num_alunos = len(alunos_ordenados)
         if num_alunos > 28:
-            img_width, img_height = 3.6, 2.7
+            img_width, img_height = 3.47, 2.6 # 3.6, 2.7
         else:
             img_width, img_height = 4, 3
         
