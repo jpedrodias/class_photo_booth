@@ -153,7 +153,18 @@
                         <i class="bi bi-eye"></i>
                     </button>
                     {% endif %}
+
                     {% if current_user.role in ['editor', 'admin'] %}
+                    <button class="btn btn-sm btn-outline-warning transfer-student-btn stay-on-page" 
+                            data-id="{{ aluno.id }}" 
+                            data-nome="{{ aluno.nome }}" 
+                            data-processo="{{ aluno.processo }}"
+                            data-turma-atual="{{ turma }}"
+                            data-bs-toggle="modal" 
+                            data-bs-target="#manualUploadPhotoStudentModal"
+                            onclick="event.stopPropagation();">
+                            <i class="bi bi-file-earmark-person-fill"></i>
+                    </button>
                     <button class="btn btn-sm btn-outline-primary edit-student-btn stay-on-page" 
                             data-id="{{ aluno.id }}" 
                             data-nome="{{ aluno.nome }}" 
@@ -504,6 +515,52 @@
         </div>
     </div>
 
+
+    <!-- Modal para upload manual de foto do aluno -->
+    <div class="modal fade" id="manualUploadPhotoStudentModal" tabindex="-1" aria-labelledby="manualUploadPhotoStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manualUploadPhotoStudentModalLabel">
+                        <i class="bi bi-file-earmark-person-fill me-2"></i>
+                        Upload Foto de <span id="manualUploadStudentName"></span>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="{{ url_for('student') }}" id="manualUploadPhotoStudentForm" enctype="multipart/form-data">
+                    <div class="modal-body">
+                        <!-- Inputs hidden -->
+                        <input type="hidden" name="action" value="crud_student_manual_upload_photo">
+                        <input type="hidden" name="turma" value="{{ turma }}">
+                        <input type="hidden" name="aluno_id" id="manualUploadAlunoId">
+                        <div class="mb-3">
+                            <label for="manualUploadPhotoFile" class="form-label">Selecionar foto</label>
+                            <input type="file" class="form-control" id="manualUploadPhotoFile" name="foto" accept="image/*" required>
+                            <div class="form-text">Apenas ficheiros de imagem (JPG, PNG, etc.)</div>
+                        </div>
+                        <div class="alert alert-info d-flex align-items-start">
+                            <i class="bi bi-info-circle me-2 mt-1"></i>
+                            <div>
+                                <strong>Nota:</strong><br>
+                                A foto será associada ao aluno selecionado.<br>
+                                O ficheiro deve ser uma imagem clara e recente do aluno.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload"></i> Enviar Foto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Mobile bottom buttons -->
     <div class="d-lg-none fixed-bottom bg-light border-top p-3">
         <div class="container">
@@ -658,22 +715,6 @@
             });
         });
         
-        // Adicionar efeito de entrada escalonado nos cards dos alunos
-        /*
-        window.addEventListener('load', function() {
-            const cards = document.querySelectorAll('.student-card');
-            cards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                
-                setTimeout(() => {
-                    card.style.transition = 'all 0.4s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 50);
-            });
-        });
-        */
 
         // Modal de adicionar aluno
         const addStudentModal = document.getElementById('addStudentModal');
@@ -807,6 +848,94 @@
                 alert('Por favor, selecione uma turma de destino!');
                 return;
             }
+        });
+
+
+        // Gerenciar modal de upload manual de foto do aluno
+
+        // Gerenciar modal de upload manual de foto do aluno
+        document.querySelectorAll('.transfer-student-btn').forEach(btn => {
+            if (btn.dataset.bsTarget === '#manualUploadPhotoStudentModal') {
+                btn.addEventListener('click', function() {
+                    document.getElementById('manualUploadAlunoId').value = this.dataset.id;
+                    document.getElementById('manualUploadStudentName').textContent = this.dataset.nome;
+                });
+            }
+        });
+
+        // Enviar foto manualmente via AJAX
+        document.getElementById('manualUploadPhotoStudentForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = this;
+            const submitButton = form.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+
+            // Mostrar feedback visual
+            submitButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Enviando...';
+            submitButton.disabled = true;
+
+            // Obter dados do aluno
+            const alunoId = form.querySelector('#manualUploadAlunoId').value;
+            const alunoData = alunosData.find(a => String(a.id) === String(alunoId));
+            if (!alunoData) {
+                alert('Aluno não encontrado.');
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+                return;
+            }
+            const nome_seguro = "{{ nome_seguro }}";
+            const processo = alunoData.processo;
+
+            // Obter ficheiro
+            const fileInput = form.querySelector('#manualUploadPhotoFile');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Selecione uma imagem.');
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+                return;
+            }
+
+            // Ler ficheiro como base64
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const base64data = ev.target.result;
+                // Enviar para o mesmo endpoint da captura
+                fetch(`/upload/photo/${nome_seguro}/${processo}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64data })
+                })
+                .then(response => {
+                    if (response.ok) {
+                        // Fechar modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('manualUploadPhotoStudentModal'));
+                        modal.hide();
+
+                        // Restaurar botão
+                        submitButton.innerHTML = originalButtonText;
+                        submitButton.disabled = false;
+
+                        // Atualizar foto dinamicamente
+                        updateStudentPhotoAfterCapture(processo);
+                        createFlashMessage(`Foto de ${alunoData.nome} enviada com sucesso!`, 'success');
+                    } else {
+                        throw new Error('Erro no upload');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao enviar foto:', error);
+                    alert('Erro ao enviar a foto. Tente novamente.');
+                    submitButton.innerHTML = originalButtonText;
+                    submitButton.disabled = false;
+                });
+            };
+            reader.onerror = function() {
+                alert('Erro ao ler o ficheiro.');
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            };
+            reader.readAsDataURL(file);
         });
 
         // Gerenciar modal de preview da foto (usando delegação de eventos)
