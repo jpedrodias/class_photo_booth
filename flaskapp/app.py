@@ -1751,7 +1751,7 @@ def download(ficheiro):
         
         # Para o nome do ficheiro de download, usar sempre o nome original da turma
         real_turma_nome = turma_obj.nome
-        download_filename = f'{real_turma_nome}.thumbs.zip' if is_thumb else f'{real_turma_nome}.zip'
+        #download_filename = f'{real_turma_nome}.thumbs.zip' if is_thumb else f'{real_turma_nome}.zip'
         
         turma_dir = turma_obj.get_thumb_directory() if is_thumb else turma_obj.get_foto_directory()
         
