@@ -284,10 +284,12 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Modal para nova turma**: Criação rápida via popup (admin apenas)
 - **Controlo de acesso**: Interface adapta conforme permissões do utilizador
 
-#### 6.2.4 Gestão da Turma (`/turma/<nome_seguro>`)
+### 6.2.4 Gestão da Turma (`/turma/<nome_seguro>`)
 - **Grid adaptativo**: Layout responsivo para alunos
 - **Estatísticas detalhadas**: Contagem de fotos e progresso
 - **Cartões de aluno**: Com thumbnail e ações CRUD conforme permissões
+- **Drag & Drop de imagem**: Arraste um ficheiro JPG/PNG para o cartão do aluno para abrir automaticamente o modal de upload manual, com os dados do aluno preenchidos e o ficheiro já selecionado, pronto para envio
+- **Destaque visual**: Cartão do aluno recebe destaque visual ao arrastar ficheiro (CSS `.student-card.dragover` em `styles.css`)
 - **Dropdown de download**: Opções ZIP e DOCX
 - **Ações por aluno**: Editar, transferir, remover, remover foto (baseado em role)
 - **Suporte completo**: Todos os alunos aparecem (com/sem foto)
@@ -394,11 +396,12 @@ photos_thumbs/
 
 ## 8. Funcionalidades Avançadas
 
-### 8.1 Sistema de Placeholders
+### 8.1 Sistema de Placeholders e Drag & Drop
 - **Ícone padrão**: `student_icon.jpg` para alunos sem foto
 - **Integração completa**: Suporte em thumbnails e documentos
 - **Consistência visual**: Mesmo estilo para todos os estados
 - **Cursor uniforme**: Pointer em todos os cartões de aluno
+- **Drag & Drop**: Suporte a arrastar ficheiros de imagem diretamente para o cartão do aluno, com feedback visual e integração total ao fluxo de upload manual
 
 ### 8.2 Gestão de Estados
 - **Flag foto_tirada**: Controlo preciso do estado de cada aluno
@@ -627,6 +630,8 @@ Esta especificação reflete fielmente a aplicação **Class Photo Booth** imple
 ✅ Interface administrativa para gestão de utilizadores  
 ✅ CRUD completo para turmas, alunos e utilizadores  
 ✅ Sistema de captura de fotos com controlo de permissões  
+✅ Upload manual de foto com suporte a drag-and-drop diretamente no cartão do aluno, preenchendo automaticamente o modal  
+✅ Destaque visual do cartão durante drag-and-drop (CSS externo)  
 ✅ Processamento avançado de imagens (PIL/OpenCV)  
 ✅ Geração de documentos Word profissionais  
 ✅ Downloads em ZIP e DOCX  
