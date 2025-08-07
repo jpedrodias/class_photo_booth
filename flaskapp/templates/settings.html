@@ -287,8 +287,8 @@
                                         <td>{{ login.user.email }}</td>
                                         <td>{{ login.user.name }}</td>
                                         <td>{{ login.remote_addr }}</td>
-                                        <td>{{ '✓' if login.success else '❌' }}</td>
                                         <td>{{ login.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td>{{ '✓' if login.success else '❌' }}</td>
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
                                                 <form action="/settings/users/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ login.user.email }}?')">
