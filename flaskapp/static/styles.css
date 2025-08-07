@@ -165,6 +165,11 @@ body {
     box-shadow: var(--shadow-hover);
 }
 
+.student-card.dragover {
+    box-shadow: 0 0 0 4px #0d6efd44;
+    border: 2px dashed #0d6efd;
+}
+
 .student-photo {
     width: 100%;
     height: 200px;
