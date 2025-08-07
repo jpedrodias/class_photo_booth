@@ -96,15 +96,7 @@
         {% for aluno in alunos %}
         <div class="col-6 col-md-4 col-lg-3 col-xl-3">
             {% if current_user.role in ['editor', 'admin'] %}
-            <div class="student-card h-100" 
-                onclick="goToCapturePhoto('{{ aluno.processo }}')" 
-                style="cursor: pointer;" 
-                data-aluno-id="{{ aluno.id }}" 
-                data-aluno-nome="{{ aluno.nome }}" 
-                data-aluno-processo="{{ aluno.processo }}"
-                ondragover="event.preventDefault(); this.classList.add('dragover');" 
-                ondragleave="this.classList.remove('dragover');" 
-                ondrop="handleStudentCardDrop(event, this);">
+            <div class="student-card h-100" >
             {% else %}
             <div class="student-card h-100" style="cursor: default;"
                 data-aluno-id="{{ aluno.id }}" data-aluno-nome="{{ aluno.nome }}" data-aluno-processo="{{ aluno.processo }}"
@@ -115,7 +107,15 @@
                 <div class="student-photo position-relative">
 
                     {% if aluno.foto_existe or aluno.foto_tirada %}
-                        <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img">
+                        <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" alt="Foto de {{ aluno.nome }}" class="photo-img"
+                            onclick="goToCapturePhoto('{{ aluno.processo }}')" 
+                            style="cursor: pointer;" 
+                            data-aluno-id="{{ aluno.id }}" 
+                            data-aluno-nome="{{ aluno.nome }}" 
+                            data-aluno-processo="{{ aluno.processo }}"
+                            ondragover="event.preventDefault(); this.classList.add('dragover');" 
+                            ondragleave="this.classList.remove('dragover');" 
+                            ondrop="handleStudentCardDrop(event, this);">
                         {% if current_user.role in ['editor', 'admin'] %}
                         <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
                             data-id="{{ aluno.id }}" 
@@ -129,7 +129,15 @@
                         </button>
                         {% endif %}
                     {% else %}
-                        <img src="{{ url_for('static', filename='student_icon.jpg') }}" alt="Sem foto" class="photo-img placeholder">
+                        <img src="{{ url_for('static', filename='student_icon.jpg') }}" alt="Sem foto" class="photo-img placeholder"
+                            onclick="goToCapturePhoto('{{ aluno.processo }}')" 
+                            style="cursor: pointer;" 
+                            data-aluno-id="{{ aluno.id }}" 
+                            data-aluno-nome="{{ aluno.nome }}" 
+                            data-aluno-processo="{{ aluno.processo }}"
+                            ondragover="event.preventDefault(); this.classList.add('dragover');" 
+                            ondragleave="this.classList.remove('dragover');" 
+                            ondrop="handleStudentCardDrop(event, this);">
                         {% if current_user.role in ['editor', 'admin'] %}
                         <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle" 
                             title="Clique para tirar foto"
