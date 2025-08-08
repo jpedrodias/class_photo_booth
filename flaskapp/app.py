@@ -1831,6 +1831,11 @@ def settings():
 def settings_rescan_photos():
     """Percorre todas as pastas de fotos e atualiza foto_existe=True para alunos com foto encontrada"""
     import os
+    
+    # Obter opção de marcação do formulário
+    mark_option = request.form.get('mark_option', 'taken')  # Default: marcar como tiradas
+    mark_as_taken = (mark_option == 'taken')
+    
     updated_count = 0
     for turma_dir in os.listdir(PHOTOS_DIR) if os.path.exists(PHOTOS_DIR) else []:
         turma_path = os.path.join(PHOTOS_DIR, turma_dir)
@@ -1841,10 +1846,17 @@ def settings_rescan_photos():
                     aluno = Aluno.query.filter_by(processo=processo).first()
                     if aluno:
                         aluno.foto_existe = True
-                        #aluno.foto_tirada = False
+                        aluno.foto_tirada = mark_as_taken  # Definir baseado na opção escolhida
                         updated_count += 1
+    
     db.session.commit()
-    flash(f'Atualização concluída: {updated_count} alunos marcados com foto existente.', 'success')
+    
+    # Mensagem personalizada baseada na opção escolhida
+    if mark_as_taken:
+        flash(f'Rescan concluído: {updated_count} alunos marcados com foto existente e tirada.', 'success')
+    else:
+        flash(f'Rescan concluído: {updated_count} alunos marcados com foto existente mas não tirada.', 'success')
+    
     return redirect(url_for('settings'))
 
 
