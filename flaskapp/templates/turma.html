@@ -193,6 +193,7 @@
                             data-turma-atual="{{ turma }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#manualUploadPhotoStudentModal"
+                            title="Upload de foto do aluno"
                             onclick="event.stopPropagation();">
                             <i class="bi bi-file-earmark-person-fill"></i>
                     </button>
@@ -203,6 +204,7 @@
                             data-numero="{{ aluno.numero or '' }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#editStudentModal"
+                            title="Editar aluno"
                             onclick="event.stopPropagation();">
                         <i class="bi bi-pencil"></i>
                     </button>
@@ -213,6 +215,7 @@
                             data-turma-atual="{{ turma }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#transferStudentModal"
+                            title="Transferir aluno para outra turma"
                             onclick="event.stopPropagation();">
                         <i class="bi bi-arrow-right"></i>
                     </button>
@@ -221,6 +224,7 @@
                             data-nome="{{ aluno.nome }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#deleteStudentModal"
+                            title="Excluir aluno"
                             onclick="event.stopPropagation();">
                         <i class="bi bi-trash"></i>
                     </button>
