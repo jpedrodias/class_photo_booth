@@ -1837,7 +1837,20 @@ def settings_rescan_photos():
     mark_as_taken = (mark_option == 'taken')
     
     updated_count = 0
+    orphaned_photos_count = 0
+    orphaned_thumbs_count = 0
+    
+    # Criar pastas "lost" se necessário
+    lost_photos_dir = os.path.join(PHOTOS_DIR, 'lost')
+    lost_thumbs_dir = os.path.join(THUMBS_DIR, 'lost')
+    safe_makedirs(lost_photos_dir)
+    safe_makedirs(lost_thumbs_dir)
+    
+    # Processar fotos originais
     for turma_dir in os.listdir(PHOTOS_DIR) if os.path.exists(PHOTOS_DIR) else []:
+        if turma_dir == 'lost':  # Pular a pasta lost
+            continue
+            
         turma_path = os.path.join(PHOTOS_DIR, turma_dir)
         if os.path.isdir(turma_path):
             for photo_file in os.listdir(turma_path):
@@ -1848,14 +1861,50 @@ def settings_rescan_photos():
                         aluno.foto_existe = True
                         aluno.foto_tirada = mark_as_taken  # Definir baseado na opção escolhida
                         updated_count += 1
+                    else:
+                        # Foto órfã - mover para pasta lost
+                        source_path = os.path.join(turma_path, photo_file)
+                        dest_path = os.path.join(lost_photos_dir, f"{turma_dir}_{photo_file}")
+                        try:
+                            shutil.move(source_path, dest_path)
+                            orphaned_photos_count += 1
+                        except Exception as e:
+                            print(f"Erro ao mover foto órfã {source_path}: {e}")
+    
+    # Processar thumbnails
+    for turma_dir in os.listdir(THUMBS_DIR) if os.path.exists(THUMBS_DIR) else []:
+        if turma_dir == 'lost':  # Pular a pasta lost
+            continue
+            
+        turma_path = os.path.join(THUMBS_DIR, turma_dir)
+        if os.path.isdir(turma_path):
+            for thumb_file in os.listdir(turma_path):
+                if thumb_file.endswith('.jpg'):
+                    processo = thumb_file[:-4]  # Remove .jpg
+                    aluno = Aluno.query.filter_by(processo=processo).first()
+                    if not aluno:
+                        # Thumbnail órfã - mover para pasta lost
+                        source_path = os.path.join(turma_path, thumb_file)
+                        dest_path = os.path.join(lost_thumbs_dir, f"{turma_dir}_{thumb_file}")
+                        try:
+                            shutil.move(source_path, dest_path)
+                            orphaned_thumbs_count += 1
+                        except Exception as e:
+                            print(f"Erro ao mover thumbnail órfã {source_path}: {e}")
     
     db.session.commit()
     
-    # Mensagem personalizada baseada na opção escolhida
+    # Construir mensagem personalizada baseada na opção escolhida e fotos órfãs encontradas
+    messages = []
     if mark_as_taken:
-        flash(f'Rescan concluído: {updated_count} alunos marcados com foto existente e tirada.', 'success')
+        messages.append(f'Rescan concluído: {updated_count} alunos marcados com foto existente e tirada.')
     else:
-        flash(f'Rescan concluído: {updated_count} alunos marcados com foto existente mas não tirada.', 'success')
+        messages.append(f'Rescan concluído: {updated_count} alunos marcados com foto existente mas não tirada.')
+    
+    if orphaned_photos_count > 0 or orphaned_thumbs_count > 0:
+        messages.append(f'Fotos órfãs movidas para pasta "lost": {orphaned_photos_count} fotos originais e {orphaned_thumbs_count} thumbnails.')
+    
+    flash(' '.join(messages), 'success')
     
     return redirect(url_for('settings'))
 
