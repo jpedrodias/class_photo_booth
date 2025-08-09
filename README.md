@@ -4,7 +4,7 @@ O objetivo da aplicação **Class Photo Booth** é permitir a captura de fotogra
 ## 📋 Funcionalidades
 
 ```
-📸 CLASS PHOTO BOOTH v0.4
+📸 CLASS PHOTO BOOTH v4.1
 Sistema Completo de Gestão de Fotografias Escolares
 
   🔐 SISTEMA DE AUTENTICAÇÃO COMPLETO
@@ -41,7 +41,10 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 📁 Upload em massa via CSV (substituição/merge)
   ├─ 🔢 Validação de processo (apenas números únicos)
   ├─ 🖼️ Remoção individual de fotografias
-  └─ 🔄 Sincronização automática com base de dados
+  ├─ 🔄 Sincronização automática com base de dados
+  ├─ 📝 Renomeação automática de arquivos ao alterar processo
+  ├─ 🛡️ Gestão robusta de erros com rollback automático
+  └─ 📊 Controlo duplo de estado (foto_existe + foto_tirada)
 
   📸 CAPTURA DE FOTOGRAFIAS (Editor+)
   ├─ 📷 Interface avançada com múltiplas câmaras
@@ -50,7 +53,9 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 🔄 Recaptura ilimitada até satisfação
   ├─ 🖼️ Geração automática de thumbnails (250x250px)
   ├─ 💾 Armazenamento seguro com nomes sanitizados
-  └─ 📱 Interface otimizada para dispositivos móveis
+  ├─ 📱 Interface otimizada para dispositivos móveis
+  ├─ 🎨 Drag & Drop direto no cartão do aluno
+  └─ 🔄 Atualização dinâmica de contadores e estado
 
   📥 DOWNLOADS MÚLTIPLOS (Viewer+)
   ├─ 📦 ZIP Fotos Originais (alta resolução por turma)
@@ -75,7 +80,10 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 🎨 Feedback visual em tempo real
   ├─ ♿ Acessibilidade e usabilidade otimizada
   ├─ 🌈 Design glassmorphism moderno
-  └─ 🎯 Navegação contextual inteligente
+  ├─ 🎯 Navegação contextual inteligente
+  ├─ 🎨 Destaque visual durante drag-and-drop
+  ├─ 📊 Barras de progresso com estatísticas dinâmicas
+  └─ 🔄 Scroll preservation entre operações
 
   ⚙️  CONFIGURAÇÕES E ADMINISTRAÇÃO (Admin)
   ├─ 🔧 Painel de configurações centralizadas
@@ -103,7 +111,9 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 🚀 Deploy produção-ready
   ├─ 📋 Logs e monitorização avançada
   ├─ 🔄 Scripts de inicialização automatizados
-  └─ 💾 Base de dados SQLite com SQLAlchemy ORM
+  ├─ 💾 Base de dados SQLite com SQLAlchemy ORM
+  ├─ 🔧 Configuração flexível dev/prod
+  └─ 🛡️ Gestão segura de permissões e volumes
 
   📋 ESPECIFICAÇÕES TÉCNICAS
 
@@ -130,4 +140,111 @@ Sistema Completo de Gestão de Fotografias Escolares
 
 💡 Class Photo Booth - Solução empresarial completa para fotografias escolares
 🔐 Multi-user • 📱 Mobile-ready • 🚀 Production-ready • 🛡️ Enterprise-grade
+
+## 🆕 Melhorias Recentes (v4.1)
+
+### 🔄 **Renomeação Automática de Arquivos**
+- Quando o processo de um aluno é alterado, todas as fotos são automaticamente renomeadas
+- Mantém consistência entre base de dados e sistema de ficheiros
+- Gestão robusta de erros com rollback automático em caso de falha
+
+### 📊 **Controlo de Estado Avançado**
+- Duplo controlo com flags `foto_existe` e `foto_tirada`
+- Sincronização precisa entre base de dados e ficheiros
+- Estatísticas dinâmicas em tempo real
+
+### 🎨 **Interface Aprimorada**
+- Drag & Drop direto nos cartões dos alunos
+- Destaque visual durante operações de arraste
+- Preservação de scroll entre operações
+- Barras de progresso com estatísticas atualizadas
+
+### 🛡️ **Robustez e Segurança**
+- Sistema de rollback automático em operações críticas
+- Validação aprimorada de dados e integridade
+- Gestão de erros com feedback específico ao utilizador
+
+## 🚀 Instalação e Configuração
+
+### 📋 **Pré-requisitos**
+- Docker & Docker Compose
+- Arquivo `.env` configurado (veja exemplo abaixo)
+
+### ⚙️ **Configuração do .env**
+```env
+# Configurações da aplicação
+FLASKAPP_NAME=class-photo-booth
+FLASKAPP_FILE=app.py
+FLASKAPP_PORT=80
+FLASKAPP_DEBUG=True
+FLASKAPP_SECRET_KEY=your-secret-key-here
+
+# Configurações de email
+MAIL_USERNAME=your-email@outlook.com
+MAIL_PASSWORD=your-password
+MAIL_SENDER=Class Photo Booth <your-email@outlook.com>
+
+# Configurações Docker
+TZ=Europe/Lisbon
+UID=1000
+GID=1000
+```
+
+### 🐳 **Instalação com Docker**
+```bash
+# 1. Clonar o repositório
+git clone https://github.com/jpedrodias/class_photo_booth.git
+cd class_photo_booth
+
+# 2. Configurar .env
+# Criar .env baseado no exemplo abaixo
+# Editar .env com suas configurações
+
+# 3. Construir e executar
+docker-compose up -d
+
+# 4. Aceder à aplicação
+# http://localhost (ou porta configurada)
+```
+
+### 🔧 **Primeiro Acesso**
+1. Aceder à aplicação no navegador
+2. Criar primeira conta (será automaticamente admin)
+3. Configurar email de verificação
+4. Importar dados via CSV (opcional)
+5. Começar a usar!
+
+## 📚 Documentação Completa
+
+Para documentação técnica detalhada, consulte o arquivo [`SPECIFICATION.md`](SPECIFICATION.md) que inclui:
+- Arquitetura completa do sistema
+- Modelos de base de dados
+- Fluxos de utilizador
+- Considerações de segurança
+- Guias de deployment
+
+## 🤝 Contribuições
+
+Contribuições são bem-vindas! Para contribuir:
+
+1. Faça fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está licenciado sob a [MIT License](LICENSE) - veja o arquivo LICENSE para detalhes.
+
+## 📞 Suporte
+
+Para dúvidas, sugestões ou problemas:
+- 📧 Email: jpedrodias@gmail.com
+- 🐛 Issues: [GitHub Issues](https://github.com/jpedrodias/class_photo_booth/issues)
+- 📖 Documentação: [SPECIFICATION.md](SPECIFICATION.md)
+
+---
+
+**Class Photo Booth v4.1** - Desenvolvido com ❤️ para facilitar a gestão de fotografias escolares
 ```

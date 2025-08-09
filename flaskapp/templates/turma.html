@@ -125,6 +125,22 @@
                              alt="Foto de {{ aluno.nome }}" 
                              class="photo-img">
                         {% endif %}
+                        
+                        <!-- Ícone de foto recente (canto superior esquerdo) -->
+                        {% if aluno.foto_tirada %}
+                        <div class="position-absolute top-0 start-0 m-1" 
+                             title="Foto tirada"
+                             style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);">
+                            <i class="bi bi-emoji-smile-fill text-white" style="font-size: 14px;"></i>
+                        </div>
+                        {% else %}
+                        <div class="position-absolute top-0 start-0 m-1" 
+                             title="Foto não tirada recentemente"
+                             style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);">
+                            <i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>
+                        </div>
+                        {% endif %}
+                        
                         {% if current_user.role in ['editor', 'admin'] %}
                         <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
                             data-id="{{ aluno.id }}" 
@@ -172,7 +188,7 @@
                 
                 <!-- Botões de ação do aluno -->
                 <div class="student-actions mt-2">
-                    {% if aluno.foto_existe %}
+                    <!-- Botão de preview sempre presente, mas oculto se não há foto -->
                     <button class="btn btn-sm btn-outline-info preview-photo-btn" 
                             data-processo="{{ aluno.processo }}" 
                             data-nome="{{ aluno.nome }}"
@@ -180,10 +196,10 @@
                             data-bs-toggle="modal" 
                             data-bs-target="#previewPhotoModal"
                             onclick="event.stopPropagation(); openPreviewModal('{{ aluno.processo }}', '{{ aluno.nome }}', '{{ aluno.turma }}');"
-                            title="Preview da foto original">
+                            title="Preview da foto original"
+                            style="display: {% if aluno.foto_existe %}inline-block{% else %}none{% endif %};">
                         <i class="bi bi-eye"></i>
                     </button>
-                    {% endif %}
 
                     {% if current_user.role in ['editor', 'admin'] %}
                     <button class="btn btn-sm btn-outline-warning transfer-student-btn stay-on-page" 
@@ -963,6 +979,8 @@
 
                         // Atualizar foto dinamicamente
                         updateStudentPhotoAfterCapture(processo);
+                        
+                        // Criar mensagem de sucesso
                         createFlashMessage(`Foto de ${alunoData.nome} enviada com sucesso!`, 'success');
                     } else {
                         throw new Error('Erro no upload');
@@ -1493,6 +1511,12 @@
                     
                     // Atualizar foto dinamicamente sem recarregar a página
                     updateStudentPhotoAfterCapture(window.currentProcesso);
+                    
+                    // Criar mensagem de sucesso
+                    const alunoData = alunosData.find(a => a.processo === window.currentProcesso);
+                    if (alunoData) {
+                        createFlashMessage(`Foto de ${alunoData.nome} capturada com sucesso!`, 'success');
+                    }
                 } else {
                     alert('Erro ao capturar a foto.');
                     captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
@@ -1513,22 +1537,15 @@
             const alunoData = alunosData.find(a => a.processo === processo);
             
             if (!alunoData) {
+                console.error('Aluno não encontrado para processo:', processo);
                 return;
             }
             
-            // Encontrar os elementos do card do aluno
-            const allCards = document.querySelectorAll('.student-card');
-            let targetCard = null;
-            
-            // Procurar o card que contém este processo
-            allCards.forEach(card => {
-                const cardOnClick = card.getAttribute('onclick');
-                if (cardOnClick && cardOnClick.includes(processo)) {
-                    targetCard = card;
-                }
-            });
+            // Encontrar o card do aluno pelo atributo data-aluno-processo
+            const targetCard = document.querySelector(`[data-aluno-processo="${processo}"]`);
             
             if (!targetCard) {
+                console.error('Card do aluno não encontrado para processo:', processo);
                 return;
             }
             
@@ -1538,6 +1555,7 @@
             const studentActions = targetCard.querySelector('.student-actions');
             
             if (!photoImg || !photoContainer) {
+                console.error('Elementos da foto não encontrados:', {photoImg, photoContainer});
                 return;
             }
             
@@ -1554,7 +1572,12 @@
                 photoImg.alt = `Foto de ${alunoData.nome}`;
                 photoImg.classList.remove('placeholder');
                 
-                // Remover botão de câmera e adicionar botão de remover foto
+                // Adicionar onclick para captura de foto se for editor/admin
+                const userRole = '{{ current_user.role }}';
+                if (['editor', 'admin'].includes(userRole)) {
+                    photoImg.onclick = function() { goToCapturePhoto(processo); };
+                    photoImg.style.cursor = 'pointer';
+                }
                 const cameraBtn = photoContainer.querySelector('.btn-secondary');
                 if (cameraBtn) {
                     // Criar botão de remover foto
@@ -1587,36 +1610,26 @@
                     photoContainer.replaceChild(removeBtn, cameraBtn);
                 }
                 
-                // Adicionar botão de preview se não existir
-                if (studentActions && !studentActions.querySelector('.preview-photo-btn')) {
-                    const previewBtn = document.createElement('button');
-                    previewBtn.className = 'btn btn-sm btn-outline-info preview-photo-btn';
-                    previewBtn.setAttribute('data-processo', processo);
-                    previewBtn.setAttribute('data-nome', alunoData.nome);
-                    previewBtn.setAttribute('data-turma', alunoData.turma);
-                    previewBtn.setAttribute('data-bs-toggle', 'modal');
-                    previewBtn.setAttribute('data-bs-target', '#previewPhotoModal');
-                    previewBtn.title = 'Preview da foto original';
-                    previewBtn.onclick = function(event) {
-                        event.stopPropagation();
-                        openPreviewModal(processo, alunoData.nome, alunoData.turma);
-                    };
-                    previewBtn.innerHTML = '<i class="bi bi-eye"></i>';
-                    
-                    // Inserir como primeiro botão
-                    const firstActionBtn = studentActions.querySelector('.btn');
-                    if (firstActionBtn) {
-                        studentActions.insertBefore(previewBtn, firstActionBtn);
-                    } else {
-                        studentActions.appendChild(previewBtn);
+                // Adicionar ícone de "foto recente" no canto superior esquerdo
+                if (!photoContainer.querySelector('.recent-photo-icon')) {
+                    const recentIcon = document.createElement('div');
+                    recentIcon.className = 'position-absolute top-0 start-0 m-1 recent-photo-icon';
+                    recentIcon.title = 'Foto tirada recentemente';
+                    recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                    recentIcon.innerHTML = '<i class="bi bi-emoji-smile-fill text-white" style="font-size: 14px;"></i>';
+                    photoContainer.appendChild(recentIcon);
+                }
+                
+                // Mostrar botão de preview (sempre presente, mas oculto se não há foto)
+                if (studentActions) {
+                    const previewBtn = studentActions.querySelector('.preview-photo-btn');
+                    if (previewBtn) {
+                        previewBtn.style.display = 'inline-block';
                     }
                 }
                 
                 // Atualizar contador de fotos na navbar
                 updatePhotoCounter();
-                
-                // Criar mensagem flash dinâmica usando o estilo do Flask
-                createFlashMessage(`Foto de ${alunoData.nome} capturada com sucesso!`, 'success');
                 
                 // Adicionar efeito visual de "nova foto"
                 photoImg.style.opacity = '0';
@@ -1688,6 +1701,9 @@
             
             // Remover botão de remoção de foto e adicionar botão de câmera
             if (removeBtn) {
+                // Obter processo do aluno para o botão de câmera
+                const alunoProcesso = targetCard.getAttribute('data-aluno-processo');
+                
                 // Criar botão de câmera
                 const cameraBtn = document.createElement('button');
                 cameraBtn.className = 'btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle';
@@ -1695,6 +1711,7 @@
                 cameraBtn.style.cssText = 'width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;';
                 cameraBtn.onclick = function(event) {
                     event.stopPropagation();
+                    goToCapturePhoto(alunoProcesso);
                 };
                 cameraBtn.innerHTML = '<i class="bi bi-camera" style="font-size: 12px;"></i>';
                 
@@ -1702,9 +1719,26 @@
                 photoContainer.replaceChild(cameraBtn, removeBtn);
             }
             
-            // Remover botão de preview se existir
+            // Trocar ícone de "foto tirada" pelo ícone de "foto não tirada"
+            const recentIcon = photoContainer.querySelector('.recent-photo-icon');
+            if (recentIcon) {
+                // Atualizar para emoji tonto (foto não tirada)
+                recentIcon.title = 'Foto não tirada';
+                recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                recentIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>';
+            } else {
+                // Criar ícone de "foto não tirada" se não existir
+                const dizzyIcon = document.createElement('div');
+                dizzyIcon.className = 'position-absolute top-0 start-0 m-1 recent-photo-icon';
+                dizzyIcon.title = 'Foto não tirada';
+                dizzyIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                dizzyIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>';
+                photoContainer.appendChild(dizzyIcon);
+            }
+            
+            // Ocultar botão de preview se existir
             if (previewBtn) {
-                previewBtn.remove();
+                previewBtn.style.display = 'none';
             }
             
             // Atualizar contador de fotos na navbar
@@ -1722,77 +1756,6 @@
                 photoImg.style.opacity = '1';
                 photoImg.style.transform = 'scale(1)';
             }, 100);
-        }
-        
-        // Função para atualizar a foto do aluno após captura/upload
-        function updateStudentPhotoAfterCapture(processo) {
-            // Encontrar o cartão do aluno pelo processo
-            const studentCard = document.querySelector(`[data-aluno-processo="${processo}"]`);
-            if (!studentCard) return;
-            
-            const photoImg = studentCard.querySelector('.photo-img');
-            if (!photoImg) return;
-            
-            // Criar nova URL com timestamp para forçar reload
-            const timestamp = new Date().getTime();
-            const newSrc = `{{ url_for('get_photo', folder_name=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}`.replace('PROCESSO_PLACEHOLDER', processo) + `?t=${timestamp}`;
-            
-            // Animar transição
-            photoImg.style.transition = 'all 0.3s ease';
-            photoImg.style.opacity = '0.5';
-            photoImg.style.transform = 'scale(0.95)';
-            
-            // Carregar nova imagem
-            setTimeout(() => {
-                photoImg.src = newSrc;
-                photoImg.alt = `Foto atualizada`;
-                photoImg.classList.remove('placeholder');
-                
-                // Adicionar onclick para captura de foto se for editor/admin
-                const userRole = '{{ current_user.role }}';
-                if (['editor', 'admin'].includes(userRole)) {
-                    photoImg.onclick = function() { goToCapturePhoto(processo); };
-                    photoImg.style.cursor = 'pointer';
-                }
-                
-                // Remover botão de câmera se existir (quando era placeholder)
-                const cameraBtn = studentCard.querySelector('.btn-secondary');
-                if (cameraBtn && cameraBtn.querySelector('.bi-camera')) {
-                    cameraBtn.remove();
-                }
-                
-                // Adicionar botão de remover se não existir
-                if (!studentCard.querySelector('.remove-photo-btn')) {
-                    const photoContainer = studentCard.querySelector('.student-photo');
-                    const removeBtn = document.createElement('button');
-                    removeBtn.className = 'btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn';
-                    removeBtn.setAttribute('data-id', studentCard.getAttribute('data-aluno-id'));
-                    removeBtn.setAttribute('data-nome', studentCard.getAttribute('data-aluno-nome'));
-                    removeBtn.setAttribute('data-bs-toggle', 'modal');
-                    removeBtn.setAttribute('data-bs-target', '#removePhotoModal');
-                    removeBtn.setAttribute('title', 'Clique para remover a foto');
-                    removeBtn.setAttribute('onclick', 'event.stopPropagation();');
-                    removeBtn.style.cssText = 'width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;';
-                    removeBtn.innerHTML = '<i class="bi bi-x" style="font-size: 12px;"></i>';
-                    photoContainer.appendChild(removeBtn);
-                    
-                    // Adicionar event listener para o novo botão
-                    removeBtn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const id = this.dataset.id;
-                        const nome = this.dataset.nome;
-                        
-                        document.getElementById('removePhotoAlunoId').value = id;
-                        document.getElementById('removePhotoStudentName').textContent = nome;
-                    });
-                }
-                
-                // Restaurar animação
-                photoImg.style.opacity = '1';
-                photoImg.style.transform = 'scale(1)';
-            }, 150);
         }
         
         // Função para criar mensagem flash dinâmica que imita o sistema Flask
