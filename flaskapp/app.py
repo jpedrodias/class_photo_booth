@@ -1471,16 +1471,62 @@ def student():
                 flash(f'Já existe outro aluno com o número {processo_validado} na turma "{aluno_existente.turma.nome}"!', 'error')
                 return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
         
-        # Atualizar dados do aluno
+        # Guardar processo antigo para renomeação de arquivos
+        processo_antigo = aluno.processo
+        processo_mudou = (processo_validado != processo_antigo)
+        
+        # Se o processo mudou e o aluno tem foto, renomear arquivos
+        if processo_mudou and aluno.foto_tirada:
+            foto_dir = aluno.turma.get_foto_directory()
+            thumb_dir = aluno.turma.get_thumb_directory()
+            
+            # Caminhos dos arquivos antigos
+            old_photo_path = os.path.join(foto_dir, f'{processo_antigo}.jpg')
+            old_thumb_path = os.path.join(thumb_dir, f'{processo_antigo}.jpg')
+            
+            # Caminhos dos arquivos novos
+            new_photo_path = os.path.join(foto_dir, f'{processo_validado}.jpg')
+            new_thumb_path = os.path.join(thumb_dir, f'{processo_validado}.jpg')
+            
+            # Renomear foto original se existir
+            if os.path.exists(old_photo_path):
+                try:
+                    os.rename(old_photo_path, new_photo_path)
+                except Exception as e:
+                    print(f"Erro ao renomear foto original de {processo_antigo} para {processo_validado}: {e}")
+                    flash('Erro ao renomear foto original. Tente novamente.', 'error')
+                    return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+            
+            # Renomear thumbnail se existir
+            if os.path.exists(old_thumb_path):
+                try:
+                    os.rename(old_thumb_path, new_thumb_path)
+                except Exception as e:
+                    print(f"Erro ao renomear thumbnail de {processo_antigo} para {processo_validado}: {e}")
+                    # Se houve erro na thumbnail mas a foto original foi renomeada, tentar desfazer
+                    if os.path.exists(new_photo_path):
+                        try:
+                            os.rename(new_photo_path, old_photo_path)
+                        except:
+                            pass
+                    flash('Erro ao renomear thumbnail. Tente novamente.', 'error')
+                    return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+        
+        # Atualizar dados na base de dados
         try:
             aluno.nome = nome
             aluno.processo = processo_validado
             aluno.numero = numero_int
             db.session.commit()
-            flash(f'Aluno {nome} editado com sucesso!', 'success')
+            
+            if processo_mudou and aluno.foto_tirada:
+                flash(f'Aluno {nome} editado com sucesso! Fotos renomeadas de {processo_antigo} para {processo_validado}.', 'success')
+            else:
+                flash(f'Aluno {nome} editado com sucesso!', 'success')
         except Exception as e:
             db.session.rollback()
-            flash('Erro ao editar aluno. Tente novamente.', 'error')
+            flash('Erro ao editar aluno na base de dados. Tente novamente.', 'error')
+            print(f"Erro na edição do aluno: {e}")
         
         return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
     
