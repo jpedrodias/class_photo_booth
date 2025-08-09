@@ -64,6 +64,32 @@
         <div class="stats-card">
             <div class="stats-number">{{ turmas|length }}</div>
             <div class="stats-label">Turma{{ 's' if turmas|length != 1 else '' }} Disponív{{ 'eis' if turmas|length != 1 else 'el' }}</div>
+            
+            <!-- Contagem de alunos e fotos -->
+            <div class="d-flex justify-content-between text-muted small mt-3 mb-2">
+                <span>{{ total_alunos_geral }} aluno{{ 's' if total_alunos_geral != 1 else '' }}</span>
+                <span>{{ total_fotos_geral }} foto{{ 's' if total_fotos_geral != 1 else '' }}</span>
+            </div>
+            
+            <!-- Barra de progresso geral -->
+            {% set percentage_geral = (total_fotos_geral / total_alunos_geral * 100) if total_alunos_geral > 0 else 0 %}
+            <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <small class="text-muted">Progresso Geral</small>
+                    <small class="fw-bold text-{% if percentage_geral == 100 %}success{% elif percentage_geral >= 75 %}info{% elif percentage_geral >= 50 %}warning{% else %}danger{% endif %}">
+                        {{ "%.0f"|format(percentage_geral) }}%
+                    </small>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-{% if percentage_geral == 100 %}success{% elif percentage_geral >= 75 %}info{% elif percentage_geral >= 50 %}warning{% else %}danger{% endif %}" 
+                         role="progressbar" 
+                         style="width: {{ percentage_geral }}%;" 
+                         aria-valuenow="{{ percentage_geral }}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="row g-3">

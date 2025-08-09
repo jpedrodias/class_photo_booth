@@ -1203,9 +1203,16 @@ def turmas():
     
     # Para chamada normal, obter informações detalhadas
     turmas_data = []
+    total_alunos_geral = 0
+    total_fotos_geral = 0
+    
     for turma in turmas_query:
         total_alunos = len(turma.alunos)
         alunos_com_foto = sum(1 for aluno in turma.alunos if aluno.foto_tirada)
+        
+        # Somar aos totais gerais
+        total_alunos_geral += total_alunos
+        total_fotos_geral += alunos_com_foto
         
         turmas_data.append({
             'id': turma.id,
@@ -1215,7 +1222,10 @@ def turmas():
             'alunos_com_foto': alunos_com_foto
         })
     
-    return render_template('turmas.html', turmas=turmas_data)
+    return render_template('turmas.html', 
+                         turmas=turmas_data, 
+                         total_alunos_geral=total_alunos_geral,
+                         total_fotos_geral=total_fotos_geral)
 
 @app.route('/turma/<nome_seguro>')
 @no_cache
