@@ -83,6 +83,26 @@
                         <span>{{ turma.total_alunos }} aluno{{ 's' if turma.total_alunos != 1 else '' }}</span>
                         <span>{{ turma.alunos_com_foto }} foto{{ 's' if turma.alunos_com_foto != 1 else '' }}</span>
                     </div>
+                    
+                    <!-- Barra de progresso -->
+                    {% set percentage = (turma.alunos_com_foto / turma.total_alunos * 100) if turma.total_alunos > 0 else 0 %}
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Progresso</small>
+                            <small class="fw-bold text-{% if percentage == 100 %}success{% elif percentage >= 75 %}info{% elif percentage >= 50 %}warning{% else %}danger{% endif %}">
+                                {{ "%.0f"|format(percentage) }}%
+                            </small>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-{% if percentage == 100 %}success{% elif percentage >= 75 %}info{% elif percentage >= 50 %}warning{% else %}danger{% endif %}" 
+                                 role="progressbar" 
+                                 style="width: {{ percentage }}%;" 
+                                 aria-valuenow="{{ percentage }}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="100">
+                            </div>
+                        </div>
+                    </div>
                 </a>
                 
                 <div class="d-flex gap-2 mt-auto">
@@ -361,26 +381,6 @@
         setTimeout(() => {
             localStorage.removeItem(scrollStorageKey);
         }, 3600000); // 1 hora
-
-
-
-        // Adicionar efeito de entrada escalonado nos cards
-        /*
-        window.addEventListener('load', function() {
-            const cards = document.querySelectorAll('.turma-card-wrapper');
-            cards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(30px)';
-                
-                setTimeout(() => {
-                    card.style.transition = 'all 0.6s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 100);
-            });
-        });
-        */
-
 
         
     </script>
