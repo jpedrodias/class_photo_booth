@@ -57,7 +57,7 @@ O sistema destina-se a:
     ├── app.py            # Backend Flask com SQLAlchemy e autenticação
     ├── config.py         # Configurações da aplicação (Dev/Prod)
     ├── requirements.txt  # Dependências Python
-    ├── alunos.db         # Base de dados SQLite
+    ├── database.sqlite   # Base de dados SQLite
     ├── session_files/    # Ficheiros de sessão Flask
     ├── templates/        # Templates HTML
     │   ├── login.html    # Interface de autenticação completa
@@ -213,10 +213,12 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Validação**: Unicidade de nome_seguro, gestão de colisões
 
 #### 5.1.6 Modelo Aluno (Estudantes)
-- **Campos**: ID, processo (único global), nome, numero, foto_tirada, turma_id
+- **Campos**: ID, processo (único global), nome, numero, foto_existe, foto_tirada, turma_id
 - **Constraints**: Processo único em toda a aplicação (não apenas por turma)
 - **Validação**: Processo deve ser número inteiro positivo
 - **Relacionamento**: Many-to-One com Turma
+- **Gestão de Estados**: Flag `foto_existe` para controlo de existência de ficheiro, `foto_tirada` para controlo de captura
+- **Renomeação Automática**: Quando o processo de um aluno é alterado, os arquivos de foto são automaticamente renomeados
 
 ### 5.2 Upload CSV (RF-CSV)
 - **Formato suportado**: `turma,processo,nome,numero` (número opcional)
@@ -247,9 +249,10 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Validação de Processo**: Sistema rejeita processos não numéricos e já existentes globalmente
 - **Unicidade Global**: Processo único em toda a aplicação (sugestão: NIF, número de estudante)
 - **Editar aluno**: Modificação de dados com validação completa
+- **Renomeação Automática de Arquivos**: Quando o processo é alterado, fotos originais e thumbnails são automaticamente renomeadas
 - **Transferir aluno**: Movimentação entre turmas com fotos (sem conflito de processo)
 - **Remover aluno**: Limpeza completa de dados e arquivos
-- **Remover foto**: Manutenção de flags de estado
+- **Remover foto**: Manutenção de flags de estado (`foto_existe`, `foto_tirada`)
 
 ## 6. Interface Responsiva e UX
 
@@ -404,15 +407,18 @@ photos_thumbs/
 - **Drag & Drop**: Suporte a arrastar ficheiros de imagem diretamente para o cartão do aluno, com feedback visual e integração total ao fluxo de upload manual
 
 ### 8.2 Gestão de Estados
-- **Flag foto_tirada**: Controlo preciso do estado de cada aluno
+- **Flags de controlo**: `foto_existe` (existência do ficheiro) e `foto_tirada` (estado de captura)
 - **Ordenação inteligente**: Por número (nulls last) depois por nome
 - **Contagens dinâmicas**: Estatísticas em tempo real
 - **Sincronização**: Base de dados e sistema de ficheiros
+- **Renomeação consistente**: Manutenção da integridade entre nomes de processos e nomes de arquivos
 
-### 8.3 Movimentação de Arquivos
+### 8.3 Movimentação e Gestão de Arquivos
 - **Transferência de alunos**: Move fotos entre turmas
 - **Renomeação de turmas**: Reorganiza estrutura de pastas
+- **Renomeação de processos**: Quando o processo de um aluno é alterado, arquivos de foto são automaticamente renomeados para manter consistência
 - **Validação de integridade**: Verificação de existência de arquivos
+- **Gestão de erros**: Rollback automático em caso de falha na renomeação
 - **Limpeza automática**: Remove arquivos órfãos
 
 ### 8.4 Templates DOCX
@@ -597,10 +603,11 @@ GID=1000                                     # Group ID (auto-configurado)
 ## 13. Manutenção e Backup
 
 ### 13.1 Estrutura de Dados
-- **Base de dados**: `alunos.db` centralizando metadados
+- **Base de dados**: `database.sqlite` centralizando metadados
 - **Arquivos organizados**: Estrutura de pastas por turma
 - **Sincronização**: Coerência entre DB e filesystem
 - **Integridade**: Validação automática de consistência
+- **Renomeação automática**: Manutenção da consistência entre processos e nomes de arquivos
 
 ### 13.2 Operações de Manutenção
 - **Limpeza completa**: Função nuke com senha de administrador
@@ -616,8 +623,8 @@ GID=1000                                     # Group ID (auto-configurado)
 
 ---
 
-**Versão do Documento**: 4.0  
-**Data de Atualização**: Janeiro 2025  
+**Versão do Documento**: 4.1  
+**Data de Atualização**: Agosto 2025  
 **Estado da Implementação**: ✅ 100% Completo
 
 Esta especificação reflete fielmente a aplicação **Class Photo Booth** implementada, incluindo todas as funcionalidades avançadas: sistema completo de autenticação com roles e permissões, gestão de utilizadores, sistema de email com templates HTML, proteção anti-brute force, base de dados SQLAlchemy com modelos relacionais, CRUD completo para todas as entidades, geração de documentos DOCX, processamento avançado de imagens com PIL/OpenCV, gestão de placeholders, interface completamente responsiva com operações modais, e controlo de acesso granular baseado em roles.
@@ -635,6 +642,9 @@ Esta especificação reflete fielmente a aplicação **Class Photo Booth** imple
 ✅ Processamento avançado de imagens (PIL/OpenCV)  
 ✅ Geração de documentos Word profissionais  
 ✅ Downloads em ZIP e DOCX  
+✅ Renomeação automática de arquivos de foto quando processo do aluno é alterado  
+✅ Gestão robusta de erros com rollback automático em operações críticas  
+✅ Flags de estado duplas para controlo preciso de fotos (`foto_existe`, `foto_tirada`)  
 ✅ Interface responsiva mobile-first  
 ✅ Deployment Docker com mapeamento seguro de permissões  
 
