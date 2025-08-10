@@ -193,6 +193,7 @@ class Turma(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)  # Nome original (display)
     nome_seguro = db.Column(db.String(100), nullable=False, unique=True)  # Nome sanitizado (filesystem)
+    nome_professor = db.Column(db.String(100), nullable=False, unique=False, default='')  # Nome do professor responsável
     last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # Data da última atualização
     alunos = db.relationship('Aluno', backref='turma', lazy=True, cascade='all, delete-orphan')
     
@@ -1223,6 +1224,7 @@ def turmas():
             'id': turma.id,
             'nome': turma.nome,
             'nome_seguro': turma.nome_seguro,
+            'nome_professor': turma.nome_professor,
             'total_alunos': total_alunos,
             'alunos_com_foto': alunos_com_foto,
             'last_updated': turma.last_updated
@@ -1287,6 +1289,7 @@ def turma_crud():
     
     if action == 'crud_turma_add_new':
         nome = request.form.get('nome', '').strip()
+        nome_professor = request.form.get('nome_professor', '').strip()
         
         if not nome:
             flash('Nome da turma é obrigatório!', 'error')
@@ -1301,6 +1304,7 @@ def turma_crud():
         # Criar nova turma usando o método seguro
         try:
             nova_turma = Turma.create_safe(nome)
+            nova_turma.nome_professor = nome_professor
             db.session.commit()
             flash(f'Turma "{nome}" criada com sucesso!', 'success')
         except Exception as e:
@@ -1312,6 +1316,7 @@ def turma_crud():
     elif action == 'crud_turma_edit':
         turma_id = request.form.get('turma_id', '').strip()
         nome = request.form.get('nome', '').strip()
+        nome_professor = request.form.get('nome_professor', '').strip()
         
         if not turma_id or not nome:
             flash('Dados obrigatórios não fornecidos!', 'error')
@@ -1335,6 +1340,7 @@ def turma_crud():
         try:
             # Atualizar nome da turma usando método seguro
             turma.update_nome(nome)
+            turma.nome_professor = nome_professor
             db.session.commit()
             flash(f'Turma editada com sucesso!', 'success')
         except Exception as e:

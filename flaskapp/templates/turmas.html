@@ -104,9 +104,12 @@
                 
                 <a href="{{ url_for('turma', nome_seguro=turma.nome_seguro) }}" class="text-decoration-none text-dark">
                     <div class="turma-icon">🎓</div>
-                    <h5 class="fw-bold mb-3">{{ turma.nome }}</h5>
-            
-                    
+                    <h5 class="fw-bold mb-3">
+                        {{ turma.nome }} 
+                        {% if turma.nome_professor %} - {{ turma.nome_professor }}
+                        {% endif %}
+                    </h5>
+
                     <div class="d-flex justify-content-between text-muted small mb-2">
                         <span>{{ turma.total_alunos }} aluno{{ 's' if turma.total_alunos != 1 else '' }}</span>
                         <span>{{ turma.alunos_com_foto }} foto{{ 's' if turma.alunos_com_foto != 1 else '' }}</span>
@@ -135,7 +138,7 @@
                 
                 <div class="d-flex gap-2 mt-auto">
                     <button type="button" class="btn btn-sm btn-outline-primary flex-fill" 
-                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}')">
+                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}', '{{ turma.nome_professor | default('') }}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger flex-fill" 
@@ -238,6 +241,11 @@
                             <input type="text" class="form-control" id="addTurmaNome" name="nome" required 
                                    placeholder="Ex: 5A, 10º B, Matemática..." maxlength="100">
                         </div>
+                        <div class="mb-3">
+                            <label for="addTurmaProfessor" class="form-label">Professor Responsável</label>
+                            <input type="text" class="form-control" id="addTurmaProfessor" name="nome_professor" 
+                                   placeholder="Nome do professor responsável pela turma..." maxlength="100">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -268,6 +276,11 @@
                             <label for="editTurmaNome" class="form-label">Nome da Turma</label>
                             <input type="text" class="form-control" id="editTurmaNome" name="nome" required 
                                    placeholder="Ex: 5A, 10º B, Matemática..." maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTurmaProfessor" class="form-label">Professor Responsável</label>
+                            <input type="text" class="form-control" id="editTurmaProfessor" name="nome_professor" 
+                                   placeholder="Nome do professor responsável pela turma..." maxlength="100">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -337,9 +350,10 @@
         }
         
         // Função para editar turma
-        function editTurma(turmaId, turmaNome) {
+        function editTurma(turmaId, turmaNome, nomeProfessor) {
             document.getElementById('editTurmaId').value = turmaId;
             document.getElementById('editTurmaNome').value = turmaNome;
+            document.getElementById('editTurmaProfessor').value = nomeProfessor || '';
             
             const modal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
             modal.show();
