@@ -218,9 +218,18 @@ class Turma(db.Model):
         if db.session:
             counter = 1
             original_nome = nome_seguro
-            while Turma.query.filter_by(nome_seguro=nome_seguro).first():
+            # Excluir a própria turma da verificação de unicidade
+            query = Turma.query.filter_by(nome_seguro=nome_seguro)
+            if self.id:  # Se a turma já tem ID, excluir ela própria
+                query = query.filter(Turma.id != self.id)
+            
+            while query.first():
                 nome_seguro = f"{original_nome}_{counter}"
                 counter += 1
+                # Atualizar a query para o novo nome
+                query = Turma.query.filter_by(nome_seguro=nome_seguro)
+                if self.id:
+                    query = query.filter(Turma.id != self.id)
         
         return nome_seguro
     
