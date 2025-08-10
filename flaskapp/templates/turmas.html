@@ -105,6 +105,8 @@
                 <a href="{{ url_for('turma', nome_seguro=turma.nome_seguro) }}" class="text-decoration-none text-dark">
                     <div class="turma-icon">🎓</div>
                     <h5 class="fw-bold mb-3">{{ turma.nome }}</h5>
+            
+                    
                     <div class="d-flex justify-content-between text-muted small mb-2">
                         <span>{{ turma.total_alunos }} aluno{{ 's' if turma.total_alunos != 1 else '' }}</span>
                         <span>{{ turma.alunos_com_foto }} foto{{ 's' if turma.alunos_com_foto != 1 else '' }}</span>
@@ -141,6 +143,18 @@
                         <i class="bi bi-trash"></i>
                     </button>
                 </div>
+                <!-- Última atualização -->
+                {% if turma.last_updated %}
+                <div class="text-muted small mb-2 text-secondary">
+                    <i class="bi bi-clock me-1"></i>
+                    <span>atualização: </span>
+                    <span class="last-updated-utc" data-utc-date="{{ turma.last_updated.strftime('%Y-%m-%d %H:%M:%S') if turma.last_updated else '' }}">
+                        {{ turma.last_updated.strftime('%Y-%m-%d %H:%M:%S') if turma.last_updated else 'N/A' }}
+                    </span>
+                </div>
+                {% endif %}
+
+
             </div>
             </div>
             {% endfor %}
@@ -407,6 +421,39 @@
         setTimeout(() => {
             localStorage.removeItem(scrollStorageKey);
         }, 3600000); // 1 hora
+
+        // Função para converter UTC para timezone local
+        function formatLocalDateTime(utcDateString) {
+            if (!utcDateString) return 'N/A';
+            
+            try {
+                // Parse da data UTC
+                const utcDate = new Date(utcDateString + 'Z'); // Adicionar Z para indicar UTC
+                
+                // Formatar para o timezone local
+                return utcDate.toLocaleString('pt-PT', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+            } catch (error) {
+                console.error('Erro ao formatar data:', error);
+                return 'Data inválida';
+            }
+        }
+
+        // Converter todas as datas UTC para timezone local quando a página carrega
+        document.addEventListener('DOMContentLoaded', function() {
+            const lastUpdatedElements = document.querySelectorAll('.last-updated-utc');
+            lastUpdatedElements.forEach(element => {
+                const utcDate = element.dataset.utcDate;
+                element.textContent = formatLocalDateTime(utcDate);
+            });
+        });
 
         
     </script>

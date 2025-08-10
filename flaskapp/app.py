@@ -193,6 +193,7 @@ class Turma(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)  # Nome original (display)
     nome_seguro = db.Column(db.String(100), nullable=False, unique=True)  # Nome sanitizado (filesystem)
+    last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # Data da última atualização
     alunos = db.relationship('Aluno', backref='turma', lazy=True, cascade='all, delete-orphan')
     
     def __init__(self, nome, **kwargs):
@@ -316,6 +317,10 @@ class Turma(db.Model):
         turma = cls.query.filter_by(nome=nome).first()
         return turma.nome_seguro if turma else nome
     
+    def update_last_modified(self):
+        """Atualiza o timestamp de última modificação"""
+        self.last_updated = datetime.now(timezone.utc)
+        
     def __repr__(self):
         return f'<Turma {self.nome} ({self.nome_seguro})>'
 
@@ -1219,7 +1224,8 @@ def turmas():
             'nome': turma.nome,
             'nome_seguro': turma.nome_seguro,
             'total_alunos': total_alunos,
-            'alunos_com_foto': alunos_com_foto
+            'alunos_com_foto': alunos_com_foto,
+            'last_updated': turma.last_updated
         })
     
     return render_template('turmas.html', 
@@ -1517,6 +1523,11 @@ def student():
             aluno.nome = nome
             aluno.processo = processo_validado
             aluno.numero = numero_int
+            
+            # Se o processo mudou e há foto, atualizar timestamp da turma
+            if processo_mudou and aluno.foto_tirada:
+                aluno.turma.update_last_modified()
+                
             db.session.commit()
             
             if processo_mudou and aluno.foto_tirada:
@@ -1553,6 +1564,7 @@ def student():
         nome_aluno = aluno.nome
         processo_aluno = aluno.processo
         turma_origem = aluno.turma.nome
+        turma_origem_obj = aluno.turma  # Guardar referência para atualizar timestamp
         
         try:
             # Mover arquivos de foto se existirem
@@ -1567,13 +1579,21 @@ def student():
             
             # Mover arquivos se existirem
             import shutil
+            foto_movida = False
             if os.path.exists(old_photo_path):
                 shutil.move(old_photo_path, new_photo_path)
+                foto_movida = True
             if os.path.exists(old_thumb_path):
                 shutil.move(old_thumb_path, new_thumb_path)
             
             # Atualizar turma do aluno na base de dados
             aluno.turma_id = turma_destino_obj.id
+            
+            # Atualizar timestamps das turmas se houve movimento de fotos
+            if foto_movida and aluno.foto_tirada:
+                turma_origem_obj.update_last_modified()  # Turma que perdeu a foto
+                turma_destino_obj.update_last_modified()  # Turma que ganhou a foto
+            
             db.session.commit()
             flash(f'Aluno {nome_aluno} transferido com sucesso para a turma {turma_destino}!', 'success')
             
@@ -1599,6 +1619,8 @@ def student():
         
         nome_aluno = aluno.nome
         processo_aluno = aluno.processo
+        turma_obj = aluno.turma  # Guardar referência da turma
+        tinha_foto = aluno.foto_tirada  # Verificar se tinha foto
         
         try:
             # Remover arquivos de foto se existirem usando métodos seguros
@@ -1611,6 +1633,10 @@ def student():
                 os.remove(photo_path)
             if os.path.exists(thumb_path):
                 os.remove(thumb_path)
+            
+            # Atualizar timestamp da turma se havia foto
+            if tinha_foto:
+                turma_obj.update_last_modified()
             
             # Remover aluno da base de dados
             db.session.delete(aluno)
@@ -1659,6 +1685,7 @@ def student():
             # Atualizar flag de foto na base de dados
             aluno.foto_tirada = False
             aluno.foto_existe = False  # Sempre que foto é removida, foto_existe também
+            aluno.turma.update_last_modified()  # Atualizar timestamp da turma
             db.session.commit()
 
             # Verificar se a turma ficou sem fotos tiradas
@@ -1678,6 +1705,89 @@ def student():
             db.session.rollback()
             flash('Erro ao remover foto. Tente novamente.', 'error')
             print(f"Erro ao remover foto: {e}")
+
+        return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+    
+    elif action == 'crud_student_manual_upload_photo':
+        aluno_id = request.form.get('aluno_id', '').strip()
+        if not aluno_id:
+            flash('ID do aluno não fornecido!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+        # Buscar aluno
+        aluno = db.session.get(Aluno, aluno_id)
+        if not aluno:
+            flash('Aluno não encontrado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+        # Verificar se arquivo foi enviado
+        if 'foto' not in request.files:
+            flash('Nenhum arquivo foi selecionado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+        foto_file = request.files['foto']
+        if foto_file.filename == '':
+            flash('Nenhum arquivo foi selecionado!', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+        # Verificar se é um arquivo de imagem válido
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+        if not ('.' in foto_file.filename and foto_file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+            flash('Tipo de arquivo não permitido! Use PNG, JPG, JPEG, GIF, BMP ou WEBP.', 'error')
+            return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+        nome_aluno = aluno.nome
+        processo_aluno = aluno.processo
+        turma_obj = aluno.turma
+
+        try:
+            # Criar diretórios se não existirem
+            foto_dir = turma_obj.get_foto_directory()
+            thumb_dir = turma_obj.get_thumb_directory()
+            
+            if not safe_makedirs(foto_dir):
+                flash('Erro ao criar diretório para fotos.', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+            
+            if not safe_makedirs(thumb_dir):
+                flash('Erro ao criar diretório para thumbnails.', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+            # Caminhos dos arquivos
+            photo_path = os.path.join(foto_dir, f'{processo_aluno}.jpg')
+            thumb_path = os.path.join(thumb_dir, f'{processo_aluno}.jpg')
+
+            # Ler e processar a imagem
+            foto_data = foto_file.read()
+            image = cv2.imdecode(np.frombuffer(foto_data, np.uint8), cv2.IMREAD_COLOR)
+            
+            if image is None:
+                flash('Arquivo de imagem inválido ou corrompido!', 'error')
+                return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
+
+            # Salvar foto original
+            cv2.imwrite(photo_path, image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+            # Criar thumbnail (crop quadrado e redimensionar)
+            height, width, _ = image.shape
+            min_dim = min(height, width)
+            start_x = (width - min_dim) // 2
+            start_y = (height - min_dim) // 2
+            cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
+            thumbnail = cv2.resize(cropped_image, (250, 250))
+            cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])
+
+            # Atualizar flags na base de dados
+            aluno.foto_tirada = True
+            aluno.foto_existe = True
+            aluno.turma.update_last_modified()  # Atualizar timestamp da turma
+            db.session.commit()
+
+            flash(f'Foto do aluno {nome_aluno} enviada com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Erro ao processar foto. Tente novamente.', 'error')
+            print(f"Erro ao processar upload manual de foto: {e}")
 
         return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
     
@@ -1740,6 +1850,7 @@ def upload_photo(nome_seguro, processo):
     if aluno_obj:
         aluno_obj.foto_tirada = True
         aluno_obj.foto_existe = True  # Sempre que foto é tirada, foto_existe também
+        aluno_obj.turma.update_last_modified()  # Atualizar timestamp da turma
         db.session.commit()
     else:
         # Retornar erro se não conseguir atualizar aluno
