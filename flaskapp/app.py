@@ -551,20 +551,29 @@ def safe_makedirs(directory, verbose=False):
 
 # Funções para manipulação de documentos DOCX
 def docx_replace(doc, dicionario):
-    """Substitui placeholders no documento DOCX"""
+    """Substitui placeholders no documento DOCX preservando a formatação"""
     # Substituir em parágrafos
     for paragraph in doc.paragraphs:
         for key, value in dicionario.items():
-            if f'{{{key}}}' in paragraph.text:
-                paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+            placeholder = f'{{{key}}}'
+            if placeholder in paragraph.text:
+                # Preservar formatação dos runs
+                for run in paragraph.runs:
+                    if placeholder in run.text:
+                        run.text = run.text.replace(placeholder, str(value))
     
     # Substituir em tabelas
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
-                for key, value in dicionario.items():
-                    if f'{{{key}}}' in cell.text:
-                        cell.text = cell.text.replace(f'{{{key}}}', str(value))
+                for paragraph in cell.paragraphs:
+                    for key, value in dicionario.items():
+                        placeholder = f'{{{key}}}'
+                        if placeholder in paragraph.text:
+                            # Preservar formatação dos runs
+                            for run in paragraph.runs:
+                                if placeholder in run.text:
+                                    run.text = run.text.replace(placeholder, str(value))
     
     # Substituir em headers e footers
     for section in doc.sections:
@@ -572,15 +581,23 @@ def docx_replace(doc, dicionario):
         if section.header:
             for paragraph in section.header.paragraphs:
                 for key, value in dicionario.items():
-                    if f'{{{key}}}' in paragraph.text:
-                        paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+                    placeholder = f'{{{key}}}'
+                    if placeholder in paragraph.text:
+                        # Preservar formatação dos runs
+                        for run in paragraph.runs:
+                            if placeholder in run.text:
+                                run.text = run.text.replace(placeholder, str(value))
         
         # Footer
         if section.footer:
             for paragraph in section.footer.paragraphs:
                 for key, value in dicionario.items():
-                    if f'{{{key}}}' in paragraph.text:
-                        paragraph.text = paragraph.text.replace(f'{{{key}}}', str(value))
+                    placeholder = f'{{{key}}}'
+                    if placeholder in paragraph.text:
+                        # Preservar formatação dos runs
+                        for run in paragraph.runs:
+                            if placeholder in run.text:
+                                run.text = run.text.replace(placeholder, str(value))
 
 
 def process_image_for_docx(image_path, target_width_cm, target_height_cm):
@@ -739,13 +756,19 @@ def create_docx_with_photos(turma_nome):
                     
                     run.add_break()
                     
-                    # Adicionar texto com número e nome
+                    # Adicionar texto com número e nome formatado
                     numero_display = aluno.numero if aluno.numero else index + 1
-                    run.add_text(f'{numero_display} {aluno.nome}')
+                    text_run = paragraph.add_run(f'{numero_display} {aluno.nome}')
+                    # Aplicar formatação Times New Roman 16pt
+                    text_run.font.name = 'Times New Roman'
+                    text_run.font.size = Pt(16)
                 except Exception as e:
                     # Se houver erro ao adicionar imagem, adicionar apenas o texto
                     numero_display = aluno.numero if aluno.numero else index + 1
-                    run.add_text(f'{numero_display} {aluno.nome}')
+                    text_run = paragraph.add_run(f'{numero_display} {aluno.nome}')
+                    # Aplicar formatação Times New Roman 16pt
+                    text_run.font.name = 'Times New Roman'
+                    text_run.font.size = Pt(16)
                     print(f"Erro ao adicionar imagem para {aluno.nome}: {e}")
         
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
