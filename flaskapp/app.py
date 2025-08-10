@@ -657,8 +657,8 @@ def create_docx_with_photos(turma_nome):
         current_date = datetime.now().strftime('%d/%m/%Y')
         dicionario = {
             'turma': turma_nome,
-            'date': current_date,
-            'fullname_dt': 'Professor/a da Turma'  # Pode ser personalizado
+            'date': turma_obj.last_updated.strftime('%d/%m/%Y %H:%M:%S'),
+            'professor': turma_obj.nome_professor  # Pode ser personalizado
         }
         
         # Substituir placeholders no template
