@@ -253,6 +253,10 @@ class Turma(db.Model):
     
     def update_nome(self, novo_nome):
         """Atualiza nome da turma e renomeia diretórios se necessário"""
+        # Se o nome não mudou, não fazer nada
+        if self.nome == novo_nome:
+            return
+        
         nome_antigo_seguro = self.nome_seguro
         novo_nome_seguro = self._generate_safe_name(novo_nome)
         
