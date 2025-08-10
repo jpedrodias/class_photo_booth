@@ -2082,12 +2082,84 @@ def settings_rescan_photos():
     return redirect(url_for('settings'))
 
 
+def _update_professors_from_csv(file):
+    """Atualiza apenas os nomes dos professores das turmas baseado no CSV"""
+    try:
+        # Ler o conteúdo do ficheiro diretamente da memória
+        csv_content = file.read().decode('utf-8')
+        
+        # Usar StringIO para simular um ficheiro
+        from io import StringIO
+        csv_file = StringIO(csv_content)
+        
+        # Ler CSV e processar dados
+        reader = csv.DictReader(csv_file)
+        turmas_atualizadas = 0
+        turmas_nao_encontradas = []
+        
+        for row in reader:
+            turma_nome = row.get('turma', '').strip()
+            professor_nome = row.get('professor', '').strip()
+            
+            if not turma_nome:
+                continue  # Pular linhas sem nome de turma
+            
+            # Buscar turma na base de dados
+            turma = Turma.query.filter_by(nome=turma_nome).first()
+            
+            if turma:
+                # Atualizar nome do professor
+                turma.nome_professor = professor_nome
+                turmas_atualizadas += 1
+            else:
+                # Turma não encontrada - adicionar à lista para flash
+                turmas_nao_encontradas.append(turma_nome)
+        
+        # Commit das alterações
+        db.session.commit()
+        
+        # Construir mensagens de feedback
+        messages = []
+        if turmas_atualizadas > 0:
+            messages.append(f'{turmas_atualizadas} turma(s) atualizada(s) com sucesso.')
+        
+        if turmas_nao_encontradas:
+            turmas_ignoradas = ', '.join(turmas_nao_encontradas[:5])  # Limitar a 5 nomes
+            if len(turmas_nao_encontradas) > 5:
+                turmas_ignoradas += f' (e mais {len(turmas_nao_encontradas) - 5})'
+            messages.append(f'Turmas ignoradas (não encontradas): {turmas_ignoradas}.')
+        
+        flash(' '.join(messages), 'success' if turmas_atualizadas > 0 else 'info')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao atualizar professores: {e}")
+        flash(f'Erro ao processar ficheiro CSV para atualização de professores: {str(e)}', 'error')
+    
+    return redirect(url_for('settings'))
+
+
 @app.route('/settings/csv', methods=['POST'])
 @required_login
 @required_role('admin')
 def settings_csv():
     """Upload CSV com substituição ou merge dos dados baseado no campo action"""
     action = request.form.get('action', 'replace')
+    
+    if 'file' not in request.files:
+        flash('Nenhum ficheiro foi selecionado!', 'error')
+        return redirect(url_for('settings'))
+
+    file = request.files['file']
+    if file.filename == '':
+        flash('Nenhum ficheiro foi selecionado!', 'error')
+        return redirect(url_for('settings'))
+
+    # Ação específica para atualizar professores
+    if action == 'update_professor':
+        return _update_professors_from_csv(file)
+    
+    # Ações para substituir/merge de dados completos
     replace_all = (action == 'replace')
     
     if 'file' not in request.files:

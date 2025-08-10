@@ -573,7 +573,34 @@
             </div>
             {% endif %}
 
-            <!-- Card 3: Fazer rescan aos ficheiros que já existam -->
+            <!-- Card 3: Atualizar Professores -->
+            {% if has_data and can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-info mb-3">👨‍🏫</div>
+                        <h5 class="card-title fw-bold">Atualizar Professores</h5>
+                        <p class="card-text text-muted">
+                            Atualizar apenas os <strong>nomes dos professores</strong> responsáveis pelas turmas. 
+                            CSV deve ter colunas: turma, professor.
+                        </p>
+                        
+                        <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="updateProfessorForm">
+                            <input type="hidden" name="action" value="update_professor">
+                            <div class="mb-3">
+                                <input type="file" name="file" id="updateProfessorFile" accept=".csv" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-info w-100" id="updateProfessorBtn" disabled>
+                                <i class="bi bi-person-lines-fill me-2"></i>
+                                Atualizar Professores
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 4: Fazer rescan aos ficheiros que já existam -->
             {% if has_data and can_upload_csv %}
             <div class="col-lg-4">
                 <div class="card h-100 border-0 shadow">
@@ -789,6 +816,10 @@
         {% if has_data and can_upload_csv %}
         document.getElementById('mergeFile').addEventListener('change', function() {
             document.getElementById('mergeBtn').disabled = !this.files.length;
+        });
+        
+        document.getElementById('updateProfessorFile').addEventListener('change', function() {
+            document.getElementById('updateProfessorBtn').disabled = !this.files.length;
         });
         {% endif %}
 
