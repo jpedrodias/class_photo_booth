@@ -964,7 +964,6 @@ def login(action_url=None):
                 except Exception as e:
                     print(f"Erro ao enviar email para {email}: {e}")
                     # Log mais detalhado do erro para debugging
-                    import traceback
                     print(f"Traceback completo: {traceback.format_exc()}")
                     email_sent = False
                 
@@ -1129,7 +1128,6 @@ def login(action_url=None):
             except Exception as e:
                 print(f"Erro ao enviar email de recuperação para {email}: {e}")
                 # Log mais detalhado do erro para debugging
-                import traceback
                 print(f"Traceback completo: {traceback.format_exc()}")
                 email_sent = False
 
