@@ -1240,8 +1240,8 @@ def turmas():
     # Verificar se é uma chamada API
     is_api = request.args.get('api') == 'true'
     
-    # Obter todas as turmas da base de dados
-    turmas_query = Turma.query.all()
+    # Obter todas as turmas da base de dados ordenadas por ID
+    turmas_query = Turma.query.order_by(Turma.id).all()
     
     # Se não há turmas e é chamada API, retornar lista vazia
     if len(turmas_query) == 0 and is_api:
