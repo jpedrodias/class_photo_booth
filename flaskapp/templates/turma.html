@@ -79,10 +79,10 @@
             <!-- Card para adicionar novo aluno -->
             {% if current_user.role in ['editor', 'admin'] %}
             <div class="col-6 col-md-4 col-lg-3 col-xl-3">
-                <div class="student-card text-center h-100" data-bs-toggle="modal" data-bs-target="#addStudentModal" style="cursor: pointer;">
+                <div class="student-card text-center h-100 cursor-pointer" data-bs-toggle="modal" data-bs-target="#addStudentModal">
                     <div class="student-photo">
                         <div class="d-flex align-items-center justify-content-center h-100">
-                            <i class="bi bi-person-plus-fill text-primary" style="font-size: 3rem;"></i>
+                            <i class="bi bi-person-plus-fill text-primary add-student-icon"></i>
                         </div>
                     </div>
                     <div class="mt-3">
@@ -97,7 +97,6 @@
         <div class="col-6 col-md-4 col-lg-3 col-xl-3">
             {% if current_user.role in ['editor', 'admin'] %}
             <div class="student-card h-100" 
-                style="cursor: default;" 
                 data-aluno-id="{{ aluno.id }}" 
                 data-aluno-nome="{{ aluno.nome }}" 
                 data-aluno-processo="{{ aluno.processo }}"
@@ -105,7 +104,7 @@
                 ondragleave="this.classList.remove('dragover');" 
                 ondrop="handleStudentCardDrop(event, this);">
             {% else %}
-            <div class="student-card h-100" style="cursor: default;"
+            <div class="student-card h-100 cursor-default"
                 data-aluno-id="{{ aluno.id }}" data-aluno-nome="{{ aluno.nome }}" data-aluno-processo="{{ aluno.processo }}"
                 ondragover="event.preventDefault(); this.classList.add('dragover');" 
                 ondragleave="this.classList.remove('dragover');" 
@@ -117,9 +116,8 @@
                         {% if current_user.role in ['editor', 'admin'] %}
                         <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" 
                              alt="Foto de {{ aluno.nome }}" 
-                             class="photo-img"
-                             onclick="goToCapturePhoto('{{ aluno.processo }}')" 
-                             style="cursor: pointer;">
+                             class="photo-img cursor-pointer"
+                             onclick="goToCapturePhoto('{{ aluno.processo }}')">
                         {% else %}
                         <img src="{{ url_for('get_photo', folder_name=nome_seguro, processo=aluno.processo) }}" 
                              alt="Foto de {{ aluno.nome }}" 
@@ -128,49 +126,44 @@
                         
                         <!-- Ícone de foto recente (canto superior esquerdo) -->
                         {% if aluno.foto_tirada %}
-                        <div class="position-absolute top-0 start-0 m-1" 
-                             title="Foto tirada"
-                             style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);">
-                            <i class="bi bi-emoji-smile-fill text-white" style="font-size: 14px;"></i>
+                        <div class="position-absolute top-0 start-0 m-1 photo-status-badge success" 
+                             title="Foto tirada">
+                            <i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>
                         </div>
                         {% else %}
-                        <div class="position-absolute top-0 start-0 m-1" 
-                             title="Foto não tirada recentemente"
-                             style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);">
-                            <i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>
+                        <div class="position-absolute top-0 start-0 m-1 photo-status-badge warning" 
+                             title="Foto não tirada recentemente">
+                            <i class="bi bi-emoji-dizzy-fill text-white photo-status-icon-sm"></i>
                         </div>
                         {% endif %}
                         
                         {% if current_user.role in ['editor', 'admin'] %}
-                        <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn" 
+                        <button class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle remove-photo-btn photo-remove-btn" 
                             data-id="{{ aluno.id }}" 
                             data-nome="{{ aluno.nome }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#removePhotoModal"
                             title="Clique para remover a foto"
-                            onclick="event.stopPropagation();"
-                            style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
-                            <i class="bi bi-x" style="font-size: 12px;"></i>
+                            onclick="event.stopPropagation();">
+                            <i class="bi bi-x photo-status-icon-xs"></i>
                         </button>
                         {% endif %}
                     {% else %}
                         {% if current_user.role in ['editor', 'admin'] %}
                         <img src="{{ url_for('static', filename='student_icon.jpg') }}" 
                              alt="Sem foto" 
-                             class="photo-img placeholder"
-                             onclick="goToCapturePhoto('{{ aluno.processo }}')" 
-                             style="cursor: pointer;">
+                             class="photo-img placeholder cursor-pointer"
+                             onclick="goToCapturePhoto('{{ aluno.processo }}')">
                         {% else %}
                         <img src="{{ url_for('static', filename='student_icon.jpg') }}" 
                              alt="Sem foto" 
                              class="photo-img placeholder">
                         {% endif %}
                         {% if current_user.role in ['editor', 'admin'] %}
-                        <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle" 
+                        <button class="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 rounded-circle photo-remove-btn" 
                             title="Clique para tirar foto"
-                            onclick="event.stopPropagation(); goToCapturePhoto('{{ aluno.processo }}');"
-                            style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center;">
-                            <i class="bi bi-camera" style="font-size: 12px;"></i>
+                            onclick="event.stopPropagation(); goToCapturePhoto('{{ aluno.processo }}');">
+                            <i class="bi bi-camera photo-status-icon-xs"></i>
                         </button>
                         {% endif %}
                     {% endif %}
@@ -197,7 +190,7 @@
                             data-bs-target="#previewPhotoModal"
                             onclick="event.stopPropagation(); openPreviewModal('{{ aluno.processo }}', '{{ aluno.nome }}', '{{ aluno.turma }}');"
                             title="Preview da foto original"
-                            style="display: {% if aluno.foto_existe %}inline-block{% else %}none{% endif %};">
+                            {% if aluno.foto_existe %}style="display: inline-block;"{% else %}style="display: none;"{% endif %}>
                         <i class="bi bi-eye"></i>
                     </button>
 
@@ -544,8 +537,7 @@
                         <img id="previewImage" 
                              src="{{ url_for('static', filename='student_icon.jpg') }}" 
                              alt="Carregando foto..." 
-                             class="img-fluid rounded shadow"
-                             style="max-height: 70vh; max-width: 100%;">
+                             class="img-fluid rounded shadow preview-image-modal">
                         
                         <!-- Loading spinner -->
                         <div id="previewSpinner" class="position-absolute top-50 start-50 translate-middle d-none">
@@ -623,15 +615,15 @@
         <div class="container">
             <div class="row g-2">
                 <div class="col-4">
-                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100 btn-sm">
-                        <i class="bi bi-arrow-left d-block"></i>
+                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100 btn-sm mobile-btn-inline">
+                        <i class="bi bi-arrow-left"></i>
                         <small>Voltar</small>
                     </a>
                 </div>
                 <div class="col-4">
                     <div class="dropdown w-100">
-                        <button class="btn btn-primary w-100 btn-sm dropdown-toggle" type="button" id="mobileDownloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-download d-block"></i>
+                        <button class="btn btn-primary w-100 btn-sm dropdown-toggle mobile-btn-inline" type="button" id="mobileDownloadDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-download"></i>
                             <small>Download</small>
                         </button>
                         <ul class="dropdown-menu w-100 shadow border-0" aria-labelledby="mobileDownloadDropdown">
@@ -648,8 +640,8 @@
                     </div>
                 </div>
                 <div class="col-4">
-                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100 btn-sm">
-                        <i class="bi bi-box-arrow-right d-block"></i>
+                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100 btn-sm mobile-btn-inline">
+                        <i class="bi bi-box-arrow-right"></i>
                         <small>Sair</small>
                     </button>
                 </div>
@@ -659,80 +651,379 @@
 
     <!-- Modal de Captura de Foto -->
     <div class="modal fade" id="capturePhotoModal" tabindex="-1" aria-labelledby="capturePhotoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
+        <div class="modal-dialog modal-fullscreen modal-dialog-centered">
+            <div class="modal-content d-flex flex-column h-100">
+                <div class="modal-header bg-primary text-white flex-shrink-0">
                     <h5 class="modal-title" id="capturePhotoModalLabel">
-                        <i class="bi bi-camera me-2"></i>Capturar Foto
+                        <i class="bi bi-camera me-2"></i>Capturar Foto <span id="modalAlunoNome"></span>
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="text-center mb-4">
-                        <div id="modalAlunoInfo" class="mb-3">
-                            <h6 class="fw-bold mb-1" id="modalAlunoNome"></h6>
-                            <small class="text-muted" id="modalAlunoProcesso"></small>
-                        </div>
-                        
-                        <div class="video-container mb-3">
-                            <video id="modalCameraVideo" autoplay class="img-fluid border rounded shadow-sm" style="max-height: 400px; width: 100%;"></video>
-                        </div>
-                        
-                        <div class="d-grid gap-2 mb-4">
-                            <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
-                                <i class="bi bi-camera me-2"></i>Capturar Foto
-                            </button>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                                <i class="bi bi-camera-video me-2"></i>Selecionar Câmera:
-                            </label>
-                            <div id="modalCameraButtons" class="d-flex flex-wrap gap-3 justify-content-center"></div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">
-                                <i class="bi bi-gear me-2"></i>Qualidade da Foto:
-                            </label>
-                            <div class="btn-group w-100" role="group" aria-label="Qualidade da foto">
-                                <input type="radio" class="btn-check" name="photoQuality" id="qualityLow" value="low">
-                                <label class="btn btn-outline-primary" for="qualityLow">
-                                    <i class="bi bi-speedometer me-1"></i>LOW
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="photoQuality" id="qualityMed" value="med" checked>
-                                <label class="btn btn-outline-primary" for="qualityMed">
-                                    <i class="bi bi-speedometer2 me-1"></i>MED
-                                </label>
-                                
-                                <input type="radio" class="btn-check" name="photoQuality" id="qualityHigh" value="high">
-                                <label class="btn btn-outline-primary" for="qualityHigh">
-                                    <i class="bi bi-lightning me-1"></i>HIGH
-                                </label>
+                <div class="modal-body p-0 flex-grow-1 d-flex flex-column">
+                    <!-- Layout responsivo baseado na orientação -->
+                    <div class="capture-layout flex-grow-1">
+                        <!-- Seção da câmara (2/3 do espaço) -->
+                        <div class="capture-video-section">
+                            <div class="p-3 h-100 d-flex flex-column">
+                                <div class="video-container flex-grow-1 d-flex align-items-center justify-content-center">
+                                    <video id="modalCameraVideo" autoplay class="border rounded shadow-sm"></video>
+                                </div>
                             </div>
-                            <small class="text-muted mt-2 d-block text-center">
-                                <i class="bi bi-info-circle me-1"></i>
-                                LOW: 640x480 • MED: 1280x720 • HIGH: 1920x1080
-                            </small>
                         </div>
                         
-                        <div class="text-center mt-3">
-                            <small class="text-muted">
-                                <i class="bi bi-info-circle me-1"></i>
-                                Pressione <kbd>Enter</kbd> para capturar ou <kbd>Esc</kbd> para fechar
-                            </small>
+        <!-- Seção dos controles (1/3 do espaço) -->
+                        <div class="capture-controls-section">
+                            <div class="p-2 h-100 d-flex flex-column">
+                                <div class="d-grid gap-2">
+                                    <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-camera me-2"></i>Capturar Foto
+                                    </button>
+                                    
+                                    <div class="camera-section">
+                                        <label class="form-label fw-semibold mb-1">
+                                            <i class="bi bi-camera-video me-2"></i>Câmera:
+                                        </label>
+                                        <div id="modalCameraButtons" class="d-flex flex-wrap gap-1 justify-content-center"></div>
+                                    </div>
+                                    
+                                    <div class="quality-section">
+                                        <label class="form-label fw-semibold mb-1">
+                                            <i class="bi bi-gear me-2"></i>Qualidade:
+                                        </label>
+                                        <div class="btn-group w-100" role="group" aria-label="Qualidade da foto">
+                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityLow" value="low">
+                                            <label class="btn btn-outline-primary btn-sm" for="qualityLow">
+                                                <i class="bi bi-speedometer me-1"></i>LOW
+                                            </label>
+                                            
+                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityMed" value="med" checked>
+                                            <label class="btn btn-outline-primary btn-sm" for="qualityMed">
+                                                <i class="bi bi-speedometer2 me-1"></i>MED
+                                            </label>
+                                            
+                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityHigh" value="high">
+                                            <label class="btn btn-outline-primary btn-sm" for="qualityHigh">
+                                                <i class="bi bi-lightning me-1"></i>HIGH
+                                            </label>
+                                        </div>
+                                        <small class="text-muted mt-1 d-block text-center">
+                                            LOW: 640x480 • MED: 1280x720 • HIGH: 1920x1080
+                                        </small>
+                                    </div>
+                                    
+                                    <div class="text-center">
+                                        <small class="text-muted">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            <kbd>Enter</kbd> capturar • <kbd>Esc</kbd> fechar
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                <div class="modal-footer d-block d-md-none">
+                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">
                         <i class="bi bi-x-lg me-2"></i>Cancelar
                     </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <style>
+        /* Layout de captura responsivo */
+        .capture-layout {
+            display: flex;
+            min-height: 100%;
+        }
+        
+        /* Portrait (vertical) - padrão para mobile */
+        @media (orientation: portrait), (max-width: 767px) {
+            .capture-layout {
+                flex-direction: column;
+                height: 100vh; /* Altura total da viewport */
+                width: 100vw; /* Largura total da viewport */
+                position: relative;
+            }
+            
+            .capture-video-section {
+                flex: 1; /* Cresce para ocupar espaço disponível */
+                min-height: 0;
+                height: calc(100vh - 140px); /* Muito mais espaço para a câmera - apenas 140px para controles */
+                width: 100%;
+                overflow: hidden;
+            }
+            
+            .capture-controls-section {
+                flex: 0 0 110px; /* Altura ajustada para acomodar todas as funcionalidades */
+                height: 110px;
+                min-height: 110px;
+                max-height: 110px;
+                width: 100vw; /* Largura total da viewport */
+                position: relative;
+                left: 0;
+                right: 0;
+                border-top: 1px solid #dee2e6;
+                overflow-y: auto; /* Scroll para conteúdo que não cabe */
+                display: flex !important;
+                visibility: visible !important;
+                background: white;
+                z-index: 5;
+            }
+            
+            #modalCameraVideo {
+                max-height: calc(100vh - 150px); /* Espaço para a câmera com funcionalidades */
+                max-width: 100%;
+                width: 100%;
+                object-fit: cover;
+            }
+            
+            /* Garantir que o botão de captura seja sempre visível */
+            #modalCaptureButton {
+                min-height: 36px !important; /* Altura ainda mais reduzida */
+                font-size: 0.8rem !important;
+                padding: 0.4rem 0.6rem !important;
+                margin-bottom: 0.1rem !important; /* Margem mínima */
+                display: block !important;
+                visibility: visible !important;
+                position: sticky !important; /* Manter visível no topo */
+                top: 0 !important;
+                z-index: 10 !important;
+                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+                border: none !important;
+                color: white !important;
+                border-radius: 0.375rem !important;
+            }
+        }
+        
+        /* Landscape (horizontal) - tablets e desktop */
+        @media (orientation: landscape) and (min-width: 768px) {
+            .capture-layout {
+                flex-direction: row;
+                height: 100%;
+            }
+            
+            .capture-video-section {
+                flex: 2; /* 2/3 do espaço */
+                min-height: 0;
+                max-width: 66.66%; /* Garante que não excede 2/3 */
+            }
+            
+            .capture-controls-section {
+                flex: 1; /* 1/3 do espaço */
+                min-height: 0;
+                max-width: 33.33%; /* Garante que não excede 1/3 */
+                border-left: 1px solid #dee2e6;
+                overflow-y: auto; /* Scroll se necessário */
+            }
+            
+            #modalCameraVideo {
+                max-height: 70vh;
+                max-width: 100%;
+                object-fit: cover;
+            }
+        }
+        
+        /* Mobile landscape específico */
+        @media (orientation: landscape) and (max-height: 500px) {
+            .capture-video-section {
+                max-width: 60%; /* Menos espaço para dar mais aos controles */
+            }
+            
+            .capture-controls-section {
+                max-width: 40%; /* Mais espaço para os controles */
+            }
+            
+            #modalCameraVideo {
+                max-height: 60vh;
+            }
+            
+            .capture-controls-section .btn {
+                padding: 0.5rem 0.75rem; /* Botões maiores */
+                font-size: 0.9rem;
+            }
+            
+            .capture-controls-section .form-label {
+                font-size: 0.875rem;
+                margin-bottom: 0.25rem;
+            }
+            
+            /* Garantir visibilidade do botão principal */
+            #modalCaptureButton {
+                min-height: 40px !important;
+                font-size: 0.9rem !important;
+                padding: 0.5rem 1rem !important;
+            }
+        }
+        
+        /* Ajustes para o vídeo */
+        .video-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        #modalCameraVideo {
+            border-radius: 0.5rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Botões de câmera e controles - SEMPRE VISÍVEIS */
+        @media (max-width: 767px) {
+            /* Garantir que todos os controles sejam visíveis */
+            .capture-controls-section {
+                display: flex !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                max-height: calc(100vh - 75vh) !important; /* Altura dinâmica para preencher espaço */
+                min-height: 110px !important;
+                height: auto !important; /* Altura automática */
+                width: 100vw !important; /* Largura total da viewport */
+                position: absolute !important; /* Posicionamento absoluto */
+                bottom: 60px !important; /* Deixa espaço para o botão cancelar */
+                left: 0 !important;
+                right: 0 !important;
+                overflow-y: auto !important; /* Scroll para conteúdo extra */
+                background: white !important;
+                border-top: 2px solid #dee2e6 !important;
+                z-index: 10 !important;
+            }
+            
+            .camera-section, .quality-section {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
+            
+            #modalCameraButtons {
+                display: flex !important;
+                visibility: visible !important;
+                flex-wrap: wrap !important;
+                gap: 0.15rem !important; /* Gap reduzido */
+                justify-content: center !important;
+            }
+            
+            #modalCameraButtons .btn {
+                font-size: 0.6rem !important; /* Texto ainda menor */
+                padding: 0.15rem 0.25rem !important; /* Padding muito reduzido */
+                min-height: 24px !important; /* Altura muito menor */
+                display: inline-flex !important;
+                visibility: visible !important;
+            }
+            
+            /* Ajuste específico para orientação vertical */
+            .capture-controls-section .d-grid {
+                gap: 0.1rem !important; /* Gap mínimo */
+                display: grid !important;
+            }
+            
+            .capture-controls-section .btn-lg {
+                padding: 0.4rem 0.6rem !important; /* Padding muito reduzido */
+                font-size: 0.8rem !important; /* Fonte menor */
+                min-height: 36px !important; /* Altura muito reduzida */
+            }
+            
+            /* Priorizar o botão de captura - sempre no topo */
+            #modalCaptureButton {
+                order: -1 !important; /* Força o botão a aparecer primeiro */
+                margin-bottom: 0.1rem !important; /* Margem mínima */
+                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+                border: none !important;
+                color: white !important;
+                font-weight: bold !important;
+                display: block !important;
+                visibility: visible !important;
+                position: sticky !important; /* Manter fixo no topo do scroll */
+                top: 0 !important;
+                z-index: 15 !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+                border-radius: 0.375rem !important;
+            }
+            
+            /* Compactar outros elementos */
+            .capture-controls-section .form-label {
+                font-size: 0.65rem !important; /* Fonte menor */
+                margin-bottom: 0.05rem !important; /* Margem mínima */
+                display: block !important;
+                visibility: visible !important;
+                line-height: 1.1 !important;
+            }
+            
+            .capture-controls-section .btn-group {
+                display: flex !important;
+                visibility: visible !important;
+            }
+            
+            .capture-controls-section .btn-group .btn {
+                font-size: 0.6rem !important; /* Fonte menor */
+                padding: 0.15rem 0.25rem !important; /* Padding mínimo */
+                min-height: 24px !important; /* Altura muito menor */
+                display: inline-flex !important;
+                visibility: visible !important;
+                flex: 1 !important;
+            }
+            
+            .capture-controls-section small {
+                font-size: 0.55rem !important; /* Fonte muito pequena mas visível */
+                display: block !important; /* Mostrar novamente */
+                visibility: visible !important;
+                line-height: 1.1 !important;
+                margin-top: 0.1rem !important;
+            }
+            
+            /* Forçar que o container dos controles seja visível e ocupe largura total */
+            .capture-controls-section .p-2 {
+                display: flex !important;
+                flex-direction: column !important;
+                visibility: visible !important;
+                min-height: 110px !important; /* Altura para funcionalidades */
+                max-height: 110px !important;
+                width: 100% !important;
+                overflow-y: auto !important;
+                padding: 0.15rem 0.4rem 0.15rem 0.4rem !important; /* Padding ajustado */
+                margin: 0 !important;
+            }
+            
+            /* Ajustar o modal body para o novo espaço dos controles */
+            .modal-body {
+                padding-bottom: 110px !important; /* Espaço para a secção de controles */
+            }
+            
+            /* Garantir que a câmera não seja coberta */
+            .capture-video-section {
+                margin-bottom: 110px !important; /* Margem ajustada */
+                height: calc(100vh - 190px) !important; /* Espaço para a câmera */
+            }
+            
+            /* Eliminar espaço entre controles e footer */
+            .modal-footer.d-block.d-md-none {
+                padding: 0 !important;
+                margin: 0 !important;
+                border-top: none !important;
+                background: white !important; /* Fundo branco para continuidade */
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 11 !important; /* Acima dos controles */
+                height: 60px !important; /* Altura fixa para o botão */
+            }
+            
+            .modal-footer.d-block.d-md-none .btn {
+                margin: 0 !important;
+                border-radius: 0 !important;
+                border-top: 1px solid #dee2e6 !important;
+                height: 60px !important; /* Altura do botão */
+                line-height: 1.2 !important;
+            }
+            
+            /* Garantir que o modal body não tenha padding inferior desnecessário */
+            .modal-body {
+                padding-bottom: 170px !important; /* Espaço para controles + botão cancelar */
+            }
+        }
+    </style>
 
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1173,13 +1464,11 @@
             const alunoData = alunosData.find(a => a.processo === processo);
             
             if (alunoData) {
-                // Preencher informações no modal
+                // Preencher nome do aluno no modal header
                 document.getElementById('modalAlunoNome').textContent = alunoData.nome;
-                document.getElementById('modalAlunoProcesso').textContent = `Processo: ${alunoData.processo}`;
             } else {
                 // Fallback se não encontrar
-                document.getElementById('modalAlunoNome').textContent = 'Aluno';
-                document.getElementById('modalAlunoProcesso').textContent = `Processo: ${processo}`;
+                document.getElementById('modalAlunoNome').textContent = `Processo ${processo}`;
             }
             
             // Armazenar processo atual para uso na captura
@@ -1356,8 +1645,8 @@
                     const shortName = cameraName.length > 12 ? cameraName.substring(0, 12) + '...' : cameraName;
                     
                     button.innerHTML = `
-                        <i class="bi bi-camera mb-1" style="font-size: 20px;"></i>
-                        <span style="font-size: 10px;">${shortName}</span>
+                        <i class="bi bi-camera mb-1 camera-btn-icon"></i>
+                        <span class="camera-btn-label">${shortName}</span>
                     `;
                     
                     // Event listener para trocar de câmera
@@ -1598,7 +1887,7 @@
                     removeBtn.onclick = function(event) {
                         event.stopPropagation();
                     };
-                    removeBtn.innerHTML = '<i class="bi bi-x" style="font-size: 12px;"></i>';
+                    removeBtn.innerHTML = '<i class="bi bi-x photo-status-icon-xs"></i>';
                     
                     // Adicionar event listener para o modal de remover foto
                     removeBtn.addEventListener('click', function(e) {
@@ -1622,7 +1911,7 @@
                     recentIcon.className = 'position-absolute top-0 start-0 m-1 recent-photo-icon';
                     recentIcon.title = 'Foto tirada recentemente';
                     recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
-                    recentIcon.innerHTML = '<i class="bi bi-emoji-smile-fill text-white" style="font-size: 14px;"></i>';
+                    recentIcon.innerHTML = '<i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>';
                     photoContainer.appendChild(recentIcon);
                 }
                 
@@ -1719,7 +2008,7 @@
                     event.stopPropagation();
                     goToCapturePhoto(alunoProcesso);
                 };
-                cameraBtn.innerHTML = '<i class="bi bi-camera" style="font-size: 12px;"></i>';
+                cameraBtn.innerHTML = '<i class="bi bi-camera photo-status-icon-xs"></i>';
                 
                 // Substituir botão de remover pelo de câmera
                 photoContainer.replaceChild(cameraBtn, removeBtn);
@@ -1731,14 +2020,14 @@
                 // Atualizar para emoji tonto (foto não tirada)
                 recentIcon.title = 'Foto não tirada';
                 recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
-                recentIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>';
+                recentIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white photo-status-icon-sm"></i>';
             } else {
                 // Criar ícone de "foto não tirada" se não existir
                 const dizzyIcon = document.createElement('div');
                 dizzyIcon.className = 'position-absolute top-0 start-0 m-1 recent-photo-icon';
                 dizzyIcon.title = 'Foto não tirada';
                 dizzyIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #ffc107; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
-                dizzyIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white" style="font-size: 14px;"></i>';
+                dizzyIcon.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white photo-status-icon-sm"></i>';
                 photoContainer.appendChild(dizzyIcon);
             }
             
