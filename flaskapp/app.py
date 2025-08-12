@@ -135,7 +135,7 @@ class User(db.Model, AddUserSecurityCheck):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     _email = db.Column('username', db.String(120), unique=True, nullable=False)
-    password_hash = db.Column('password', db.String(120), unique=False, nullable=False)
+    password_hash = db.Column('password', db.String(180), unique=False, nullable=False)
     name = db.Column('name', db.String(120), unique=False, nullable=False)
     role = db.Column(db.String(20), nullable=False, default='none')  # none, viewer, editor, admin
     is_verified = db.Column(db.Boolean, nullable=False, default=True)  # Por defeito verificado
@@ -2622,11 +2622,11 @@ def user_management(user_id=None):
     return redirect(url_for('settings'))
 
 
+create_directories_with_permissions()
+# Inicializar base de dados quando o script é executado diretamente
+with app.app_context():
+    db.create_all()
+    print("Base de dados inicializada. O primeiro utilizador a registar-se receberá permissões de administrador.")
+
 if __name__ == '__main__':
-    create_directories_with_permissions()
-    # Inicializar base de dados quando o script é executado diretamente
-    with app.app_context():
-        db.create_all()
-        print("Base de dados inicializada. O primeiro utilizador a registar-se receberá permissões de administrador.")
-    
     app.run(debug=DEBUG, host='0.0.0.0', port=5000)
