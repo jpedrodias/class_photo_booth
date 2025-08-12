@@ -44,6 +44,8 @@
                 
                 <!-- Login Form -->
                 <form method="POST" id="loginForm">
+                    <!-- CSRF Token for security -->
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <!-- Form action will be set dynamically by JS -->
                     
                     <!-- Login Container -->

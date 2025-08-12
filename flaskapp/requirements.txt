@@ -1,6 +1,7 @@
 Flask
 Flask-SQLAlchemy
 Flask-Mail
+Flask-WTF
 python-docx
 Pillow
 opencv-python

@@ -265,6 +265,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="addStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_add_new">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         
@@ -326,6 +327,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="editStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_edit">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="editAlunoId">
@@ -385,6 +387,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="deleteStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_delete">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="deleteAlunoId">
@@ -432,6 +435,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="transferStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_transfer">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="transferAlunoId">
@@ -489,6 +493,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="removePhotoForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_remove_photo">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="removePhotoAlunoId">
@@ -581,6 +586,7 @@
                 <form method="POST" action="{{ url_for('student') }}" id="manualUploadPhotoStudentForm" enctype="multipart/form-data">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_manual_upload_photo">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="manualUploadAlunoId">

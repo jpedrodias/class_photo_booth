@@ -234,6 +234,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form action="{{ url_for('turma_crud') }}" method="post" id="addTurmaForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" name="action" value="crud_turma_add_new">
                     <div class="modal-body">
                         <div class="mb-3">
@@ -269,6 +270,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form action="{{ url_for('turma_crud') }}" method="post" id="editTurmaForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" name="action" value="crud_turma_edit">
                     <input type="hidden" name="turma_id" id="editTurmaId">
                     <div class="modal-body">
@@ -305,6 +307,7 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form action="{{ url_for('turma_crud') }}" method="post" id="deleteTurmaForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                     <input type="hidden" name="action" value="crud_turma_delete">
                     <input type="hidden" name="turma_id" id="deleteTurmaId">
                     <div class="modal-body">

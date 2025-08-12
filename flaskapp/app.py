@@ -26,6 +26,7 @@ from docx.shared import Cm, Pt
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
 from flask_mail import Mail, Message
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash, safe_join
 from werkzeug.utils import secure_filename
 
@@ -34,6 +35,14 @@ from werkzeug.utils import secure_filename
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')  # Use DevelopmentConfig by default  
 
+# Inicializar proteção CSRF
+csrf = CSRFProtect(app)
+
+# Disponibilizar token CSRF globalmente nos templates
+@app.context_processor
+def inject_csrf_token():
+    from flask_wtf.csrf import generate_csrf
+    return dict(csrf_token=generate_csrf)
 
 # Inicializar SQLAlchemy
 db = SQLAlchemy(app)
@@ -1839,6 +1848,7 @@ def student():
 
 
 @app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
+@csrf.exempt  # API endpoint que recebe JSON, não formulários HTML
 @required_login
 @required_role('editor')
 def upload_photo(nome_seguro, processo):

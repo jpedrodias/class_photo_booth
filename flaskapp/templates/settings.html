@@ -231,6 +231,7 @@
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
                                                 <form action="/settings/users/{{ preuser.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ preuser._email }}?')">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_preuser_delete">
                                                     <button type="submit" class="btn btn-outline-danger btn-sm">
                                                         <i class="bi bi-trash"></i>
@@ -292,6 +293,7 @@
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
                                                 <form action="/settings/users/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ login.user.email }}?')">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_login_delete">
                                                     <button type="submit" class="btn btn-outline-danger btn-sm">
                                                         <i class="bi bi-trash"></i>
@@ -332,6 +334,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <form action="/settings/users/{{ user.id }}/" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_user_edit">
                         <div class="modal-body">
                             <div class="mb-3">
@@ -379,6 +382,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <form action="/settings/users/{{ user.id }}/" method="post" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="crud_user_delete">
                             <button type="submit" class="btn btn-danger">Eliminar</button>
                         </form>
@@ -437,6 +441,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <form action="{{ url_for('user_management') }}" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_user_add_new">
                         <div class="modal-body">
                             <div class="mb-3">
@@ -532,6 +537,7 @@
                         </p>
                         
                         <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="replaceForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="replace">
                             <div class="mb-3">
                                 <input type="file" name="file" id="replaceFile" accept=".csv" class="form-control" required>
@@ -559,6 +565,7 @@
                         </p>
                         
                         <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="mergeForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="merge">
                             <div class="mb-3">
                                 <input type="file" name="file" id="mergeFile" accept=".csv" class="form-control" required>
@@ -586,6 +593,7 @@
                         </p>
                         
                         <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="updateProfessorForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="update_professor">
                             <div class="mb-3">
                                 <input type="file" name="file" id="updateProfessorFile" accept=".csv" class="form-control" required>
@@ -612,6 +620,7 @@
                         </p>
                         
                         <form action="{{ url_for('settings_rescan_photos') }}" method="post" id="rescanForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="rescan">
                             
                             <div class="mb-3 text-start">
@@ -653,6 +662,7 @@
                         </p>
                         
                         <form action="{{ url_for('settings_nuke') }}" method="post" id="nukeForm" onsubmit="return confirmNuke()">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <button type="submit" class="btn btn-outline-danger w-100">
                                 <i class="bi bi-exclamation-triangle me-2"></i>
                                 LIMPAR TUDO
@@ -675,6 +685,7 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
                     <form action="/settings/users/{{ user.id }}/" method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_user_edit">
                         <div class="modal-body">
                             <div class="row">
