@@ -270,3 +270,425 @@ body {
     border-color: #28a745 !important;
     background: rgba(40, 167, 69, 0.05);
 }
+
+/* === MODAL DE CAPTURA DE FOTO RESPONSIVO === */
+
+/* Layout de captura responsivo */
+.capture-layout {
+    display: flex;
+    min-height: 100%;
+}
+
+/* Portrait (vertical) - padrão para mobile */
+@media (orientation: portrait), (max-width: 767px) {
+    .capture-layout {
+        flex-direction: column;
+        height: 100vh;
+        width: 100vw;
+        position: relative;
+    }
+    
+    .capture-video-section {
+        flex: 1;
+        min-height: 0;
+        height: calc(100vh - 170px);
+        width: 100%;
+        overflow: hidden;
+    }
+    
+    .capture-controls-section {
+        flex: 0 0 110px;
+        height: 110px;
+        min-height: 110px;
+        max-height: 110px;
+        width: 100vw;
+        position: fixed;
+        bottom: 60px;
+        left: 0;
+        right: 0;
+        border-top: 1px solid #dee2e6;
+        border-bottom: none;
+        overflow-y: auto;
+        display: flex !important;
+        visibility: visible !important;
+        background: white;
+        z-index: 1050;
+        margin: 0;
+        padding: 0;
+    }
+    
+    #modalCameraVideo {
+        max-height: calc(100vh - 170px);
+        max-width: 100%;
+        width: 100%;
+        object-fit: cover;
+    }
+    
+    #modalCaptureButton {
+        min-height: 36px !important;
+        font-size: 0.8rem !important;
+        padding: 0.4rem 0.6rem !important;
+        margin-bottom: 0.1rem !important;
+        display: block !important;
+        visibility: visible !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 10 !important;
+        background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+        border: none !important;
+        color: white !important;
+        border-radius: 0.375rem !important;
+    }
+}
+
+/* Landscape (horizontal) - tablets e desktop */
+@media (orientation: landscape) and (min-width: 768px) {
+    .capture-layout {
+        flex-direction: row;
+        height: 100%;
+    }
+    
+    .capture-video-section {
+        flex: 2;
+        min-height: 0;
+        max-width: 66.66%;
+    }
+    
+    .capture-controls-section {
+        flex: 1;
+        min-height: 0;
+        max-width: 33.33%;
+        border-left: 1px solid #dee2e6;
+        overflow-y: auto;
+    }
+    
+    #modalCameraVideo {
+        max-height: 70vh;
+        max-width: 100%;
+        object-fit: cover;
+    }
+}
+
+/* Mobile landscape específico */
+@media (orientation: landscape) and (max-height: 500px) {
+    .capture-video-section {
+        max-width: 60%;
+    }
+    
+    .capture-controls-section {
+        max-width: 40%;
+    }
+    
+    #modalCameraVideo {
+        max-height: 60vh;
+    }
+    
+    .capture-controls-section .btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+    
+    .capture-controls-section .form-label {
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    #modalCaptureButton {
+        min-height: 40px !important;
+        font-size: 0.9rem !important;
+        padding: 0.5rem 1rem !important;
+    }
+}
+
+/* Ajustes para o vídeo */
+.video-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#modalCameraVideo {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Controles sempre visíveis em mobile - SOLUÇÃO DEFINITIVA */
+@media (max-width: 767px) {
+    /* Container principal para eliminar qualquer gap */
+    #capturePhotoModal .modal-body {
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100vh !important;
+        background: white !important;
+        background-color: #ffffff !important;
+        background-image: none !important;
+    }
+    
+    /* Câmera ocupa todo espaço disponível menos 110px (65+45) */
+    .capture-video-section {
+        flex: 1 !important;
+        height: calc(100vh - 110px) !important;
+        overflow: hidden !important;
+    }
+    
+    /* Controles reduzidos para 65px para eliminar gap */
+    .capture-controls-section {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        position: fixed !important;
+        bottom: 45px !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 65px !important;
+        width: 100vw !important;
+        overflow-y: auto !important;
+        background: white !important;
+        background-image: none !important;
+        background-color: #ffffff !important;
+        border-top: 1px solid #dee2e6 !important;
+        border-bottom: none !important;
+        z-index: 1050 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .camera-section, .quality-section {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    #modalCameraButtons {
+        display: flex !important;
+        visibility: visible !important;
+        flex-wrap: wrap !important;
+        gap: 0.15rem !important;
+        justify-content: center !important;
+    }
+    
+    #modalCameraButtons .btn {
+        font-size: 0.7rem !important;
+        padding: 0 !important;
+        min-height: 36px !important;
+        height: 48px !important;
+        display: inline-flex !important;
+        visibility: visible !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        line-height: 1 !important;
+        border-radius: 0.25rem !important;
+    }
+    
+    .capture-controls-section .d-grid {
+        gap: 0.1rem !important;
+        display: grid !important;
+    }
+    
+    .capture-controls-section .btn-lg {
+        padding: 0.4rem 0.6rem !important;
+        font-size: 0.8rem !important;
+        min-height: 36px !important;
+    }
+    
+    #modalCaptureButton {
+        order: -1 !important;
+        margin-bottom: 0.1rem !important;
+        background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: bold !important;
+        display: flex !important;
+        visibility: visible !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 15 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        border-radius: 0.375rem !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        line-height: 1.2 !important;
+        min-height: 40px !important;
+        height: 40px !important;
+        font-size: 0.85rem !important;
+        padding: 0 0.6rem !important;
+    }
+    
+    .capture-controls-section .form-label {
+        font-size: 0.65rem !important;
+        margin-bottom: 0.05rem !important;
+        display: block !important;
+        visibility: visible !important;
+        line-height: 1.1 !important;
+    }
+    
+    .capture-controls-section .btn-group {
+        display: flex !important;
+        visibility: visible !important;
+    }
+    
+    .capture-controls-section .btn-group .btn {
+        font-size: 0.75rem !important;
+        padding: 0 !important;
+        min-height: 56px !important;
+        height: 56px !important;
+        display: inline-flex !important;
+        visibility: visible !important;
+        flex: 1 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        line-height: 1 !important;
+        border-radius: 0.25rem !important;
+    }
+    
+    .capture-controls-section small {
+        font-size: 0.55rem !important;
+        display: block !important;
+        visibility: visible !important;
+        line-height: 1.1 !important;
+        margin-top: 0.1rem !important;
+    }
+    
+    .capture-controls-section .p-2 {
+        display: flex !important;
+        flex-direction: column !important;
+        visibility: visible !important;
+        min-height: 65px !important;
+        max-height: 65px !important;
+        width: 100% !important;
+        overflow-y: auto !important;
+        padding: 0.1rem 0.4rem 0.1rem 0.4rem !important;
+        margin: 0 !important;
+        background: white !important;
+        background-color: #ffffff !important;
+        background-image: none !important;
+    }
+    
+    .modal-body {
+        padding-bottom: 110px !important;
+    }
+    
+    .capture-video-section {
+        margin-bottom: 110px !important;
+        height: calc(100vh - 110px) !important;
+    }
+    
+    /* Footer SEM box-shadow extra */
+    #capturePhotoModal .modal-footer.d-block.d-md-none {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        height: 45px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        background: #dc3545 !important;
+        z-index: 1055 !important;
+        display: flex !important;
+        align-items: center !important;
+        border: none !important;
+        box-shadow: none !important;
+        transform: translateY(0) !important;
+        flex-shrink: 0 !important;
+    }
+    
+    #capturePhotoModal .modal-footer.d-block.d-md-none .btn {
+        margin: 0 !important;
+        border-radius: 0 !important;
+        height: 45px !important;
+        width: 100% !important;
+        border: none !important;
+        background: #dc3545 !important;
+        color: white !important;
+        font-size: 0.9rem !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+}
+
+/* === CLASSES PARA SUBSTITUIR STYLES INLINE === */
+.cursor-pointer {
+    cursor: pointer !important;
+}
+
+.cursor-default {
+    cursor: default !important;
+}
+
+.photo-status-badge {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    box-shadow: 0px 2px 4px rgba(0,0,0,0.3);
+}
+
+.photo-status-badge.success {
+    background-color: #28a745;
+}
+
+.photo-status-badge.warning {
+    background-color: #ffc107;
+}
+
+.photo-status-icon-sm {
+    font-size: 14px !important;
+}
+
+.photo-status-icon-xs {
+    font-size: 12px !important;
+}
+
+.photo-remove-btn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-student-icon {
+    font-size: 3rem !important;
+}
+
+.preview-image-modal {
+    max-height: 70vh;
+    max-width: 100%;
+}
+
+.camera-btn-icon {
+    font-size: 20px !important;
+}
+
+.camera-btn-label {
+    font-size: 10px !important;
+}
+
+/* Botões mobile inline - ícone e texto na mesma linha */
+.mobile-btn-inline {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.25rem !important;
+}
+
+.mobile-btn-inline i {
+    font-size: 0.9rem !important;
+}
+
+.mobile-btn-inline small {
+    font-size: 0.75rem !important;
+    line-height: 1 !important;
+}
