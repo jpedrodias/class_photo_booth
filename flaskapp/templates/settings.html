@@ -738,20 +738,20 @@
             <div class="row g-2">
                 <div class="col-6">
                     {% if has_data %}
-                    <a href="{{ url_for('turmas') }}" class="btn btn-success w-100">
-                        <i class="bi bi-eye d-block"></i>
+                    <a href="{{ url_for('turmas') }}" class="btn btn-success w-100 mobile-btn-inline">
+                        <i class="bi bi-eye"></i>
                         <small>Ver Turmas</small>
                     </a>
                     {% else %}
-                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100">
-                        <i class="bi bi-arrow-left d-block"></i>
+                    <a href="{{ url_for('turmas') }}" class="btn btn-secondary w-100 mobile-btn-inline">
+                        <i class="bi bi-arrow-left"></i>
                         <small>Voltar</small>
                     </a>
                     {% endif %}
                 </div>
                 <div class="col-6">
-                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-box-arrow-right d-block"></i>
+                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100 mobile-btn-inline">
+                        <i class="bi bi-box-arrow-right"></i>
                         <small>Sair</small>
                     </button>
                 </div>
