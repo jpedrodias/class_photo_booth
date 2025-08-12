@@ -767,17 +767,21 @@ def create_docx_with_photos(turma_nome):
                     
                     # Adicionar texto com número e nome formatado
                     numero_display = aluno.numero if aluno.numero else index + 1
-                    text_run = paragraph.add_run(f'{numero_display} {aluno.nome}')
+                    text = f'{numero_display} {aluno.nome}'
+                    text_size = 12 if len(text) < 24 else 10
+                    text_run = paragraph.add_run(text)
                     # Aplicar formatação Times New Roman 16pt
                     text_run.font.name = 'Times New Roman'
-                    text_run.font.size = Pt(12)
+                    text_run.font.size = Pt(text_size)
                 except Exception as e:
                     # Se houver erro ao adicionar imagem, adicionar apenas o texto
                     numero_display = aluno.numero if aluno.numero else index + 1
-                    text_run = paragraph.add_run(f'{numero_display} {aluno.nome}')
+                    text = f'{numero_display} {aluno.nome}'
+                    text_size = 12 if len(text) < 24 else 10
+                    text_run = paragraph.add_run(text)
                     # Aplicar formatação Times New Roman 16pt
                     text_run.font.name = 'Times New Roman'
-                    text_run.font.size = Pt(12)
+                    text_run.font.size = Pt(text_size)
                     print(f"Erro ao adicionar imagem para {aluno.nome}: {e}")
         
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
