@@ -2509,17 +2509,17 @@ def settings_backup():
             # 2. Backup dos alunos (alunos.csv)
             alunos_csv = StringIO()
             alunos_writer = csv.writer(alunos_csv)
-            alunos_writer.writerow(['processo', 'nome', 'numero', 'email', 'autorizacao', 'turma'])
+            alunos_writer.writerow(['processo', 'turma', 'numero', 'nome', 'email', 'autorizacao'])
             
             alunos = Aluno.query.all()
             for aluno in alunos:
                 alunos_writer.writerow([
                     aluno.processo,
-                    aluno.nome,
+                    aluno.turma.nome,  # Nome da turma em vez do ID
                     aluno.numero if aluno.numero else '',
+                    aluno.nome,
                     aluno.email,
                     aluno.autorizacao,
-                    aluno.turma.nome  # Nome da turma em vez do ID
                 ])
             
             zip_file.writestr('alunos.csv', alunos_csv.getvalue())
@@ -2527,7 +2527,7 @@ def settings_backup():
             # 3. Backup dos professores (turmas_professores.csv)
             professores_csv = StringIO()
             professores_writer = csv.writer(professores_csv)
-            professores_writer.writerow(['turma', 'professor', 'email_professor'])
+            professores_writer.writerow(['turma', 'professor', 'email'])
             
             turmas = Turma.query.all()
             for turma in turmas:
