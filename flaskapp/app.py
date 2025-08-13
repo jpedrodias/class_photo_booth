@@ -1300,6 +1300,7 @@ def turmas():
             'nome': turma.nome,
             'nome_seguro': turma.nome_seguro,
             'nome_professor': turma.nome_professor,
+            'email_professor': turma.email_professor,
             'total_alunos': total_alunos,
             'alunos_com_foto': alunos_com_foto,
             'last_updated': turma.last_updated
@@ -2203,6 +2204,18 @@ def _update_professors_from_csv(file):
             if turma:
                 # Atualizar nome do professor
                 turma.nome_professor = professor_nome
+                
+                # Atualizar email do professor se disponível no CSV
+                # Verificar diferentes possíveis nomes de coluna para email
+                email_professor = ''
+                if 'email_professor' in row and row['email_professor']:
+                    email_professor = row['email_professor'].strip()
+                elif 'email' in row and row['email']:
+                    email_professor = row['email'].strip()
+                
+                if email_professor:
+                    turma.email_professor = email_professor
+                
                 turmas_atualizadas += 1
             else:
                 # Turma não encontrada - adicionar à lista para flash
@@ -2352,6 +2365,9 @@ def settings_csv():
                                 aluno_existente.numero = int(row['numero'])
                             except ValueError:
                                 pass  # Ignorar se não for um número válido
+                        # Atualizar email se disponível no CSV
+                        if 'email' in row:
+                            aluno_existente.email = row['email'].strip()
                         alunos_processados += 1
                         continue
                 
@@ -2399,11 +2415,17 @@ def settings_csv():
                     else:
                         photos_kept += 1
                 
+                # Preparar email se disponível no CSV
+                email_val = ''
+                if 'email' in row and row['email']:
+                    email_val = row['email'].strip()
+                
                 # Criar novo aluno
                 aluno = Aluno(
                     processo=processo,
                     nome=row['nome'],
                     numero=numero_val,
+                    email=email_val,
                     turma_id=turma.id,
                     foto_tirada=foto_tirada
                 )

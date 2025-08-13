@@ -137,8 +137,11 @@
                 </a>
                 
                 <div class="d-flex gap-2 mt-auto">
-                    <button type="button" class="btn btn-sm btn-outline-primary flex-fill" 
-                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}', '{{ turma.nome_professor | default('') }}', '{{ turma.email_professor | default('') }}')">
+                    <button type="button" class="btn btn-sm btn-outline-primary flex-fill edit-turma-btn" 
+                            data-turma-id="{{ turma.id }}"
+                            data-turma-nome="{{ turma.nome }}"
+                            data-nome-professor="{{ turma.nome_professor | default('') }}"
+                            data-email-professor="{{ turma.email_professor | default('') }}">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger flex-fill" 
@@ -363,11 +366,34 @@
         }
         
         // Função para editar turma
+        // Event listeners para botões de editar turma
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.edit-turma-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const turmaId = this.dataset.turmaId;
+                    const turmaNome = this.dataset.turmaNome;
+                    const nomeProfessor = this.dataset.nomeProfessor;
+                    const emailProfessor = this.dataset.emailProfessor;
+                    
+                    editTurma(turmaId, turmaNome, nomeProfessor, emailProfessor);
+                });
+            });
+        });
+
         function editTurma(turmaId, turmaNome, nomeProfessor, emailProfessor) {
+            console.log('editTurma called with:', {turmaId, turmaNome, nomeProfessor, emailProfessor});
+            
             document.getElementById('editTurmaId').value = turmaId;
             document.getElementById('editTurmaNome').value = turmaNome;
             document.getElementById('editTurmaProfessor').value = nomeProfessor || '';
             document.getElementById('editTurmaEmailProfessor').value = emailProfessor || '';
+            
+            console.log('Fields populated:', {
+                id: document.getElementById('editTurmaId').value,
+                nome: document.getElementById('editTurmaNome').value,
+                professor: document.getElementById('editTurmaProfessor').value,
+                email: document.getElementById('editTurmaEmailProfessor').value
+            });
             
             const modal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
             modal.show();
