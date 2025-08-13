@@ -6,6 +6,7 @@ import re
 import shutil
 import traceback
 import zipfile
+import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO
@@ -400,7 +401,7 @@ class LoginLog(db.Model):
         """Verifica tentativas falhadas de login e bane IP se necessário"""
         
         # Verificar tentativas nas últimas 15 minutos
-        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=15)
+        time_threshold = datetime.now(timezone.utc) - timedelta(minutes=1)
         failed_attempts = cls.query.filter(
             cls.remote_addr == ip_address,
             cls.success == False,
@@ -864,7 +865,8 @@ def login(action_url=None):
         ip_address = request.access_route[-1] # request.remote_addr
 
     # FUNCIONALIDADE DESATIVADA: Banning IPs for excessive login attempts
-    if BannedIPs.is_banned(ip_address) and 0:
+    DESATIVAR = False
+    if BannedIPs.is_banned(ip_address) and not DESATIVAR:
         flash('O seu IP foi bloqueado devido a tentativas excessivas de login. Contacte o administrador.', 'error')
         return render_template('login.html', action='login')
     
@@ -898,6 +900,7 @@ def login(action_url=None):
                 else:
                     flash('Email ou palavra-passe incorretos.', 'error')
                 
+                time.sleep(5)
                 return render_template('login.html', action='login')
             
             # Verificar se a conta está verificada
@@ -943,6 +946,7 @@ def login(action_url=None):
                 else:
                     flash('Email ou palavra-passe incorretos.', 'error')
                 
+                time.sleep(5)
                 return render_template('login.html', action='login')
         
         elif action == 'register':
@@ -2051,6 +2055,7 @@ def settings():
     users = User.query.all()
     preusers = PreUser.query.all()
     login_logs = LoginLog.query.order_by(LoginLog.date.desc()).limit(100).all()
+    banned_ips = BannedIPs.query.order_by(BannedIPs.date.desc()).all()
     
     return render_template(
         'settings.html', 
@@ -2059,6 +2064,7 @@ def settings():
         users=users,
         preusers=preusers,
         login_logs=login_logs,
+        banned_ips=banned_ips,
         current_user=user,
         can_upload_csv=True,
         can_system_nuke=True,
@@ -2626,12 +2632,81 @@ def user_management(user_id=None):
             flash(f'Erro ao eliminar pré-utilizador: {str(e)}', 'error')
         return redirect(url_for('settings'))
 
-    elif action == 'crud_login_delete':
-        """Eliminar um log de login"""
-        log_id = user_id
+    # Se a ação não for reconhecida, redirecionar
+    flash('Ação não reconhecida!', 'error')
+    return redirect(url_for('settings'))
+
+
+# Rota para gestão de IPs banidos integradas em /settings
+@app.route('/settings/banned_ips/<int:banned_ip_id>/', methods=['POST'])
+@app.route('/settings/banned_ips/clear_all/', methods=['POST'])
+@required_login
+@required_role('admin')
+def banned_ip_management(banned_ip_id=None):
+    """Gestão de IPs banidos baseada em actions"""
+    action = request.form.get('action', '').strip()
+    
+    if action == 'crud_banned_ip_delete':
+        """Desbanir um IP (eliminar da tabela BannedIPs)"""
+        if banned_ip_id is None:
+            flash('ID do IP banido não fornecido para desbloqueio.', 'error')
+            return redirect(url_for('settings'))
         
-        if not log_id:
-            flash('ID do log de login não fornecido!', 'error')
+        # Buscar IP banido
+        banned_ip = db.session.get(BannedIPs, banned_ip_id)
+        if not banned_ip:
+            flash('IP banido não encontrado!', 'error')
+            return redirect(url_for('settings'))
+        
+        try:
+            ip_address = banned_ip.remote_addr
+            db.session.delete(banned_ip)
+            db.session.commit()
+            flash(f'IP {ip_address} desbloqueado com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao desbloquear IP: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
+    elif action == 'crud_banned_ip_clear_all':
+        """Desbanir todos os IPs (limpar tabela BannedIPs)"""
+        try:
+            # Contar quantos IPs serão desbloqueados
+            count = BannedIPs.query.count()
+            
+            if count == 0:
+                flash('Não há IPs banidos para desbloquear.', 'info')
+                return redirect(url_for('settings'))
+            
+            # Eliminar todos os IPs banidos
+            BannedIPs.query.delete()
+            db.session.commit()
+            flash(f'{count} IP{"s" if count != 1 else ""} desbloqueado{"s" if count != 1 else ""} com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao desbloquear todos os IPs: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
+    # Se a ação não for reconhecida, redirecionar
+    flash('Ação não reconhecida para gestão de IPs banidos!', 'error')
+    return redirect(url_for('settings'))
+
+
+# Rota para gestão de LoginLog integradas em /settings
+@app.route('/settings/login_logs/<int:log_id>/', methods=['POST'])
+@app.route('/settings/login_logs/clear_all/', methods=['POST'])
+@required_login
+@required_role('admin')
+def login_log_management(log_id=None):
+    """Gestão de logs de login baseada em actions"""
+    action = request.form.get('action', '').strip()
+    
+    if action == 'crud_login_delete':
+        """Eliminar um log de login específico"""
+        if log_id is None:
+            flash('ID do log de login não fornecido para eliminação.', 'error')
             return redirect(url_for('settings'))
         
         # Buscar log de login
@@ -2643,15 +2718,35 @@ def user_management(user_id=None):
         try:
             db.session.delete(log)
             db.session.commit()
-            flash(f'Log de login {log.id} eliminado com sucesso!', 'success')
+            flash(f'Log de login #{log_id} eliminado com sucesso!', 'success')
         except Exception as e:
             db.session.rollback()
             flash(f'Erro ao eliminar log de login: {str(e)}', 'error')
         
-        return redirect(url_for('settings'))    
-
+        return redirect(url_for('settings'))
+    
+    elif action == 'crud_login_clear_all':
+        """Eliminar todos os logs de login"""
+        try:
+            # Contar quantos logs serão eliminados
+            count = LoginLog.query.count()
+            
+            if count == 0:
+                flash('Não há logs de login para eliminar.', 'info')
+                return redirect(url_for('settings'))
+            
+            # Eliminar todos os logs de login
+            LoginLog.query.delete()
+            db.session.commit()
+            flash(f'{count} log{"s" if count != 1 else ""} de login eliminado{"s" if count != 1 else ""} com sucesso!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao eliminar todos os logs de login: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
+    
     # Se a ação não for reconhecida, redirecionar
-    flash('Ação não reconhecida!', 'error')
+    flash('Ação não reconhecida para gestão de logs de login!', 'error')
     return redirect(url_for('settings'))
 
 

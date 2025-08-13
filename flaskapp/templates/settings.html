@@ -263,6 +263,13 @@
                                 Login Logs
                             </h5>
                             <div>
+                                <form action="/settings/login_logs/clear_all/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar TODOS os logs de login? Esta ação não pode ser desfeita!')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="action" value="crud_login_clear_all">
+                                    <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Eliminar todos os logs">
+                                        <i class="bi bi-trash"></i> Limpar Todos
+                                    </button>
+                                </form>
                                 <span class="badge bg-light text-primary">{{ login_logs|length }} registo{{ 's' if login_logs|length != 1 else '' }}</span>
                             </div>
                         </div>
@@ -292,14 +299,76 @@
                                         <td>{{ '✓' if login.success else '❌' }}</td>
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
-                                                <form action="/settings/users/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ login.user.email }}?')">
+                                                <form action="/settings/login_logs/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar este log de login?')">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_login_delete">
-                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar log">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
                                                 </form>
                                                 
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Seção de Gestão de BannedIPs -->
+        {% if banned_ips %}
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-danger text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-shield-exclamation me-2"></i>
+                                IPs Banidos
+                            </h5>
+                            <div>
+                                <form action="/settings/banned_ips/clear_all/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                    <input type="hidden" name="action" value="crud_banned_ip_clear_all">
+                                    <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Desbanir todos os IPs">
+                                        <i class="bi bi-unlock"></i> Desbanir Todos
+                                    </button>
+                                </form>
+                                <span class="badge bg-light text-danger">{{ banned_ips|length }} IP{{ 's' if banned_ips|length != 1 else '' }} banido{{ 's' if banned_ips|length != 1 else '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Endereço IP</th>
+                                        <th>Data do Banimento</th>
+                                        <th class="text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for banned_ip in banned_ips %}
+                                    <tr>
+                                        <td class="text-muted">#{{ banned_ip.id }}</td>
+                                        <td><code>{{ banned_ip.remote_addr }}</code></td>
+                                        <td>{{ banned_ip.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        <td class="text-center">
+                                            <div class="btn-group" role="group">
+                                                <form action="/settings/banned_ips/{{ banned_ip.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir o IP {{ banned_ip.remote_addr }}?')">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                                    <input type="hidden" name="action" value="crud_banned_ip_delete">
+                                                    <button type="submit" class="btn btn-outline-success btn-sm" title="Desbanir IP">
+                                                        <i class="bi bi-unlock"></i> Desbanir
+                                                    </button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>
