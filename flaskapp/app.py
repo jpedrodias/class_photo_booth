@@ -393,7 +393,7 @@ class LoginLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     success = db.Column(db.Boolean, unique=False, nullable=False)
-    remote_addr = db.Column('ip_address', db.String(20), unique=False, nullable=False) # request.remote_addr
+    remote_addr = db.Column('ip_address', db.String(64), unique=False, nullable=False) # request.remote_addr
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
 
     @classmethod

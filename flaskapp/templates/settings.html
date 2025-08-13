@@ -230,7 +230,7 @@
                                         <td>{{ preuser.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
-                                                <form action="/settings/users/{{ preuser.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ preuser._email }}?')">
+                                                <form action="{{ url_for('user_management', user_id=preuser.id) }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar o utilizador {{ preuser._email }}?')">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_preuser_delete">
                                                     <button type="submit" class="btn btn-outline-danger btn-sm">
@@ -263,7 +263,7 @@
                                 Login Logs
                             </h5>
                             <div>
-                                <form action="/settings/login_logs/clear_all/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar TODOS os logs de login? Esta ação não pode ser desfeita!')">
+                                <form action="{{ url_for('login_log_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar TODOS os logs de login? Esta ação não pode ser desfeita!')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <input type="hidden" name="action" value="crud_login_clear_all">
                                     <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Eliminar todos os logs">
@@ -299,7 +299,7 @@
                                         <td>{{ '✓' if login.success else '❌' }}</td>
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
-                                                <form action="/settings/login_logs/{{ login.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar este log de login?')">
+                                                <form action="{{ url_for('login_log_management', log_id=login.id) }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar este log de login?')">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_login_delete">
                                                     <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar log">
@@ -332,7 +332,7 @@
                                 IPs Banidos
                             </h5>
                             <div>
-                                <form action="/settings/banned_ips/clear_all/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">
+                                <form action="{{ url_for('banned_ip_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">>>
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <input type="hidden" name="action" value="crud_banned_ip_clear_all">
                                     <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Desbanir todos os IPs">
@@ -362,7 +362,7 @@
                                         <td>{{ banned_ip.date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                         <td class="text-center">
                                             <div class="btn-group" role="group">
-                                                <form action="/settings/banned_ips/{{ banned_ip.id }}/" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir o IP {{ banned_ip.remote_addr }}?')">
+                                                <form action="{{ url_for('banned_ip_management', banned_ip_id=banned_ip.id) }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir o IP {{ banned_ip.remote_addr }}?')">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                     <input type="hidden" name="action" value="crud_banned_ip_delete">
                                                     <button type="submit" class="btn btn-outline-success btn-sm" title="Desbanir IP">
@@ -402,7 +402,7 @@
                         <h5 class="modal-title">Editar Utilizador</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form action="/settings/users/{{ user.id }}/" method="post">
+                    <form action="{{ url_for('user_management', user_id=user.id) }}" method="post">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_user_edit">
                         <div class="modal-body">
@@ -450,7 +450,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <form action="/settings/users/{{ user.id }}/" method="post" class="d-inline">
+                        <form action="{{ url_for('user_management', user_id=user.id) }}" method="post" class="d-inline">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <input type="hidden" name="action" value="crud_user_delete">
                             <button type="submit" class="btn btn-danger">Eliminar</button>
@@ -469,7 +469,7 @@
                         <h5 class="modal-title">Alterar Senha do Utilizador</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form action="/settings/users/{{ user.id }}/" method="post">
+                    <form action="{{ url_for('user_management', user_id=user.id) }}" method="post">
                         <input type="hidden" name="action" value="crud_user_reset_password">
                         <div class="modal-body">
                             <div class="alert alert-warning">
@@ -753,7 +753,7 @@
                         <h5 class="modal-title">Editar Utilizador</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                     </div>
-                    <form action="/settings/users/{{ user.id }}/" method="post">
+                    <form action="{{ url_for('user_management', user_id=user.id) }}" method="post">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_user_edit">
                         <div class="modal-body">
