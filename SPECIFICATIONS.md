@@ -1,9 +1,9 @@
-# 📸 Especificação Técnica Completa – Class Photo Booth v4.0
+# 📸 Especificação Técnica Completa – Class Photo Booth v5.0
 
 ## 1. Introdução
 
 ### 1.1 Objetivo
-O **Class Photo Booth** é uma aplicação web moderna e responsiva desenvolvida para facilitar a captura, gestão e organização de fotografias de alunos por turma. A aplicação utiliza uma arquitetura completa com sistema de autenticação avançado, gestão de utilizadores com roles e permissões, sistema de email, base de dados SQLAlchemy, e oferece uma interface intuitiva otimizada para dispositivos móveis e desktop com funcionalidades avançadas de CRUD e geração de documentos.
+O **Class Photo Booth** é uma aplicação web moderna e responsiva desenvolvida para facilitar a captura, gestão e organização de fotografias de alunos por turma. A aplicação utiliza uma arquitetura completa com sistema de autenticação avançado, gestão de utilizadores com roles e permissões, sistema de email, base de dados SQLAlchemy, proteção CSRF, sistema de autorização para fotografias e oferece uma interface intuitiva otimizada para dispositivos móveis e desktop com funcionalidades avançadas de CRUD e geração de documentos.
 
 ### 1.2 Escopo
 A aplicação é uma solução web empresarial completa, desenvolvida em **Python com Flask**, com as seguintes capacidades:
@@ -13,16 +13,23 @@ A aplicação é uma solução web empresarial completa, desenvolvida em **Pytho
 - **Gestão de utilizadores** com interface administrativa completa
 - **Sistema de email** com templates HTML para verificação e recuperação de password
 - **Proteção anti-brute force** com bloqueio de IPs por tentativas excessivas
-- **Base de dados SQLAlchemy** com modelos relacionais complexos
+- **Proteção CSRF** com Flask-WTF em todos os formulários
+- **Base de dados SQLAlchemy** com modelos relacionais complexos (SQLite/PostgreSQL)
+- **Sistema de autorização para fotografias** com controlo visual por cores
+- **Gestão de emails** para professores e alunos com importação via CSV
 - **Gestão completa de turmas e alunos** via interface web e upload CSV
 - **Sistema CRUD completo** para turmas, alunos e utilizadores
+- **Timestamps de última atualização** para rastreamento de alterações por turma
 - **Interface responsiva** otimizada para dispositivos móveis
 - **Captura de fotografias** com suporte a múltiplas câmaras
+- **Upload manual de fotos** com drag-and-drop diretamente nos cartões dos alunos
+- **Sistema visual de status** com badges coloridos conforme autorização
 - **Processamento avançado** de imagens com PIL e OpenCV
 - **Download múltiplo** (ZIP e DOCX) das fotografias por turma
 - **Geração de documentos Word** com layout profissional
 - **Deployment via Docker** com mapeamento de permissões
 - **Sistema de logging** com rastreamento de tentativas de login
+- **Scripts de migração** para atualizações da base de dados
 
 ### 1.3 Público-Alvo
 O sistema destina-se a:
@@ -34,15 +41,15 @@ O sistema destina-se a:
 - **Qualquer organização** que necessite de documentação fotográfica estruturada com controlo de acesso
 
 ### 1.4 Tecnologias Implementadas
-- **Backend**: Python 3.12, Flask, SQLAlchemy, Flask-Mail, OpenCV, Pillow (PIL), python-docx, Werkzeug Security
-- **Base de Dados**: SQLite com SQLAlchemy ORM e modelos relacionais avançados
-- **Frontend**: HTML5, CSS3 (Bootstrap 5), JavaScript ES6+ com interfaces modais
-- **Autenticação**: Sistema completo com hash de passwords, verificação por email, recuperação de password
-- **Segurança**: Proteção anti-brute force, validação de inputs, sanitização de dados
+- **Backend**: Python 3.12, Flask, SQLAlchemy, Flask-Mail, Flask-WTF, OpenCV, Pillow (PIL), python-docx, Werkzeug Security
+- **Base de Dados**: SQLite com SQLAlchemy ORM e modelos relacionais avançados (compatibilidade PostgreSQL)
+- **Frontend**: HTML5, CSS3 (Bootstrap 5), JavaScript ES6+ com interfaces modais e drag-and-drop
+- **Autenticação**: Sistema completo with hash de passwords, verificação por email, recuperação de password
+- **Segurança**: Proteção CSRF, anti-brute force, validação de inputs, sanitização de dados
 - **Email**: Flask-Mail com templates HTML responsivos
 - **Containerização**: Docker & Docker Compose com mapeamento de permissões
 - **Geração de Documentos**: python-docx para relatórios em Word profissionais
-- **Design**: Mobile-first, responsivo, glassmorphism com interface administrativa
+- **Design**: Mobile-first, responsivo, glassmorphism com sistema visual de status por cores
 
 ## 2. Arquitetura e Deployment
 
@@ -207,18 +214,28 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Gestão**: Métodos is_banned(), ban_ip() para controlo automático
 
 #### 5.1.5 Modelo Turma (Classes)
-- **Campos**: ID, nome (display), nome_seguro (filesystem), relacionamento com alunos
+- **Campos**: ID, nome (display), nome_seguro (filesystem), nome_professor, email_professor, last_updated, relacionamento com alunos
+- **Campos de Professor**: nome_professor (string), email_professor (string, opcional)
+- **Timestamps**: last_updated automático para rastreamento de alterações
 - **Segurança**: Sanitização automática de nomes para filesystem seguro
-- **Métodos**: create_directories(), update_nome(), delete_directories()
+- **Métodos**: create_directories(), update_nome(), delete_directories(), update_last_modified()
 - **Validação**: Unicidade de nome_seguro, gestão de colisões
+- **Importação CSV**: Suporte a colunas professor e email_professor/email
 
 #### 5.1.6 Modelo Aluno (Estudantes)
-- **Campos**: ID, processo (único global), nome, numero, foto_existe, foto_tirada, turma_id
+- **Campos**: ID, processo (único global), nome, numero, email, autorizacao, foto_existe, foto_tirada, turma_id
+- **Campo Email**: email (string, opcional) para contacto direto com aluno
+- **Campo Autorização**: autorizacao (boolean, default True) para controlo de publicação em redes sociais
+- **Sistema Visual**: Badge colorido conforme estado de autorização:
+  - **Verde (success)**: Foto tirada + autorização concedida
+  - **Vermelho (danger)**: Foto tirada + sem autorização
+  - **Amarelo (warning)**: Foto não tirada (independente da autorização)
 - **Constraints**: Processo único em toda a aplicação (não apenas por turma)
 - **Validação**: Processo deve ser número inteiro positivo
 - **Relacionamento**: Many-to-One com Turma
 - **Gestão de Estados**: Flag `foto_existe` para controlo de existência de ficheiro, `foto_tirada` para controlo de captura
 - **Renomeação Automática**: Quando o processo de um aluno é alterado, os arquivos de foto são automaticamente renomeados
+- **Importação CSV**: Suporte a coluna email opcional
 
 ### 5.2 Upload CSV (RF-CSV)
 - **Formato suportado**: `turma,processo,nome,numero` (número opcional)
@@ -230,7 +247,17 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Interface avançada**: Drag & drop com seleção de modo
 - **Permissões**: Apenas administradores podem fazer upload
 
-### 5.3 CRUD Completo com Controlo de Acesso
+### 5.3 Sistema de Autorização de Fotografias
+- **Campo Booleano**: `autorizado` determina se a foto pode ser usada
+- **Interface Visual**: Badges coloridos indicam estado de autorização:
+  - **Verde**: Aluno autorizado com foto disponível
+  - **Vermelho**: Aluno não autorizado ou sem foto
+  - **Amarelo**: Estados transitórios ou pendentes
+- **Controlo Manual**: Possibilidade de alterar autorização por aluno
+- **Integração com CSV**: Campo email opcional suporta comunicação sobre autorizações
+- **Impacto Visual**: Estados refletidos em tempo real na interface
+
+### 5.4 CRUD Completo com Controlo de Acesso
 #### 5.3.1 Gestão de Utilizadores (Admin apenas)
 - **Criar utilizador**: Formulário modal com validação completa
 - **Editar utilizador**: Modificação de nome, email e role
@@ -330,9 +357,27 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Controles por teclado**: Enter (capturar) / Escape (voltar)
 - **Atualização automática**: Flag foto_tirada na base de dados
 
-## 7. Sistema de Captura e Processamento de Imagens
+## 7. Sistema de Email e Comunicação
 
-### 7.1 Interface de Captura (`/capture_photo/<nome_seguro>/<processo>`)
+### 7.1 Templates de Email
+- **Verificação de conta**: `template_email_send_verification.html`
+  - Design responsivo com identidade visual da aplicação
+  - Link de verificação com token seguro
+  - Instruções claras para ativação da conta
+- **Recuperação de password**: `template_email_send_password_reset.html`
+  - Template para reset de password com link temporário
+  - Design consistente com template de verificação
+  - Instruções de segurança
+
+### 7.2 Gestão de Campos Email
+- **Professors**: Campo `email_professor` em Turma para comunicação direta
+- **Alunos**: Campo `email` opcional para comunicação sobre autorizações
+- **Integração CSV**: Suporte a import de emails através de ficheiro CSV
+- **Comunicação automática**: Potencial para notificações sobre estado de autorizações
+
+## 8. Sistema de Captura e Processamento de Imagens
+
+### 8.1 Interface de Captura (`/capture_photo/<nome_seguro>/<processo>`)
 - **Controlo de acesso**: Apenas editores e administradores
 - **Seleção de câmara**: Dropdown com dispositivos disponíveis
 - **Memória persistente**: localStorage para lembrar câmara escolhida
@@ -340,14 +385,14 @@ Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
 - **Controles por teclado**: Enter (capturar) / Escape (voltar)
 - **Atualização automática**: Flag foto_tirada na base de dados
 
-### 7.2 Processamento Avançado de Imagens
+### 8.2 Processamento Avançado de Imagens
 - **Captura original**: Resolução máxima da câmara
 - **Processamento PIL**: Redimensionamento e crop inteligente
 - **Thumbnails otimizadas**: 250x250px com crop central
 - **Qualidade diferenciada**: 95% originais, 50% thumbnails
 - **Formato consistente**: JPEG em ambos os tamanhos
 
-### 7.3 Armazenamento Organizado por Turma
+### 8.3 Armazenamento Organizado por Turma
 ```
 photos_originals/
 ├── turma_segura_1/
@@ -364,9 +409,9 @@ photos_thumbs/
     └── 4763.jpg
 ```
 
-## 8. Sistema de Download Avançado
+## 9. Sistema de Download Avançado
 
-### 8.1 Download ZIP (`/download/<turma>.zip`)
+### 9.1 Download ZIP (`/download/<turma>.zip`)
 - **Controlo de acesso**: Viewers e superiores podem fazer download
 - **Criação em memória**: Sem ficheiros temporários
 - **Compressão otimizada**: ZIP standard
@@ -374,7 +419,7 @@ photos_thumbs/
 - **Verificação de conteúdo**: Alerta se não há fotos
 - **Fotos originais**: Qualidade máxima para arquivo
 
-### 8.2 Geração de Documentos DOCX (`/download/<turma>.docx`)
+### 9.2 Geração de Documentos DOCX (`/download/<turma>.docx`)
 - **Templates Word**: Uso de templates `.docx` profissionais
 - **Layout inteligente**: Grid 4 colunas adaptativo baseado no número de alunos
 - **Substituição de placeholders**: Data, turma, professor
@@ -383,37 +428,37 @@ photos_thumbs/
 - **Qualidade otimizada**: 150 DPI para impressão
 - **Metadados**: Autor, título e propriedades do documento
 
-### 8.3 Processamento de Imagens para DOCX
+### 9.3 Processamento de Imagens para DOCX
 - **PIL avançado**: Redimensionamento proporcional
 - **Crop central**: Manutenção da proporção original
 - **Fallback inteligente**: Placeholder para alunos sem foto
 - **Otimização de tamanho**: Baseado no número total de alunos
 - **Uso de thumbnails**: Performance otimizada
 
-### 8.4 Interface de Download
+### 9.4 Interface de Download
 - **Dropdown Bootstrap**: Seleção de formato (ZIP/DOCX)
 - **Versões mobile e desktop**: Interfaces adaptadas
 - **Feedback visual**: Estados de loading
 - **Detecção de conteúdo**: Desativa se não há dados
 - **Controlo de permissões**: Baseado no role do utilizador
 
-## 8. Funcionalidades Avançadas
+## 10. Funcionalidades Avançadas
 
-### 8.1 Sistema de Placeholders e Drag & Drop
+### 10.1 Sistema de Placeholders e Drag & Drop
 - **Ícone padrão**: `student_icon.jpg` para alunos sem foto
 - **Integração completa**: Suporte em thumbnails e documentos
 - **Consistência visual**: Mesmo estilo para todos os estados
 - **Cursor uniforme**: Pointer em todos os cartões de aluno
 - **Drag & Drop**: Suporte a arrastar ficheiros de imagem diretamente para o cartão do aluno, com feedback visual e integração total ao fluxo de upload manual
 
-### 8.2 Gestão de Estados
+### 10.2 Gestão de Estados
 - **Flags de controlo**: `foto_existe` (existência do ficheiro) e `foto_tirada` (estado de captura)
 - **Ordenação inteligente**: Por número (nulls last) depois por nome
 - **Contagens dinâmicas**: Estatísticas em tempo real
 - **Sincronização**: Base de dados e sistema de ficheiros
 - **Renomeação consistente**: Manutenção da integridade entre nomes de processos e nomes de arquivos
 
-### 8.3 Movimentação e Gestão de Arquivos
+### 10.3 Movimentação e Gestão de Arquivos
 - **Transferência de alunos**: Move fotos entre turmas
 - **Renomeação de turmas**: Reorganiza estrutura de pastas
 - **Renomeação de processos**: Quando o processo de um aluno é alterado, arquivos de foto são automaticamente renomeados para manter consistência
@@ -421,7 +466,7 @@ photos_thumbs/
 - **Gestão de erros**: Rollback automático em caso de falha na renomeação
 - **Limpeza automática**: Remove arquivos órfãos
 
-### 8.4 Templates DOCX
+### 10.4 Templates DOCX
 ```
 docx_templates/
 └── template_relacao_alunos_fotos.docx    # Template base para relatórios
@@ -431,15 +476,15 @@ docx_templates/
 - **Tabelas responsivas**: Ajuste automático de colunas
 - **Headers e footers**: Suporte completo a cabeçalhos
 
-## 9. Requisitos Técnicos
+## 11. Requisitos Técnicos
 
-### 9.1 Sistema Base
+### 11.1 Sistema Base
 - **Python 3.12+**: Linguagem principal
 - **Docker & Docker Compose**: Containerização
 - **Sistema operativo**: Linux, Windows, macOS
 - **Navegador moderno**: Chrome 90+, Firefox 90+, Safari 14+
 
-### 9.2 Dependências Python
+### 11.2 Dependências Python
 ```txt
 Flask                     # Framework web principal
 Flask-SQLAlchemy         # ORM para base de dados
@@ -449,7 +494,7 @@ python-docx              # Geração de documentos Word
 Pillow                   # Manipulação avançada de imagens
 ```
 
-### 9.3 Configuração de Ambiente
+### 11.3 Configuração de Ambiente
 ```env
 # Configurações da aplicação
 FLASKAPP_DEBUG=True                          # Modo debug (dev/prod)
@@ -468,9 +513,9 @@ UID=1000                                     # User ID (auto-configurado)
 GID=1000                                     # Group ID (auto-configurado)
 ```
 
-## 10. Fluxos de Utilizador Completos
+## 12. Fluxos de Utilizador Completos
 
-### 10.1 Primeiro Acesso e Configuração Inicial
+### 12.1 Primeiro Acesso e Configuração Inicial
 1. **Navegador** → `http://localhost` → Página de login
 2. **Primeiro administrador**:
    - Clica "Criar nova conta"
@@ -484,7 +529,7 @@ GID=1000                                     # Group ID (auto-configurado)
    - Escolhe modo (substituir/merge) → Importação
    - Dados importados → Redirecionamento para `/turmas`
 
-### 10.2 Gestão de Utilizadores (Admin)
+### 12.2 Gestão de Utilizadores (Admin)
 1. **Criar novos utilizadores**:
    - `/settings` → "Adicionar Utilizador" 
    - Modal com nome, email, role inicial
@@ -495,7 +540,7 @@ GID=1000                                     # Group ID (auto-configurado)
    - Reset password para utilizadores
    - Aprovação de contas (alterar de 'none' para role ativo)
 
-### 10.3 Registo de Novos Utilizadores
+### 12.3 Registo de Novos Utilizadores
 1. **Auto-registo**:
    - Página login → "Criar nova conta"
    - Insere email → Recebe código por email
@@ -505,34 +550,34 @@ GID=1000                                     # Group ID (auto-configurado)
    - Login → Página inicial com mensagem de aguardar validação
    - Administrador aprova alterando role para viewer/editor/admin
 
-### 10.4 Gestão de Turmas (Admin)
+### 12.4 Gestão de Turmas (Admin)
 1. **Visualização** → Cards com estatísticas e ações
 2. **Nova turma** → Modal com formulário de criação
 3. **Editar turma** → Renomeação com validação e movimentação de fotos
 4. **Remover turma** → Confirmação e limpeza completa de arquivos
 
-### 10.5 Gestão de Alunos (Editor+)
+### 12.5 Gestão de Alunos (Editor+)
 1. **Selecionar turma** → Visualização da pauta completa
 2. **Adicionar aluno** → Modal com processo, nome e número
 3. **Editar aluno** → Modificação de dados com validação
 4. **Transferir aluno** → Seleção de turma destino com movimentação de fotos
 5. **Remover elementos** → Aluno completo ou apenas foto
 
-### 10.6 Captura e Download
+### 12.6 Captura e Download
 1. **Captura (Editor+)** → Seleção de aluno → Escolha de câmara → Foto
 2. **Preview automático** → Thumbnail gerada e exibida
 3. **Download (Viewer+)** → Dropdown com opções ZIP/DOCX
 4. **Documentos** → ZIP com fotos originais ou DOCX formatado
 
-### 10.7 Recuperação de Password
+### 12.7 Recuperação de Password
 1. **Login** → "Esqueci-me da password"
 2. **Inserir email** → Sistema envia código de recuperação
 3. **Email recebido** → "Já tenho código de recuperação"
 4. **Inserir código e nova password** → Password alterada com sucesso
 
-## 11. Considerações de Segurança
+## 13. Considerações de Segurança
 
-### 11.1 Autenticação Multi-Camada
+### 13.1 Autenticação Multi-Camada
 - **Hashing de passwords**: Werkzeug Security com salt automático
 - **Validação de email**: Regex pattern matching para formato
 - **Força de password**: Mínimo 6 caracteres com maiúsculas, minúsculas e números
@@ -540,14 +585,14 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Timeout controlado**: Sessões de 2h (normal) ou 30 dias (remember me)
 - **Verificação por email**: Códigos de 6 caracteres com expiração de 24h
 
-### 11.2 Proteção Anti-Brute Force
+### 13.2 Proteção Anti-Brute Force
 - **Tracking de tentativas**: Todas as tentativas registadas em LoginLog
 - **Limite de tentativas**: Máximo 5 tentativas falhadas por IP em 15 minutos
 - **Bloqueio automático**: IPs maliciosos banidos automaticamente
 - **Tabela de IPs banidos**: Gestão persistente de bloqueios
 - **Logging detalhado**: IP, utilizador, timestamp, resultado para auditoria
 
-### 11.3 Validação de Dados
+### 13.3 Validação de Dados
 - **Entrada sanitizada**: Validação rigorosa de todos os formulários
 - **Prevenção SQL Injection**: SQLAlchemy ORM com queries parametrizadas
 - **Sanitização de filesystem**: secure_filename() para nomes de turmas
@@ -556,7 +601,7 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Tipo de ficheiros**: Apenas CSV e imagens aceites em uploads
 - **Limites de tamanho**: Proteção contra uploads excessivos
 
-### 11.4 Gestão Segura de Ficheiros
+### 13.4 Gestão Segura de Ficheiros
 - **Paths seguros**: safe_join() para prevenção de directory traversal
 - **Nomes sanitizados**: Conversão automática de nomes inseguros
 - **Permissões controladas**: Acesso restrito aos diretórios da aplicação
@@ -564,16 +609,16 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Limpeza automática**: Remoção segura de arquivos órfãos
 - **Estrutura de diretórios**: Organização segura por turma
 
-### 11.5 Controlo de Acesso Baseado em Roles
+### 13.5 Controlo de Acesso Baseado em Roles
 - **Decorators de autorização**: @required_login, @required_permission, @required_role
 - **Verificação por endpoint**: Cada rota protegida conforme necessário
 - **Interface adaptativa**: UI mostra apenas opções permitidas por role
 - **Validação server-side**: Dupla verificação de permissões no backend
 - **Auditoria de acesso**: Logging de ações por utilizador e role
 
-## 12. Performance e Otimização
+## 14. Performance e Otimização
 
-### 12.1 Base de Dados
+### 14.1 Base de Dados
 - **Índices otimizados**: Processo indexado globalmente para consultas rápidas
 - **Constraint único**: Unicidade global de processo para integridade de dados
 - **Relacionamentos eficientes**: Lazy loading com backref para otimização
@@ -581,41 +626,41 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Queries otimizadas**: Uso de filtros e joins eficientes
 - **Cleanup automático**: Limpeza de registos expirados (PreUser, códigos)
 
-### 12.2 Sistema de Email
+### 14.2 Sistema de Email
 - **Envio assíncrono**: Processamento em background para não bloquear UI
 - **Templates reutilizáveis**: HTML templates para consistência e performance
 - **Fallback handling**: Gestão de erros de envio com feedback apropriado
 - **Configuração flexível**: Suporte para diferentes provedores SMTP
 
-### 12.3 Processamento de Imagens
+### 14.3 Processamento de Imagens
 - **Thumbnails inteligentes**: Geração sob demanda com cache em filesystem
 - **Compressão otimizada**: Qualidades diferentes para originais vs thumbnails
 - **Processamento PIL/OpenCV**: Algoritmos otimizados para redimensionamento
 - **Cache de filesystem**: Reutilização de thumbnails existentes
 
-### 12.4 Interface e UX
+### 14.4 Interface e UX
 - **CSS otimizado**: Bootstrap 5 com customizações mínimas
 - **JavaScript essencial**: Funcionalidade crítica apenas, sem frameworks pesados
 - **Carregamento progressivo**: Imagens e conteúdo carregados sob demanda
 - **Cache headers**: Controlo de cache para assets estáticos
 - **Modais eficientes**: Reutilização de componentes Bootstrap
 
-## 13. Manutenção e Backup
+## 15. Manutenção e Backup
 
-### 13.1 Estrutura de Dados
+### 15.1 Estrutura de Dados
 - **Base de dados**: `database.sqlite` centralizando metadados
 - **Arquivos organizados**: Estrutura de pastas por turma
 - **Sincronização**: Coerência entre DB e filesystem
 - **Integridade**: Validação automática de consistência
 - **Renomeação automática**: Manutenção da consistência entre processos e nomes de arquivos
 
-### 13.2 Operações de Manutenção
+### 15.2 Operações de Manutenção
 - **Limpeza completa**: Função nuke com senha de administrador
 - **Backup seletivo**: Exportação de dados por turma
 - **Importação flexível**: CSV com merge ou substituição
 - **Logs detalhados**: Rastreamento de todas as operações
 
-### 13.3 Deployment e Updates
+### 15.3 Deployment e Updates
 - **Docker volumes**: Persistência de dados entre atualizações
 - **Git integration**: Versionamento com .gitignore adequado
 - **Dependency management**: requirements.txt com versões fixas
@@ -623,11 +668,11 @@ GID=1000                                     # Group ID (auto-configurado)
 
 ---
 
-**Versão do Documento**: 4.1  
-**Data de Atualização**: Agosto 2025  
+**Versão do Documento**: 5.0  
+**Data de Atualização**: Janeiro 2025  
 **Estado da Implementação**: ✅ 100% Completo
 
-Esta especificação reflete fielmente a aplicação **Class Photo Booth** implementada, incluindo todas as funcionalidades avançadas: sistema completo de autenticação com roles e permissões, gestão de utilizadores, sistema de email com templates HTML, proteção anti-brute force, base de dados SQLAlchemy com modelos relacionais, CRUD completo para todas as entidades, geração de documentos DOCX, processamento avançado de imagens com PIL/OpenCV, gestão de placeholders, interface completamente responsiva com operações modais, e controlo de acesso granular baseado em roles.
+Esta especificação reflete fielmente a aplicação **Class Photo Booth** implementada, incluindo todas as funcionalidades avançadas: sistema completo de autenticação com roles e permissões, gestão de utilizadores, sistema de email com templates HTML, proteção anti-brute force, base de dados SQLAlchemy com modelos relacionais, CRUD completo para todas as entidades, geração de documentos DOCX, processamento avançado de imagens com PIL/OpenCV, gestão de placeholders, interface completamente responsiva com operações modais, sistema de autorização de fotografias com visual status badges, e controlo de acesso granular baseado em roles.
 
 ### Funcionalidades Principais Implementadas:
 ✅ Sistema de autenticação completo com registo, verificação e recuperação  
