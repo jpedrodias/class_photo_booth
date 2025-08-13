@@ -903,7 +903,6 @@ def login(action_url=None):
                 else:
                     flash('Email ou palavra-passe incorretos.', 'error')
                 
-                time.sleep(5)
                 return render_template('login.html', action='login')
             
             # Verificar se a conta está verificada
@@ -949,7 +948,6 @@ def login(action_url=None):
                 else:
                     flash('Email ou palavra-passe incorretos.', 'error')
                 
-                time.sleep(5)
                 return render_template('login.html', action='login')
         
         elif action == 'register':
