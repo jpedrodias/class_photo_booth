@@ -9,6 +9,7 @@ import zipfile
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO
+from ipaddress import ip_address
 
 # Third party imports
 
@@ -433,20 +434,40 @@ class BannedIPs(db.Model):
 
     #define INET4_ADDRSTRLEN 16 + ...
     #define INET6_ADDRSTRLEN 46 + date
-    remote_addr = db.Column('ip_address', db.String(64), unique=False, nullable=False) # request.remote_addr
+    remote_addr = db.Column('ip_address', db.String(64), unique=False, nullable=False, index=True) # request.remote_addr
+
+    @staticmethod
+    def normalize_ip(raw_ip: str):
+        if not raw_ip:
+            return None
+        s = raw_ip.strip()
+        # alguns proxies/URLs passam IPv6 entre [ ... ]
+        if s.startswith('[') and s.endswith(']'):
+            s = s[1:-1]
+        ip = ip_address(s)
+        # converter IPv4-mapped (::ffff:1.2.3.4) para IPv4 “puro”
+        if ip.version == 6 and getattr(ip, "ipv4_mapped", None):
+            ip = ip.ipv4_mapped
+        return ip.compressed  # forma canónica (zeros comprimidos, minúsculas)
 
     @classmethod
     def is_banned(cls, ip_address):
         """Verifica se um IP está banido"""
-        banned_ip = cls.query.filter_by(remote_addr=ip_address).first()
-        return banned_ip is not None
-
+        ip_norm = cls.normalize_ip(ip_address)
+        if ip_norm is None :
+            return False
+        #banned_ip = cls.query.filter_by(remote_addr=ip_norm).first()
+        #return banned_ip is not None
+        return db.session.query(cls.id).filter_by(remote_addr=ip_norm).first() is not None
+    
     @classmethod
     def ban_ip(cls, ip_address):
         """Bane um IP por tentativas excessivas de login"""
-        if not cls.is_banned(ip_address):
-            banned_ip = cls(remote_addr=ip_address)
-            db.session.add(banned_ip)
+        ip_norm = cls.normalize_ip(ip_address)
+        if ip_norm is None:
+            return False
+        if not cls.is_banned(ip_norm):
+            db.session.add(cls(remote_addr=ip_norm))
             db.session.commit()
             return True
         return False
