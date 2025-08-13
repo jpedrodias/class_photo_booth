@@ -9,7 +9,7 @@ import zipfile
 import time
 from datetime import datetime, timedelta, timezone
 from functools import wraps
-from io import BytesIO
+from io import BytesIO, StringIO
 from ipaddress import ip_address
 
 # Third party imports
@@ -859,7 +859,7 @@ def index():
     return redirect(url_for('turmas'))
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login/', methods=['GET', 'POST'])
 @app.route('/login/<action_url>', methods=['GET', 'POST'])
 def login(action_url=None):
     # Verificar se o IP está banido
@@ -1263,7 +1263,7 @@ def logout():
     return redirect(url_for('login'))
 
 
-@app.route('/turmas')
+@app.route('/turmas/')
 @required_login
 @required_role('viewer')
 def turmas():
@@ -1311,7 +1311,7 @@ def turmas():
                          total_alunos_geral=total_alunos_geral,
                          total_fotos_geral=total_fotos_geral)
 
-@app.route('/turma/<nome_seguro>')
+@app.route('/turma/<nome_seguro>/')
 @no_cache
 @required_login
 @required_role('viewer')
@@ -1892,7 +1892,7 @@ def student():
     return redirect(url_for('turmas'))
 
 
-@app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
+@app.route('/upload/photo/<nome_seguro>/<processo>/', methods=['POST'])
 @csrf.exempt  # API endpoint que recebe JSON, não formulários HTML
 @required_login
 @required_role('editor')
@@ -1984,7 +1984,7 @@ def get_photo(folder_name, processo):
 
 @app.route('/download/<ficheiro>')
 @required_login
-def download(ficheiro):
+def download(ficheiro=None):
     # Extrair nome da turma e extensão do ficheiro
     if '.' in ficheiro:
         turma, extensao = ficheiro.rsplit('.', 1)
@@ -2061,7 +2061,7 @@ def download(ficheiro):
         return "Tipo de ficheiro não suportado.", 400
 
 
-@app.route('/settings')
+@app.route('/settings/')
 @required_login
 @required_role('admin')
 def settings():
@@ -2091,7 +2091,7 @@ def settings():
 
 
 # Rota para rescan de fotos e atualização de flag foto_tirada
-@app.route('/settings/rescan_photos', methods=['POST'])
+@app.route('/settings/rescan_photos/', methods=['POST'])
 @required_login
 @required_role('admin')
 def settings_rescan_photos():
@@ -2175,76 +2175,7 @@ def settings_rescan_photos():
     return redirect(url_for('settings'))
 
 
-def _update_professors_from_csv(file):
-    """Atualiza apenas os nomes dos professores das turmas baseado no CSV"""
-    try:
-        # Ler o conteúdo do ficheiro diretamente da memória
-        csv_content = file.read().decode('utf-8')
-        
-        # Usar StringIO para simular um ficheiro
-        from io import StringIO
-        csv_file = StringIO(csv_content)
-        
-        # Ler CSV e processar dados
-        reader = csv.DictReader(csv_file)
-        turmas_atualizadas = 0
-        turmas_nao_encontradas = []
-        
-        for row in reader:
-            turma_nome = row.get('turma', '').strip()
-            professor_nome = row.get('professor', '').strip()
-            
-            if not turma_nome:
-                continue  # Pular linhas sem nome de turma
-            
-            # Buscar turma na base de dados
-            turma = Turma.query.filter_by(nome=turma_nome).first()
-            
-            if turma:
-                # Atualizar nome do professor
-                turma.nome_professor = professor_nome
-                
-                # Atualizar email do professor se disponível no CSV
-                # Verificar diferentes possíveis nomes de coluna para email
-                email_professor = ''
-                if 'email_professor' in row and row['email_professor']:
-                    email_professor = row['email_professor'].strip()
-                elif 'email' in row and row['email']:
-                    email_professor = row['email'].strip()
-                
-                if email_professor:
-                    turma.email_professor = email_professor
-                
-                turmas_atualizadas += 1
-            else:
-                # Turma não encontrada - adicionar à lista para flash
-                turmas_nao_encontradas.append(turma_nome)
-        
-        # Commit das alterações
-        db.session.commit()
-        
-        # Construir mensagens de feedback
-        messages = []
-        if turmas_atualizadas > 0:
-            messages.append(f'{turmas_atualizadas} turma(s) atualizada(s) com sucesso.')
-        
-        if turmas_nao_encontradas:
-            turmas_ignoradas = ', '.join(turmas_nao_encontradas[:5])  # Limitar a 5 nomes
-            if len(turmas_nao_encontradas) > 5:
-                turmas_ignoradas += f' (e mais {len(turmas_nao_encontradas) - 5})'
-            messages.append(f'Turmas ignoradas (não encontradas): {turmas_ignoradas}.')
-        
-        flash(' '.join(messages), 'success' if turmas_atualizadas > 0 else 'info')
-        
-    except Exception as e:
-        db.session.rollback()
-        print(f"Erro ao atualizar professores: {e}")
-        flash(f'Erro ao processar ficheiro CSV para atualização de professores: {str(e)}', 'error')
-    
-    return redirect(url_for('settings'))
-
-
-@app.route('/settings/csv', methods=['POST'])
+@app.route('/settings/csv/', methods=['POST'])
 @required_login
 @required_role('admin')
 def settings_csv():
@@ -2262,19 +2193,74 @@ def settings_csv():
 
     # Ação específica para atualizar professores
     if action == 'update_professor':
-        return _update_professors_from_csv(file)
+        try:
+            # Ler o conteúdo do ficheiro diretamente da memória
+            csv_content = file.read().decode('utf-8')
+            
+            # Usar StringIO para simular um ficheiro
+            from io import StringIO
+            csv_file = StringIO(csv_content)
+            
+            # Ler CSV e processar dados
+            reader = csv.DictReader(csv_file)
+            turmas_atualizadas = 0
+            turmas_nao_encontradas = []
+            
+            for row in reader:
+                turma_nome = row.get('turma', '').strip()
+                professor_nome = row.get('professor', '').strip()
+                
+                if not turma_nome:
+                    continue  # Pular linhas sem nome de turma
+                
+                # Buscar turma na base de dados
+                turma = Turma.query.filter_by(nome=turma_nome).first()
+                
+                if turma:
+                    # Atualizar nome do professor
+                    turma.nome_professor = professor_nome
+                    
+                    # Atualizar email do professor se disponível no CSV
+                    # Verificar diferentes possíveis nomes de coluna para email
+                    email_professor = ''
+                    if 'email_professor' in row and row['email_professor']:
+                        email_professor = row['email_professor'].strip()
+                    elif 'email' in row and row['email']:
+                        email_professor = row['email'].strip()
+                    
+                    if email_professor:
+                        turma.email_professor = email_professor
+                    
+                    turmas_atualizadas += 1
+                else:
+                    # Turma não encontrada - adicionar à lista para flash
+                    turmas_nao_encontradas.append(turma_nome)
+            
+            # Commit das alterações
+            db.session.commit()
+            
+            # Construir mensagens de feedback
+            messages = []
+            if turmas_atualizadas > 0:
+                messages.append(f'{turmas_atualizadas} turma(s) atualizada(s) com sucesso.')
+            
+            if turmas_nao_encontradas:
+                turmas_ignoradas = ', '.join(turmas_nao_encontradas[:5])  # Limitar a 5 nomes
+                if len(turmas_nao_encontradas) > 5:
+                    turmas_ignoradas += f' (e mais {len(turmas_nao_encontradas) - 5})'
+                messages.append(f'Turmas ignoradas (não encontradas): {turmas_ignoradas}.')
+            
+            flash(' '.join(messages), 'success' if turmas_atualizadas > 0 else 'info')
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao atualizar professores: {e}")
+            flash(f'Erro ao processar ficheiro CSV para atualização de professores: {str(e)}', 'error')
+        
+        return redirect(url_for('settings'))
     
     # Ações para substituir/merge de dados completos
     replace_all = (action == 'replace')
-    
-    if 'file' not in request.files:
-        flash('Nenhum ficheiro foi selecionado!', 'error')
-        return redirect(url_for('settings'))
-
-    file = request.files['file']
-    if file.filename == '':
-        flash('Nenhum ficheiro foi selecionado!', 'error')
-        return redirect(url_for('settings'))
 
     if file:
         try:
@@ -2460,7 +2446,7 @@ def settings_csv():
 
 
 
-@app.route('/settings/nuke', methods=['POST'])
+@app.route('/settings/nuke/', methods=['POST'])
 @required_login
 @required_role('admin')
 def settings_nuke():
@@ -2490,6 +2476,88 @@ def settings_nuke():
         flash(f'Erro ao realizar limpeza completa: {str(e)}', 'error')
     
     return redirect(url_for('settings'))
+
+
+@app.route('/settings/backup/', methods=['POST'])
+@required_login
+@required_role('admin')
+def settings_backup():
+    """Criar backup completo da base de dados em formato ZIP com ficheiros CSV"""
+    try:
+        # Criar um ZIP em memória
+        zip_buffer = BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            
+            # 1. Backup dos utilizadores (users.csv)
+            users_csv = StringIO()
+            users_writer = csv.writer(users_csv)
+            users_writer.writerow(['username', 'password', 'name', 'role', 'is_verified'])
+            
+            users = User.query.all()
+            for user in users:
+                users_writer.writerow([
+                    user.email,  # username
+                    user.password_hash,  # password hash
+                    user.name,
+                    user.role,
+                    user.is_verified
+                ])
+            
+            zip_file.writestr('users.csv', users_csv.getvalue())
+            
+            # 2. Backup dos alunos (alunos.csv)
+            alunos_csv = StringIO()
+            alunos_writer = csv.writer(alunos_csv)
+            alunos_writer.writerow(['processo', 'nome', 'numero', 'email', 'autorizacao', 'turma'])
+            
+            alunos = Aluno.query.all()
+            for aluno in alunos:
+                alunos_writer.writerow([
+                    aluno.processo,
+                    aluno.nome,
+                    aluno.numero if aluno.numero else '',
+                    aluno.email,
+                    aluno.autorizacao,
+                    aluno.turma.nome  # Nome da turma em vez do ID
+                ])
+            
+            zip_file.writestr('alunos.csv', alunos_csv.getvalue())
+            
+            # 3. Backup dos professores (turmas_professores.csv)
+            professores_csv = StringIO()
+            professores_writer = csv.writer(professores_csv)
+            professores_writer.writerow(['turma', 'professor', 'email_professor'])
+            
+            turmas = Turma.query.all()
+            for turma in turmas:
+                professores_writer.writerow([
+                    turma.nome,
+                    turma.nome_professor,
+                    turma.email_professor
+                ])
+            
+            zip_file.writestr('turmas_professores.csv', professores_csv.getvalue())
+        
+        zip_buffer.seek(0)
+        
+        # Criar nome do ficheiro com data/hora
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'backup_database_{timestamp}.zip'
+        
+        # Retornar o ficheiro ZIP como download
+        return send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/zip'
+        )
+        
+    except Exception as e:
+        print(f"Erro ao criar backup: {e}")
+        flash(f'Erro ao criar backup da base de dados: {str(e)}', 'error')
+        return redirect(url_for('settings'))
 
 
 # Rotas para gestão de utilizadores integradas em /settings

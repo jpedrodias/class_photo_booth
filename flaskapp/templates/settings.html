@@ -724,7 +724,43 @@
             </div>
             {% endif %}
 
-            <!-- Card 4: Limpeza Completa (só se houver dados) -->
+            <!-- Card 5: Backup Total da Base de Dados -->
+            {% if has_data and can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-info mb-3">💾</div>
+                        <h5 class="card-title fw-bold">Backup Total</h5>
+                        <p class="card-text text-muted">
+                            Criar <strong>backup completo</strong> da base de dados em formato ZIP com ficheiros CSV.
+                        </p>
+                        
+                        <form action="{{ url_for('settings_backup') }}" method="post" id="backupForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <input type="hidden" name="action" value="backup">
+                            
+                            <div class="mb-3 text-start">
+                                <small class="text-muted">
+                                    O backup incluirá:
+                                    <ul class="list-unstyled mt-2">
+                                        <li>📄 <strong>users.csv</strong> - Dados dos utilizadores</li>
+                                        <li>👥 <strong>alunos.csv</strong> - Dados dos alunos</li>
+                                        <li>🏫 <strong>turmas_professores.csv</strong> - Dados dos professores</li>
+                                    </ul>
+                                </small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-info w-100" id="backupBtn">
+                                <i class="bi bi-download me-2"></i>
+                                Criar Backup
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 6: Limpeza Completa (só se houver dados) -->
             {% if has_data and can_system_nuke %}
             <div class="col-lg-4">
                 <div class="card h-100 border-danger border-2 shadow">
