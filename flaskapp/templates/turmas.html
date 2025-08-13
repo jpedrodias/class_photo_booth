@@ -381,19 +381,10 @@
         });
 
         function editTurma(turmaId, turmaNome, nomeProfessor, emailProfessor) {
-            console.log('editTurma called with:', {turmaId, turmaNome, nomeProfessor, emailProfessor});
-            
             document.getElementById('editTurmaId').value = turmaId;
             document.getElementById('editTurmaNome').value = turmaNome;
             document.getElementById('editTurmaProfessor').value = nomeProfessor || '';
             document.getElementById('editTurmaEmailProfessor').value = emailProfessor || '';
-            
-            console.log('Fields populated:', {
-                id: document.getElementById('editTurmaId').value,
-                nome: document.getElementById('editTurmaNome').value,
-                professor: document.getElementById('editTurmaProfessor').value,
-                email: document.getElementById('editTurmaEmailProfessor').value
-            });
             
             const modal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
             modal.show();

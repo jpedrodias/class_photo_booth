@@ -1538,7 +1538,6 @@ def student():
         numero = request.form.get('numero', '').strip()
         email = request.form.get('email', '').strip()
         autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox
-        flash(f"[autorizacao {autorizacao}]")
 
         if not aluno_id or not nome:
             flash('Dados obrigatórios não fornecidos!', 'error')
