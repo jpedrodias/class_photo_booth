@@ -83,16 +83,20 @@
         <div class="row mb-5">
             <div class="col-12">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">
-                            <i class="bi bi-people me-2"></i>
-                            Gestão de Utilizadores
-                        </h5>
-                        <span class="badge bg-light text-primary">{{ users|length }} utilizador{{ 'es' if users|length != 1 else '' }}</span>
-                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
-                            <i class="bi bi-person-plus me-1"></i>
-                            Adicionar Utilizador
-                        </button>
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-people me-2"></i>
+                                Gestão de Utilizadores
+                            </h5>
+                            <div>
+                                <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                                    <i class="bi bi-person-plus me-1"></i>
+                                    Adicionar Utilizador
+                                </button>
+                                <span class="badge bg-light text-primary">{{ users|length }} utilizador{{ 'es' if users|length != 1 else '' }}</span>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -223,7 +227,7 @@
                                 <tbody>
                                     {% for preuser in preusers %}
                                     <tr>
-                                        <td class="text-muted">#{{ user.id }}</td>
+                                        <td class="text-muted">#{{ preuser.id }}</td>
                                         <td>{{ preuser._email }}</td>
                                         <td>{{ preuser.code }}</td>
                                         <td>{{ preuser.reason }}</td>
@@ -332,7 +336,7 @@
                                 IPs Banidos
                             </h5>
                             <div>
-                                <form action="{{ url_for('banned_ip_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">>>
+                                <form action="{{ url_for('banned_ip_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <input type="hidden" name="action" value="crud_banned_ip_clear_all">
                                     <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Desbanir todos os IPs">
