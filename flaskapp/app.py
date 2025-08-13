@@ -1890,7 +1890,7 @@ def student():
     return redirect(url_for('turmas'))
 
 
-@app.route('/upload/photo/<nome_seguro>/<processo>/', methods=['POST'])
+@app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
 @csrf.exempt  # API endpoint que recebe JSON, não formulários HTML
 @required_login
 @required_role('editor')
