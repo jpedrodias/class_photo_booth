@@ -138,7 +138,7 @@
                 
                 <div class="d-flex gap-2 mt-auto">
                     <button type="button" class="btn btn-sm btn-outline-primary flex-fill" 
-                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}', '{{ turma.nome_professor | default('') }}')">
+                            onclick="editTurma({{ turma.id }}, '{{ turma.nome }}', '{{ turma.nome_professor | default('') }}', '{{ turma.email_professor | default('') }}')">
                         <i class="bi bi-pencil"></i>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger flex-fill" 
@@ -247,6 +247,11 @@
                             <input type="text" class="form-control" id="addTurmaProfessor" name="nome_professor" 
                                    placeholder="Nome do professor responsável pela turma..." maxlength="100">
                         </div>
+                        <div class="mb-3">
+                            <label for="addTurmaEmailProfessor" class="form-label">Email do Professor</label>
+                            <input type="email" class="form-control" id="addTurmaEmailProfessor" name="email_professor" 
+                                   placeholder="Email do professor responsável (opcional)..." maxlength="255">
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -283,6 +288,11 @@
                             <label for="editTurmaProfessor" class="form-label">Professor Responsável</label>
                             <input type="text" class="form-control" id="editTurmaProfessor" name="nome_professor" 
                                    placeholder="Nome do professor responsável pela turma..." maxlength="100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTurmaEmailProfessor" class="form-label">Email do Professor</label>
+                            <input type="email" class="form-control" id="editTurmaEmailProfessor" name="email_professor" 
+                                   placeholder="Email do professor responsável (opcional)..." maxlength="255">
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -353,10 +363,11 @@
         }
         
         // Função para editar turma
-        function editTurma(turmaId, turmaNome, nomeProfessor) {
+        function editTurma(turmaId, turmaNome, nomeProfessor, emailProfessor) {
             document.getElementById('editTurmaId').value = turmaId;
             document.getElementById('editTurmaNome').value = turmaNome;
             document.getElementById('editTurmaProfessor').value = nomeProfessor || '';
+            document.getElementById('editTurmaEmailProfessor').value = emailProfessor || '';
             
             const modal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
             modal.show();

@@ -638,6 +638,10 @@ body {
     background-color: #28a745;
 }
 
+.photo-status-badge.danger {
+    background-color: #dc3545;
+}
+
 .photo-status-badge.warning {
     background-color: #ffc107;
 }

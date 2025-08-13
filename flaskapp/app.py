@@ -205,6 +205,7 @@ class Turma(db.Model):
     nome = db.Column(db.String(100), nullable=False)  # Nome original (display)
     nome_seguro = db.Column(db.String(100), nullable=False, unique=True)  # Nome sanitizado (filesystem)
     nome_professor = db.Column(db.String(100), nullable=False, unique=False, default='')  # Nome do professor responsável
+    email_professor = db.Column(db.String(255), nullable=False, default='')  # Email do professor responsável
     last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # Data da última atualização
     alunos = db.relationship('Aluno', backref='turma', lazy=True, cascade='all, delete-orphan')
     
@@ -357,6 +358,8 @@ class Aluno(db.Model):
     processo = db.Column(db.String(50), nullable=False, unique=True, index=True)  # Único globalmente
     nome = db.Column(db.String(200), nullable=False)
     numero = db.Column(db.Integer, nullable=True)  # Número na turma (pode repetir)
+    email = db.Column(db.String(255), nullable=False, default='')  # Email do aluno
+    autorizacao = db.Column(db.Boolean, default=True, nullable=False)  # Autorização para redes sociais
     foto_existe = db.Column(db.Boolean, default=False, nullable=False)  # Nova propriedade
     foto_tirada = db.Column(db.Boolean, default=False, nullable=False)
     turma_id = db.Column(db.Integer, db.ForeignKey('turmas.id'), nullable=False)
@@ -391,7 +394,7 @@ class Aluno(db.Model):
 class LoginLog(db.Model):
     __tablename__ = 'logs_login'
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.DateTime, nullable=False,  default=lambda: datetime.now(timezone.utc))
     success = db.Column(db.Boolean, unique=False, nullable=False)
     remote_addr = db.Column('ip_address', db.String(64), unique=False, nullable=False) # request.remote_addr
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -431,7 +434,7 @@ class BannedIPs(db.Model):
     """Anti Brute Force Attacks - based on the ip address"""
     __tablename__ = 'banned_ips'
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     #define INET4_ADDRSTRLEN 16 + ...
     #define INET6_ADDRSTRLEN 46 + date
@@ -1336,6 +1339,8 @@ def turma(nome_seguro):
             'processo': aluno.processo,
             'nome': aluno.nome,
             'numero': aluno.numero,
+            'email': aluno.email,
+            'autorizacao': aluno.autorizacao,
             'turma': turma_obj.nome,
             'foto_tirada': aluno.foto_tirada,
             'foto_existe': aluno.foto_existe
@@ -1362,6 +1367,7 @@ def turma_crud():
     if action == 'crud_turma_add_new':
         nome = request.form.get('nome', '').strip()
         nome_professor = request.form.get('nome_professor', '').strip()
+        email_professor = request.form.get('email_professor', '').strip()
         
         if not nome:
             flash('Nome da turma é obrigatório!', 'error')
@@ -1377,6 +1383,7 @@ def turma_crud():
         try:
             nova_turma = Turma.create_safe(nome)
             nova_turma.nome_professor = nome_professor
+            nova_turma.email_professor = email_professor
             db.session.commit()
             flash(f'Turma "{nome}" criada com sucesso!', 'success')
         except Exception as e:
@@ -1389,6 +1396,7 @@ def turma_crud():
         turma_id = request.form.get('turma_id', '').strip()
         nome = request.form.get('nome', '').strip()
         nome_professor = request.form.get('nome_professor', '').strip()
+        email_professor = request.form.get('email_professor', '').strip()
         
         if not turma_id or not nome:
             flash('Dados obrigatórios não fornecidos!', 'error')
@@ -1413,6 +1421,7 @@ def turma_crud():
             # Atualizar nome da turma usando método seguro
             turma.update_nome(nome)
             turma.nome_professor = nome_professor
+            turma.email_professor = email_professor
             db.session.commit()
             flash(f'Turma editada com sucesso!', 'success')
         except Exception as e:
@@ -1466,6 +1475,8 @@ def student():
         nome = request.form.get('nome', '').strip()
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
+        email = request.form.get('email', '').strip()
+        autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox (default True se não marcado)
         
         if not nome:
             flash('Nome é obrigatório!', 'error')
@@ -1503,6 +1514,8 @@ def student():
             nome=nome,
             processo=processo_validado,
             numero=numero_int,
+            email=email,
+            autorizacao=autorizacao,
             turma_id=turma_obj.id,
             foto_tirada=False
         )
@@ -1522,7 +1535,10 @@ def student():
         nome = request.form.get('nome', '').strip()
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
-        
+        email = request.form.get('email', '').strip()
+        autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox
+        flash(f"[autorizacao {autorizacao}]")
+
         if not aluno_id or not nome:
             flash('Dados obrigatórios não fornecidos!', 'error')
             return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
@@ -1601,6 +1617,8 @@ def student():
             aluno.nome = nome
             aluno.processo = processo_validado
             aluno.numero = numero_int
+            aluno.email = email
+            aluno.autorizacao = autorizacao
             
             # Se o processo mudou e há foto, atualizar timestamp da turma
             if processo_mudou and aluno.foto_tirada:
