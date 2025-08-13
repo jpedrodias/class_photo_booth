@@ -74,7 +74,7 @@
         {% endif %}
     {% endwith %}
 
-    <main class="container my-4">
+    <main class="container my-4 mb-md-5 mb-lg-4">
         <div class="row g-3">
             <!-- Card para adicionar novo aluno -->
             {% if current_user.role in ['editor', 'admin'] %}
@@ -126,13 +126,20 @@
                         
                         <!-- Ícone de foto recente (canto superior esquerdo) -->
                         {% if aluno.foto_tirada %}
+                            {% if aluno.autorizacao %}
                         <div class="position-absolute top-0 start-0 m-1 photo-status-badge success" 
-                             title="Foto tirada">
+                             title="Foto tirada - Autorização concedida">
                             <i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>
                         </div>
+                            {% else %}
+                        <div class="position-absolute top-0 start-0 m-1 photo-status-badge danger" 
+                             title="Foto tirada - Autorização NÃO concedida">
+                            <i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>
+                        </div>
+                            {% endif %}
                         {% else %}
                         <div class="position-absolute top-0 start-0 m-1 photo-status-badge warning" 
-                             title="Foto não tirada recentemente">
+                             title="Foto não tirada">
                             <i class="bi bi-emoji-dizzy-fill text-white photo-status-icon-sm"></i>
                         </div>
                         {% endif %}
@@ -211,6 +218,9 @@
                             data-nome="{{ aluno.nome }}" 
                             data-processo="{{ aluno.processo }}" 
                             data-numero="{{ aluno.numero or '' }}"
+                            data-email="{{ aluno.email or '' }}"
+                            data-autorizacao="{{ 'true' if aluno.autorizacao else 'false' }}"
+                            data-autorizacao-debug="{{ aluno.autorizacao }}"
                             data-bs-toggle="modal" 
                             data-bs-target="#editStudentModal"
                             title="Editar aluno"
@@ -281,6 +291,22 @@
                             <div class="form-text">Apenas números inteiros positivos (ex: NIF, número de estudante)</div>
                         </div>
 
+                        <div class="mb-3">
+                            <label for="studentEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control input-base" id="studentEmail" name="email" 
+                                   placeholder="Digite o email do aluno (opcional)" maxlength="255">
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="studentAutorizacao" name="autorizacao" checked>
+                                <label class="form-check-label" for="studentAutorizacao">
+                                    <strong>Autorização para Redes Sociais</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">O aluno autorizou o uso da sua imagem em redes sociais</div>
+                        </div>
+
                         <div class="alert alert-info d-flex align-items-start">
                             <i class="bi bi-info-circle me-2 mt-1"></i>
                             <div>
@@ -342,6 +368,22 @@
                             <input type="number" class="form-control input-base" id="editStudentProcess" name="processo" required 
                                    placeholder="Ex: NIF, número de estudante, etc." min="1" step="1">
                             <div class="form-text">Apenas números inteiros positivos (ex: NIF, número de estudante)</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editStudentEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control input-base" id="editStudentEmail" name="email" 
+                                   placeholder="Digite o email do aluno (opcional)" maxlength="255">
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="editStudentAutorizacao" name="autorizacao">
+                                <label class="form-check-label" for="editStudentAutorizacao">
+                                    <strong>Autorização para Redes Sociais</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">O aluno autorizou o uso da sua imagem em redes sociais</div>
                         </div>
 
                         <div class="alert alert-warning d-flex align-items-start">
@@ -1111,11 +1153,16 @@
                 const nome = this.dataset.nome;
                 const processo = this.dataset.processo;
                 const numero = this.dataset.numero;
+                const email = this.dataset.email;
+                const autorizacao = this.dataset.autorizacao === 'true';
+                const autorizacaoDebug = this.dataset.autorizacaoDebug;
                 
                 document.getElementById('editAlunoId').value = id;
                 document.getElementById('editStudentName').value = nome;
                 document.getElementById('editStudentProcess').value = processo;
                 document.getElementById('editStudentNumber').value = numero;
+                document.getElementById('editStudentEmail').value = email;
+                document.getElementById('editStudentAutorizacao').checked = autorizacao;
             });
         });
 
@@ -1427,6 +1474,42 @@
         
         // Dados dos alunos para uso nas funções JavaScript
         const alunosData = {{ alunos|tojson|safe }};
+        
+        // Função para atualizar ícones baseado nos dados atuais
+        function updateAllStudentIcons() {
+            alunosData.forEach(aluno => {
+                const card = document.querySelector(`[data-aluno-processo="${aluno.processo}"]`);
+                if (!card) return;
+                
+                const badge = card.querySelector('.photo-status-badge');
+                if (!badge) return;
+                
+                // Remover classes existentes
+                badge.classList.remove('success', 'danger', 'warning');
+                
+                // Aplicar classe e título baseado no estado atual
+                if (aluno.foto_tirada) {
+                    if (aluno.autorizacao) {
+                        badge.classList.add('success');
+                        badge.title = 'Foto tirada - Autorização concedida';
+                        badge.innerHTML = '<i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>';
+                    } else {
+                        badge.classList.add('danger');
+                        badge.title = 'Foto tirada - Autorização NÃO concedida';
+                        badge.innerHTML = '<i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>';
+                    }
+                } else {
+                    badge.classList.add('warning');
+                    badge.title = 'Foto não tirada';
+                    badge.innerHTML = '<i class="bi bi-emoji-dizzy-fill text-white photo-status-icon-sm"></i>';
+                }
+            });
+        }
+        
+        // Atualizar ícones na inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            updateAllStudentIcons();
+        });
         
         // Restaurar posição de scroll ao carregar a página
         function restoreScrollPosition() {
@@ -1909,8 +1992,16 @@
                 if (!photoContainer.querySelector('.recent-photo-icon')) {
                     const recentIcon = document.createElement('div');
                     recentIcon.className = 'position-absolute top-0 start-0 m-1 recent-photo-icon';
-                    recentIcon.title = 'Foto tirada recentemente';
-                    recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                    
+                    // Verificar autorização para definir cor e título
+                    if (alunoData.autorizacao) {
+                        recentIcon.title = 'Foto tirada - Autorização concedida';
+                        recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #28a745; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                    } else {
+                        recentIcon.title = 'Foto tirada - Autorização NÃO concedida';
+                        recentIcon.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background-color: #dc3545; border-radius: 50%; box-shadow: 0px 2px 4px rgba(0,0,0,0.3);';
+                    }
+                    
                     recentIcon.innerHTML = '<i class="bi bi-emoji-smile-fill text-white photo-status-icon-sm"></i>';
                     photoContainer.appendChild(recentIcon);
                 }

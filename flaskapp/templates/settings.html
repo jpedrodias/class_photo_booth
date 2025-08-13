@@ -575,10 +575,11 @@
                     <i class="bi bi-info-circle me-2"></i>
                     <strong>Gestão de Alunos em Lote - Importação de dados no formato do ficheiro CSV:</strong> 
                     <br>Exemplo: 
-                    <br><small class="text-muted">turma,numero,processo,nome</small>
-                    <br><small class="text-muted">5A,1,12345,João Silva</small>
-                    <br><small class="text-muted">5A,2,67890,Maria Santos</small>
-                    <br><small class="text-muted">5B,1,11223,Pedro Costa</small>
+                    <br><small class="text-muted">turma,numero,processo,nome,email</small>
+                    <br><small class="text-muted">5A,1,12345,João Silva,joao.silva@escola.pt</small>
+                    <br><small class="text-muted">5A,2,67890,Maria Santos,maria.santos@escola.pt</small>
+                    <br><small class="text-muted">5B,1,11223,Pedro Costa,pedro.costa@escola.pt</small>
+                    <br><small class="text-warning">A coluna "email" é opcional. Se não existir, será ignorada.</small>
                 </div>
             </div>
         </div>
@@ -661,8 +662,8 @@
                         <div class="display-4 text-info mb-3">👨‍🏫</div>
                         <h5 class="card-title fw-bold">Atualizar Professores</h5>
                         <p class="card-text text-muted">
-                            Atualizar apenas os <strong>nomes dos professores</strong> responsáveis pelas turmas. 
-                            CSV deve ter colunas: turma, professor.
+                            Atualizar apenas os <strong>nomes e emails dos professores</strong> responsáveis pelas turmas. 
+                            CSV deve ter colunas: turma, professor, email (opcional).
                         </p>
                         
                         <form action="{{ url_for('settings_csv') }}" method="post" enctype="multipart/form-data" id="updateProfessorForm">
