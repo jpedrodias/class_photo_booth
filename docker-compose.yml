@@ -19,13 +19,32 @@ services:
       - ./.env
       #- ./.env_flaskapp
     depends_on:
+      redis:
+        condition: service_healthy
       postgres:
         condition: service_healthy
     environment:
       TZ: ${TZ}
       FLASK_ENV: development  # Added environment variable for Flask environment
+
+  redis:
+    image: redis:latest
+    container_name: redis_server
+    restart: unless-stopped
+    command: ["redis-server", "--save", "''", "--appendonly", "no"]
+    ports:
+      - 6379:6379
+    volumes:
+      - redis_data:/data
     networks:
       - default
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 
   adminer:
     image: adminer
@@ -67,6 +86,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   default:

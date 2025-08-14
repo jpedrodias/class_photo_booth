@@ -2,6 +2,9 @@ Flask
 Flask-SQLAlchemy
 Flask-Mail
 Flask-WTF
+Flask-Session
+redis
+msgpack
 python-docx
 Pillow
 opencv-python
