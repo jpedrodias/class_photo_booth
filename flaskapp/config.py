@@ -17,11 +17,11 @@ class BaseConfig():
 
     # SESSIONS on REDIS
     SESSION_TYPE = 'redis'
-    SESSION_REDIS = 'redis://redis:6379/0'
+    SESSION_REDIS = redis.from_url("redis://redis:6379/0")
     SESSION_PERMANENT = False
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = 'session:'
-    SESSION_REDIS = redis.from_url("redis://redis:6379/0")
+    SESSION_SERIALIZATION_FORMAT = 'msgpack'  # Usar msgpack para melhor compatibilidade
 
     # Chaves e URIs
     SECRET_KEY = os.getenv('FLASKAPP_SECRET_KEY', 'supersecretkey')

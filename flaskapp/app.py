@@ -14,6 +14,8 @@ from io import BytesIO, StringIO
 from ipaddress import ip_address
 
 # Third party imports
+import redis
+import msgpack
 
 # OpenCV and numpy for image processing
 import cv2
@@ -34,15 +36,13 @@ from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash, safe_join
 from werkzeug.utils import secure_filename
 
-import redis
-
 
 
 app = Flask(__name__)
 app.config.from_object('config.DevelopmentConfig')  # Use DevelopmentConfig by default  
-Session(app)
 
 # Inicializar extensão Flask-Session
+Session(app)
 
 
 # Inicializar proteção CSRF
@@ -2869,37 +2869,37 @@ def login_log_management(log_id=None):
 @app.route('/settings/redis/server.json', methods=['GET'])
 @required_login
 @required_role('admin')
-def get_redis_server_info():
-    # 1) Decisão de modo logo no início
+def get_redis_status():
+    """Rota unificada para Redis - server info + sessions"""
     show_all = (request.args.get('data', '').lower() == 'all')
-
-    client = app.config['SESSION_REDIS']
+    
     try:
-        # 2) Métricas comuns a ambos os modos
+        client = app.config['SESSION_REDIS']
+        
+        # Informações do servidor
         t0 = time.time()
         pong = client.ping()
         latency_ms = round((time.time() - t0) * 1000, 2)
-
-        info = client.info()  # usamos em ambos (para alguns campos e/ou para anexar tudo)
-
-        # Contar apenas as chaves de sessão (com o prefixo configurado)
+        
+        info = client.info()
+        
+        # Contar sessões
         prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
         pattern = f"{prefix}*"
-        sessions_count, cursor = 0, 0
-        while True:
-            cursor, keys = client.scan(cursor=cursor, match=pattern, count=1000)
-            sessions_count += len(keys)
-            if cursor == 0:
-                break
-
-        # Total de chaves (soma dos dbN em INFO keyspace)
+        sessions_count = 0
+        session_keys = []
+        
+        for key in client.scan_iter(match=pattern, count=1000):
+            sessions_count += 1
+            session_keys.append(key.decode() if isinstance(key, bytes) else str(key))
+        
+        # Total de chaves
         total_keys = sum(
             dbinfo.get('keys', 0)
             for name, dbinfo in info.items()
             if isinstance(dbinfo, dict) and name.startswith('db')
         )
-
-        # 3) Payload base (resumo)
+        
         payload = {
             "status": "online" if pong else "offline",
             "latency_ms": latency_ms,
@@ -2911,88 +2911,202 @@ def get_redis_server_info():
             "uptime_days": info.get("uptime_in_days"),
             "total_keys": total_keys,
         }
-
-        # 4) Se o modo for "all", anexamos o INFO completo e devolvemos já
+        
+        # Debug info se solicitado
         if show_all:
             payload["info"] = info
-
+            payload["session_keys_sample"] = session_keys[:5]  # Mostrar apenas 5 como exemplo
+            
+            # Testar deserialização de uma sessão se existir
+            if session_keys:
+                test_key = session_keys[0]
+                raw_data = client.get(test_key)
+                try:
+                    import pickle
+                    deserialized = pickle.loads(raw_data)
+                    payload["session_deserialization_test"] = {
+                        "success": True,
+                        "fields": list(deserialized.keys()) if isinstance(deserialized, dict) else [],
+                        "sample_data": str(deserialized)[:200]
+                    }
+                except Exception as e:
+                    payload["session_deserialization_test"] = {
+                        "success": False,
+                        "error": str(e),
+                        "raw_type": str(type(raw_data)),
+                        "raw_sample": str(raw_data)[:100] if raw_data else "None"
+                    }
+        
         return jsonify(payload), 200
-
+        
     except redis.exceptions.RedisError as e:
         return jsonify({"status": "offline", "error": str(e)}), 503
+    except Exception as e:
+        return jsonify({"status": "error", "error": str(e)}), 500
     
 
 @app.route('/settings/redis/sessions.json', methods=['GET'])
 @required_login
 @required_role('admin')
 def list_redis_sessions():
-    client = app.config['SESSION_REDIS']
-    prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
-    pattern = f"{prefix}*"
-
-    def load_session_bytes(b):
-        if b is None:
-            return {}
-        # Tenta pickle (formato padrão do Flask-Session)
-        try:
-            return pickle.loads(b)
-        except Exception:
-            # Fallback: JSON (se tiveres mudado o serializer)
-            try:
-                return json.loads(b.decode('utf-8', errors='ignore'))
-            except Exception:
-                # Último recurso: devolver bruto truncado
-                return {"_raw": repr(b)[:200]}
-
-    sessions = []
-    user_ids = set()
-
-    for key in client.scan_iter(match=pattern, count=1000):
-        key_str = key.decode() if isinstance(key, bytes) else str(key)
-        raw = client.get(key)
-        data = load_session_bytes(raw)
-
-        user_id = data.get('_user_id')  # Flask-Login
-        if user_id is not None:
-            # normaliza para string
-            user_id = str(user_id)
-            user_ids.add(user_id)
-
-        ttl = client.ttl(key)  # segundos até expirar (pode ser -1 ou -2)
-        expires_at = None
-        if ttl and ttl > 0:
-            expires_at = (datetime.utcnow() + timedelta(seconds=ttl)).replace(tzinfo=timezone.utc).isoformat()
-
-        sessions.append({
-            "key": key_str.rsplit(':', 1)[-1],  # só o SID (mascara o prefixo)
-            "user_id": user_id,
-            "ttl_seconds": ttl,
-            "expires_at": expires_at,
-            # opcional: se guardares isto na sessão num before_request
-            "last_seen": data.get('last_seen')
-        })
-
-    # (Opcional) Enriquecer com nome/email da BD
-    users_info = {}
+    show_all = (request.args.get('data', '').lower() == 'all')
+    
     try:
-        from yourapp.models import User  # ajusta ao teu projeto
+        client = app.config['SESSION_REDIS']
+        prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
+        pattern = f"{prefix}*"
+
+        def load_session_bytes(b):
+            if b is None:
+                return {}
+            
+            # Flask-Session pode usar diferentes formatos dependendo da configuração
+            try:
+                # Tentar MessagePack primeiro (usado pelo Flask-Session por vezes)
+                return msgpack.unpackb(b, raw=False, strict_map_key=False)
+            except (ImportError, Exception):
+                pass
+            
+            try:
+                # Tentar pickle padrão
+                return pickle.loads(b)
+            except Exception as e1:
+                try:
+                    # Tentar pickle com protocolo específico
+                    return pickle.loads(b, encoding='latin1')
+                except Exception:
+                    pass
+                
+                try:
+                    # Tentar JSON
+                    if isinstance(b, bytes):
+                        return json.loads(b.decode('utf-8', errors='ignore'))
+                    else:
+                        return json.loads(str(b))
+                except Exception as e2:
+                    # Se tudo falhar, tentar extrair dados manualmente do raw
+                    try:
+                        raw_str = str(b)
+                        # Procurar por padrões conhecidos nos dados brutos
+                        extracted_data = {}
+                        
+                        # Procurar user_id no raw data
+                        user_id_match = re.search(r'user_id.*?(\d+)', raw_str)
+                        if user_id_match:
+                            extracted_data['user_id'] = int(user_id_match.group(1))
+                        
+                        # Procurar csrf_token
+                        csrf_match = re.search(r'csrf_token.*?([a-f0-9]{40})', raw_str)
+                        if csrf_match:
+                            extracted_data['csrf_token'] = csrf_match.group(1)
+                        
+                        # Procurar user_email
+                        email_match = re.search(r'user_email.*?([a-zA-Z0-9@._-]+)', raw_str)
+                        if email_match:
+                            extracted_data['user_email'] = email_match.group(1)
+                        
+                        if extracted_data:
+                            return extracted_data
+                        
+                    except Exception:
+                        pass
+                    
+                    # Debug: retornar info sobre o erro
+                    return {
+                        "_raw_sample": repr(b)[:200] if b else "None",
+                        "_pickle_error": str(e1),
+                        "_json_error": str(e2),
+                        "_type": str(type(b)),
+                        "_length": len(b) if b else 0
+                    }
+
+        sessions = []
+        user_ids = set()
+        debug_info = {"total_keys_found": 0, "deserialization_errors": 0}
+
+        for key in client.scan_iter(match=pattern, count=1000):
+            debug_info["total_keys_found"] += 1
+            key_str = key.decode() if isinstance(key, bytes) else str(key)
+            raw = client.get(key)
+            data = load_session_bytes(raw)
+
+            # Debug: verificar se conseguimos deserializar
+            if "_pickle_error" in data or "_json_error" in data:
+                debug_info["deserialization_errors"] += 1
+
+            # Procurar user_id em vários campos possíveis
+            user_id = None
+            for field in ['user_id', '_user_id', 'current_user_id']:
+                if field in data and data[field] is not None:
+                    user_id = str(data[field])
+                    break
+            
+            # Também tentar extrair de objetos user
+            if user_id is None and 'user' in data and isinstance(data['user'], dict):
+                if 'id' in data['user']:
+                    user_id = str(data['user']['id'])
+
+            if user_id is not None:
+                user_ids.add(user_id)
+
+            ttl = client.ttl(key)
+            expires_at = None
+            if ttl and ttl > 0:
+                expires_at = (datetime.utcnow() + timedelta(seconds=ttl)).replace(tzinfo=timezone.utc).isoformat()
+
+            session_info = {
+                "key": key_str.rsplit(':', 1)[-1],  # só o SID
+                "user_id": user_id,
+                "ttl_seconds": ttl,
+                "expires_at": expires_at,
+                "last_seen": data.get('last_seen'),
+                # Debug: mostrar campos disponíveis na sessão
+                "session_fields": list(data.keys()) if isinstance(data, dict) else []
+            }
+            
+            # Em modo debug, incluir dados raw (apenas para desenvolvimento)
+            if app.config.get('DEBUG', False):
+                session_info["raw_data"] = data
+
+            sessions.append(session_info)
+
+        # Ordenar sessões por last_seen (mais recentes primeiro) se disponível
+        sessions.sort(key=lambda x: x.get('last_seen', ''), reverse=True)
+        
+        # Limitar resultados se não for show_all
+        if not show_all:
+            sessions = sessions[:10]
+
+        # Enriquecer com informações do utilizador
+        users_info = {}
         if user_ids:
             rows = User.query.filter(User.id.in_(list(user_ids))).all()
             users_info = {str(u.id): {"id": u.id, "name": u.name, "email": u.email} for u in rows}
-    except Exception:
-        pass  # se não tiveres modelos/BD aqui, ignora
 
-    # anexa info do utilizador quando existir
-    for s in sessions:
-        uid = s.get("user_id")
-        if uid and uid in users_info:
-            s["user"] = users_info[uid]
+        # Anexar informações do utilizador
+        for s in sessions:
+            uid = s.get("user_id")
+            if uid and uid in users_info:
+                s["user"] = users_info[uid]
 
-    return jsonify({
-        "sessions_total": len(sessions),
-        "authenticated_users_total": len([s for s in sessions if s.get("user_id")]),
-        "sessions": sessions
-    }), 200
+        response = {
+            "sessions_total": len(sessions),
+            "authenticated_users_total": len([s for s in sessions if s.get("user_id")]),
+            "sessions": sessions,
+            "debug": debug_info,
+            "showing_all": show_all,
+            "limit_applied": not show_all
+        }
+
+        return jsonify(response), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": f"Erro ao listar sessões Redis: {str(e)}",
+            "sessions_total": 0,
+            "authenticated_users_total": 0,
+            "sessions": []
+        }), 500
 
 
 create_directories_with_permissions()

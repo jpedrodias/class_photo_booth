@@ -793,30 +793,55 @@
             {% endif %}
 
 
-            <!-- Painel Redis -->
-             <div class="col-lg-12">
+            <!-- Painel Redis Server -->
+            <div class="col-lg-6">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="m-0">Redis</h3>
+                    <h3 class="m-0">Redis Server</h3>
                     <div class="d-flex align-items-center gap-3">
                     <label class="form-check-label me-2" title="Atualizar automaticamente de 5 em 5 segundos">
-                        <input id="redis-autorefresh" type="checkbox" class="form-check-input" checked>
+                        <input id="redis-server-autorefresh" type="checkbox" class="form-check-input" checked>
                         Auto (5s)
                     </label>
                     <label class="form-check-label me-2" title="Mostrar todos os dados (INFO completo)">
-                        <input id="redis-showall" type="checkbox" class="form-check-input">
+                        <input id="redis-server-showall" type="checkbox" class="form-check-input">
                         Tudo
                     </label>
-                    <button id="redis-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
+                    <button id="redis-server-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
                     </div>
                 </div>
                 <div class="card-body">
-                    <div id="redis-error" class="text-danger mb-2" hidden></div>
-                    <div id="redis-table-container"></div>
+                    <div id="redis-server-error" class="text-danger mb-2" hidden></div>
+                    <div id="redis-server-table-container"></div>
                 </div>
             </div>
             </div>
-            <!-- End Painel Redis -->
+            <!-- End Painel Redis Server -->
+
+            <!-- Painel Redis Sessions -->
+            <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="m-0">Redis Sessions</h3>
+                    <div class="d-flex align-items-center gap-3">
+                    <label class="form-check-label me-2" title="Atualizar automaticamente de 5 em 5 segundos">
+                        <input id="redis-sessions-autorefresh" type="checkbox" class="form-check-input" checked>
+                        Auto (5s)
+                    </label>
+                    <label class="form-check-label me-2" title="Mostrar todas as sessões">
+                        <input id="redis-sessions-showall" type="checkbox" class="form-check-input">
+                        Todas
+                    </label>
+                    <button id="redis-sessions-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="redis-sessions-error" class="text-danger mb-2" hidden></div>
+                    <div id="redis-sessions-table-container"></div>
+                </div>
+            </div>
+            </div>
+            <!-- End Painel Redis Sessions -->
 
         </div>
         
@@ -914,14 +939,19 @@
     <!-- status do REDIS -->
     <script>
 (function () {
-  const ENDPOINT = '{{url_for("get_redis_server_info")}}';
-  const container = document.getElementById('redis-table-container');
-  const btn = document.getElementById('redis-refresh');
-  const auto = document.getElementById('redis-autorefresh');
-  const showAll = document.getElementById('redis-showall');
-  const errorBox = document.getElementById('redis-error');
-
-  let timer = null, loading = false;
+  // Configuração para cada painel Redis
+  const redisConfigs = [
+    {
+      id: 'redis-server',
+      endpoint: '/settings/redis/server.json',
+      title: 'Redis Server'
+    },
+    {
+      id: 'redis-sessions', 
+      endpoint: '/settings/redis/sessions.json',
+      title: 'Redis Sessions'
+    }
+  ];
 
   // Achata o JSON: {a:{b:1}, c:[2,3]} -> {"a.b":1, "c[0]":2, "c[1]":3}
   function flatten(obj, prefix = '', out = {}) {
@@ -946,9 +976,11 @@
     const tbody = document.createElement('tbody');
     const keys = Object.keys(kv).sort((a, b) => {
       const order = k => (k === 'status') ? 0 :
-                        (k === 'sessions_count') ? 1 :
-                        (k === 'latency_ms') ? 2 :
-                        (k === 'generated_at') ? 3 :
+                        (k === 'sessions_count' || k === 'sessions_total') ? 1 :
+                        (k === 'authenticated_users_total') ? 2 :
+                        (k === 'latency_ms') ? 3 :
+                        (k === 'generated_at') ? 4 :
+                        (k === 'showing_all' || k === 'limit_applied') ? 5 :
                         (k.startsWith('info.')) ? 100 : 50;
       return order(a) - order(b) || a.localeCompare(b);
     });
@@ -966,54 +998,91 @@
     return table;
   }
 
-  function buildUrl() {
-    const params = new URLSearchParams();
-    if (showAll && showAll.checked) params.set('data', 'all');
-    const qs = params.toString();
-    return qs ? `${ENDPOINT}?${qs}` : ENDPOINT;
-  }
+  // Classe para gerenciar cada painel Redis
+  class RedisPanel {
+    constructor(config) {
+      this.config = config;
+      this.container = document.getElementById(`${config.id}-table-container`);
+      this.btn = document.getElementById(`${config.id}-refresh`);
+      this.auto = document.getElementById(`${config.id}-autorefresh`);
+      this.showAll = document.getElementById(`${config.id}-showall`);
+      this.errorBox = document.getElementById(`${config.id}-error`);
+      
+      this.timer = null;
+      this.loading = false;
+      
+      this.init();
+    }
 
-  async function fetchAndRender() {
-    if (loading) return;
-    try {
-      loading = true;
-      btn && (btn.disabled = true);
-      errorBox.hidden = true; errorBox.textContent = '';
+    buildUrl() {
+      const params = new URLSearchParams();
+      if (this.showAll && this.showAll.checked) params.set('data', 'all');
+      const qs = params.toString();
+      return qs ? `${this.config.endpoint}?${qs}` : this.config.endpoint;
+    }
 
-      const r = await fetch(buildUrl(), { cache: 'no-store' });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
+    async fetchAndRender() {
+      if (this.loading) return;
+      try {
+        this.loading = true;
+        this.btn && (this.btn.disabled = true);
+        this.errorBox.hidden = true; 
+        this.errorBox.textContent = '';
 
-      // Render: achatar TUDO o que vier
-      const flat = flatten(data);
-      const table = buildTable(flat);
+        const r = await fetch(this.buildUrl(), { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
 
-      container.innerHTML = '';
-      container.appendChild(table);
-    } catch (e) {
-      errorBox.hidden = false;
-      errorBox.textContent = e.message || 'Erro ao obter estado do Redis.';
-      container.innerHTML = '';
-    } finally {
-      loading = false;
-      btn && (btn.disabled = false);
+        // Render: achatar TUDO o que vier
+        const flat = flatten(data);
+        const table = buildTable(flat);
+
+        this.container.innerHTML = '';
+        this.container.appendChild(table);
+      } catch (e) {
+        this.errorBox.hidden = false;
+        this.errorBox.textContent = e.message || `Erro ao obter estado do ${this.config.title}.`;
+        this.container.innerHTML = '';
+      } finally {
+        this.loading = false;
+        this.btn && (this.btn.disabled = false);
+      }
+    }
+
+    startAuto() { 
+      this.stopAuto(); 
+      this.timer = setInterval(() => this.fetchAndRender(), 5000); 
+    }
+    
+    stopAuto() { 
+      if (this.timer) { 
+        clearInterval(this.timer); 
+        this.timer = null; 
+      } 
+    }
+
+    init() {
+      // Event listeners
+      this.btn && this.btn.addEventListener('click', () => this.fetchAndRender());
+      this.auto && this.auto.addEventListener('change', () => 
+        this.auto.checked ? this.startAuto() : this.stopAuto()
+      );
+      this.showAll && this.showAll.addEventListener('change', () => this.fetchAndRender());
+
+      // Initial load
+      this.fetchAndRender();
+      if (this.auto && this.auto.checked) this.startAuto();
+
+      // Handle visibility change
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) this.stopAuto();
+        else if (this.auto && this.auto.checked) this.startAuto();
+      });
     }
   }
 
-  function startAuto(){ stopAuto(); timer = setInterval(fetchAndRender, 5000); }
-  function stopAuto(){ if (timer) { clearInterval(timer); timer = null; } }
-
-  btn && btn.addEventListener('click', fetchAndRender);
-  auto && auto.addEventListener('change', () => auto.checked ? startAuto() : stopAuto());
-  showAll && showAll.addEventListener('change', fetchAndRender); // muda entre resumo/Tudo
-
-  fetchAndRender();
-  if (auto && auto.checked) startAuto();
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopAuto();
-    else if (auto && auto.checked) startAuto();
-  });
+  // Inicializar todos os painéis Redis
+  redisConfigs.forEach(config => new RedisPanel(config));
 })();
 </script>
 
