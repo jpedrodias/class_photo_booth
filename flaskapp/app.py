@@ -2866,16 +2866,22 @@ def login_log_management(log_id=None):
 
 # Obter informações do servidor Redis
 @app.route('/settings/redis.json', methods=['GET'])
+@required_login
+@required_role('admin')
 def get_redis_info():
+    # 1) Decisão de modo logo no início
+    show_all = (request.args.get('data', '').lower() == 'all')
+
     client = app.config['SESSION_REDIS']
     try:
-        start = time.time()
+        # 2) Métricas comuns a ambos os modos
+        t0 = time.time()
         pong = client.ping()
-        latency_ms = round((time.time() - start) * 1000, 2)
+        latency_ms = round((time.time() - t0) * 1000, 2)
 
-        info = client.info()
+        info = client.info()  # usamos em ambos (para alguns campos e/ou para anexar tudo)
 
-        # Conta apenas sessões (session:*)
+        # Contar apenas as chaves de sessão (com o prefixo configurado)
         prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
         pattern = f"{prefix}*"
         sessions_count, cursor = 0, 0
@@ -2885,13 +2891,30 @@ def get_redis_info():
             if cursor == 0:
                 break
 
+        # Total de chaves (soma dos dbN em INFO keyspace)
+        total_keys = sum(
+            dbinfo.get('keys', 0)
+            for name, dbinfo in info.items()
+            if isinstance(dbinfo, dict) and name.startswith('db')
+        )
+
+        # 3) Payload base (resumo)
         payload = {
             "status": "online" if pong else "offline",
             "latency_ms": latency_ms,
-            "sessions_count": sessions_count,
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "info": info,   # devolve tudo
+            "sessions_count": sessions_count,
+            "connected_clients": info.get("connected_clients"),
+            "used_memory_human": info.get("used_memory_human"),
+            "redis_version": info.get("redis_version"),
+            "uptime_days": info.get("uptime_in_days"),
+            "total_keys": total_keys,
         }
+
+        # 4) Se o modo for "all", anexamos o INFO completo e devolvemos já
+        if show_all:
+            payload["info"] = info
+
         return jsonify(payload), 200
 
     except redis.exceptions.RedisError as e:
