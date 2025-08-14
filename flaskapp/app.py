@@ -7,6 +7,7 @@ import shutil
 import traceback
 import zipfile
 import time
+import pickle, json
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO, StringIO
@@ -2865,10 +2866,10 @@ def login_log_management(log_id=None):
 
 
 # Obter informações do servidor Redis
-@app.route('/settings/redis.json', methods=['GET'])
+@app.route('/settings/redis/server.json', methods=['GET'])
 @required_login
 @required_role('admin')
-def get_redis_info():
+def get_redis_server_info():
     # 1) Decisão de modo logo no início
     show_all = (request.args.get('data', '').lower() == 'all')
 
@@ -2920,6 +2921,78 @@ def get_redis_info():
     except redis.exceptions.RedisError as e:
         return jsonify({"status": "offline", "error": str(e)}), 503
     
+
+@app.route('/settings/redis/sessions.json', methods=['GET'])
+@required_login
+@required_role('admin')
+def list_redis_sessions():
+    client = app.config['SESSION_REDIS']
+    prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
+    pattern = f"{prefix}*"
+
+    def load_session_bytes(b):
+        if b is None:
+            return {}
+        # Tenta pickle (formato padrão do Flask-Session)
+        try:
+            return pickle.loads(b)
+        except Exception:
+            # Fallback: JSON (se tiveres mudado o serializer)
+            try:
+                return json.loads(b.decode('utf-8', errors='ignore'))
+            except Exception:
+                # Último recurso: devolver bruto truncado
+                return {"_raw": repr(b)[:200]}
+
+    sessions = []
+    user_ids = set()
+
+    for key in client.scan_iter(match=pattern, count=1000):
+        key_str = key.decode() if isinstance(key, bytes) else str(key)
+        raw = client.get(key)
+        data = load_session_bytes(raw)
+
+        user_id = data.get('_user_id')  # Flask-Login
+        if user_id is not None:
+            # normaliza para string
+            user_id = str(user_id)
+            user_ids.add(user_id)
+
+        ttl = client.ttl(key)  # segundos até expirar (pode ser -1 ou -2)
+        expires_at = None
+        if ttl and ttl > 0:
+            expires_at = (datetime.utcnow() + timedelta(seconds=ttl)).replace(tzinfo=timezone.utc).isoformat()
+
+        sessions.append({
+            "key": key_str.rsplit(':', 1)[-1],  # só o SID (mascara o prefixo)
+            "user_id": user_id,
+            "ttl_seconds": ttl,
+            "expires_at": expires_at,
+            # opcional: se guardares isto na sessão num before_request
+            "last_seen": data.get('last_seen')
+        })
+
+    # (Opcional) Enriquecer com nome/email da BD
+    users_info = {}
+    try:
+        from yourapp.models import User  # ajusta ao teu projeto
+        if user_ids:
+            rows = User.query.filter(User.id.in_(list(user_ids))).all()
+            users_info = {str(u.id): {"id": u.id, "name": u.name, "email": u.email} for u in rows}
+    except Exception:
+        pass  # se não tiveres modelos/BD aqui, ignora
+
+    # anexa info do utilizador quando existir
+    for s in sessions:
+        uid = s.get("user_id")
+        if uid and uid in users_info:
+            s["user"] = users_info[uid]
+
+    return jsonify({
+        "sessions_total": len(sessions),
+        "authenticated_users_total": len([s for s in sessions if s.get("user_id")]),
+        "sessions": sessions
+    }), 200
 
 
 create_directories_with_permissions()

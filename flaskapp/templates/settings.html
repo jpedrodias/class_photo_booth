@@ -483,8 +483,15 @@
                             </div>
                             <div class="mb-3">
                                 <label for="resetPassword{{ user.id }}" class="form-label">Nova Senha *</label>
-                                <input type="password" class="form-control" id="resetPassword{{ user.id }}" 
-                                       name="new_password" required minlength="6">
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="resetPassword{{ user.id }}" 
+                                           name="new_password" required minlength="6">
+                                    <button type="button" class="btn btn-outline-secondary" 
+                                            onclick="togglePasswordVisibility('resetPassword{{ user.id }}', this)"
+                                            title="Mostrar/Ocultar senha">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                </div>
                                 <div class="form-text">Mínimo 6 caracteres. Recomenda-se: maiúsculas, minúsculas, números e símbolos.</div>
                             </div>
                             <div class="alert alert-info">
@@ -907,7 +914,7 @@
     <!-- status do REDIS -->
     <script>
 (function () {
-  const ENDPOINT = '/settings/redis.json';
+  const ENDPOINT = '{{url_for("get_redis_server_info")}}';
   const container = document.getElementById('redis-table-container');
   const btn = document.getElementById('redis-refresh');
   const auto = document.getElementById('redis-autorefresh');
@@ -1010,6 +1017,24 @@
 })();
 </script>
 
+    <script>
+        // Função para mostrar/ocultar senha
+        function togglePasswordVisibility(inputId, button) {
+            const input = document.getElementById(inputId);
+            const icon = button.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'bi bi-eye-slash';
+                button.title = 'Ocultar senha';
+            } else {
+                input.type = 'password';
+                icon.className = 'bi bi-eye';
+                button.title = 'Mostrar senha';
+            }
+        }
+</script>
+
 
 
 
@@ -1018,20 +1043,10 @@
         document.addEventListener('DOMContentLoaded', function() {
             const addUserForm = document.querySelector('#addUserModal form');
             const passwordField = document.getElementById('addUserPassword');
-            const confirmPasswordField = document.getElementById('addUserPasswordConfirm');
 
-            if (addUserForm) {
+            if (addUserForm && passwordField) {
                 addUserForm.addEventListener('submit', function(e) {
                     const password = passwordField.value;
-                    const confirmPassword = confirmPasswordField.value;
-
-                    // Verificar se as palavras-passe coincidem
-                    if (password !== confirmPassword) {
-                        e.preventDefault();
-                        alert('As palavras-passe não coincidem. Por favor, verifique.');
-                        confirmPasswordField.focus();
-                        return false;
-                    }
 
                     // Validação de força da palavra-passe
                     if (password.length < 6) {
@@ -1043,20 +1058,6 @@
 
                     return true;
                 });
-
-                // Validação em tempo real da confirmação da palavra-passe
-                confirmPasswordField.addEventListener('input', function() {
-                    const password = passwordField.value;
-                    const confirmPassword = this.value;
-                    
-                    if (confirmPassword && password !== confirmPassword) {
-                        this.setCustomValidity('As palavras-passe não coincidem');
-                        this.classList.add('is-invalid');
-                    } else {
-                        this.setCustomValidity('');
-                        this.classList.remove('is-invalid');
-                    }
-                });
             }
         });
 
@@ -1067,25 +1068,35 @@
         }
 
         // Habilitar botões quando arquivo for selecionado
-        document.getElementById('replaceFile').addEventListener('change', function() {
-            document.getElementById('replaceBtn').disabled = !this.files.length;
-        });
+        const replaceFile = document.getElementById('replaceFile');
+        if (replaceFile) {
+            replaceFile.addEventListener('change', function() {
+                const replaceBtn = document.getElementById('replaceBtn');
+                if (replaceBtn) {
+                    replaceBtn.disabled = !this.files.length;
+                }
+            });
+        }
 
-        {% if can_upload_csv %}
-        document.getElementById('replaceFile').addEventListener('change', function() {
-            document.getElementById('replaceBtn').disabled = !this.files.length;
-        });
-        {% endif %}
-
-        {% if has_data and can_upload_csv %}
-        document.getElementById('mergeFile').addEventListener('change', function() {
-            document.getElementById('mergeBtn').disabled = !this.files.length;
-        });
+        const mergeFile = document.getElementById('mergeFile');
+        if (mergeFile) {
+            mergeFile.addEventListener('change', function() {
+                const mergeBtn = document.getElementById('mergeBtn');
+                if (mergeBtn) {
+                    mergeBtn.disabled = !this.files.length;
+                }
+            });
+        }
         
-        document.getElementById('updateProfessorFile').addEventListener('change', function() {
-            document.getElementById('updateProfessorBtn').disabled = !this.files.length;
-        });
-        {% endif %}
+        const updateProfessorFile = document.getElementById('updateProfessorFile');
+        if (updateProfessorFile) {
+            updateProfessorFile.addEventListener('change', function() {
+                const updateProfessorBtn = document.getElementById('updateProfessorBtn');
+                if (updateProfessorBtn) {
+                    updateProfessorBtn.disabled = !this.files.length;
+                }
+            });
+        }
 
         // Confirmação para limpeza completa
         function confirmNuke() {
