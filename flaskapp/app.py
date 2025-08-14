@@ -1265,7 +1265,21 @@ def login(action_url=None):
 
 @app.route('/logout')
 def logout():
+    # Obter o ID da sessão antes de limpar
+    session_id = session.get('_id')  # Flask-Session internal ID
+    
+    # Limpar sessão do Flask
     session.clear()
+    
+    # Tentar remover sessão do Redis diretamente
+    if session_id:
+        try:
+            redis_client = app.config['SESSION_REDIS']
+            session_key = f"{app.config.get('SESSION_KEY_PREFIX', 'session:')}{session_id}"
+            redis_client.delete(session_key)
+        except Exception as e:
+            print(f"Erro ao remover sessão do Redis: {e}")
+    
     flash('Sessão terminada com sucesso.', 'success')
     return redirect(url_for('login'))
 
@@ -2951,161 +2965,214 @@ def get_redis_status():
 def list_redis_sessions():
     show_all = (request.args.get('data', '').lower() == 'all')
     
+    client = app.config['SESSION_REDIS']
+    prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
+    pattern = f"{prefix}*"
+
+    def load_session_bytes(b):
+        if b is None:
+            return {}
+        
+        # Flask-Session pode usar diferentes formatos dependendo da configuração
+        try:
+            # Tentar MessagePack primeiro (usado pelo Flask-Session por vezes)
+            return msgpack.unpackb(b, raw=False, strict_map_key=False)
+        except (ImportError, Exception):
+            pass
+        
+        try:
+            # Tentar pickle padrão
+            return pickle.loads(b)
+        except Exception as e1:
+            try:
+                # Tentar pickle com protocolo específico
+                return pickle.loads(b, encoding='latin1')
+            except Exception:
+                pass
+            
+            try:
+                # Tentar JSON
+                if isinstance(b, bytes):
+                    return json.loads(b.decode('utf-8', errors='ignore'))
+                else:
+                    return json.loads(str(b))
+            except Exception as e2:
+                # Se tudo falhar, tentar extrair dados manualmente do raw
+                try:
+                    raw_str = str(b)
+                    # Procurar por padrões conhecidos nos dados brutos
+                    extracted_data = {}
+                    
+                    # Procurar user_id no raw data
+                    user_id_match = re.search(r'user_id.*?(\d+)', raw_str)
+                    if user_id_match:
+                        extracted_data['user_id'] = int(user_id_match.group(1))
+                    
+                    # Procurar csrf_token
+                    csrf_match = re.search(r'csrf_token.*?([a-f0-9]{40})', raw_str)
+                    if csrf_match:
+                        extracted_data['csrf_token'] = csrf_match.group(1)
+                    
+                    # Procurar user_email
+                    email_match = re.search(r'user_email.*?([a-zA-Z0-9@._-]+)', raw_str)
+                    if email_match:
+                        extracted_data['user_email'] = email_match.group(1)
+                    
+                    if extracted_data:
+                        return extracted_data
+                    
+                except Exception:
+                    pass
+                
+                # Debug: retornar info sobre o erro
+                return {
+                    "_raw_sample": repr(b)[:200] if b else "None",
+                    "_pickle_error": str(e1),
+                    "_json_error": str(e2),
+                    "_type": str(type(b)),
+                    "_length": len(b) if b else 0
+                }
+
+    sessions = []
+    user_ids = set()
+    debug_info = {"total_keys_found": 0, "deserialization_errors": 0}
+
+    for key in client.scan_iter(match=pattern, count=1000):
+        debug_info["total_keys_found"] += 1
+        key_str = key.decode() if isinstance(key, bytes) else str(key)
+        raw = client.get(key)
+        data = load_session_bytes(raw)
+
+        # Debug: verificar se conseguimos deserializar
+        if "_pickle_error" in data or "_json_error" in data:
+            debug_info["deserialization_errors"] += 1
+
+        # Procurar user_id em vários campos possíveis
+        user_id = None
+        for field in ['user_id', '_user_id', 'current_user_id']:
+            if field in data and data[field] is not None:
+                user_id = str(data[field])
+                break
+        
+        # Também tentar extrair de objetos user
+        if user_id is None and 'user' in data and isinstance(data['user'], dict):
+            if 'id' in data['user']:
+                user_id = str(data['user']['id'])
+
+        if user_id is not None:
+            user_ids.add(user_id)
+
+        ttl = client.ttl(key)
+        expires_at = None
+        if ttl and ttl > 0:
+            expires_at = (datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat()
+
+        session_info = {
+            "key": key_str.rsplit(':', 1)[-1],  # só o SID
+            "user_id": user_id,
+            "ttl_seconds": ttl,
+            "expires_at": expires_at,
+            "last_seen": data.get('last_seen') or '1900-01-01',  # Default para ordenação
+            # Debug: mostrar campos disponíveis na sessão
+            "session_fields": list(data.keys()) if isinstance(data, dict) else []
+        }
+        
+        # Em modo debug, incluir dados raw (apenas para desenvolvimento)
+        if app.config.get('DEBUG', False):
+            session_info["raw_data"] = data
+
+        sessions.append(session_info)
+
+    # Ordenar sessões por last_seen (mais recentes primeiro) - agora com tratamento de None
+    sessions.sort(key=lambda x: x.get('last_seen') or '1900-01-01', reverse=True)
+    
+    # Limitar resultados se não for show_all
+    if not show_all:
+        sessions = sessions[:10]
+
+    # Enriquecer com informações do utilizador
+    users_info = {}
+    if user_ids:
+        rows = User.query.filter(User.id.in_(list(user_ids))).all()
+        users_info = {str(u.id): {"id": u.id, "name": u.name, "email": u.email} for u in rows}
+
+    # Criar lista simplificada apenas com user_id e email (sem duplicatas por utilizador)
+    active_users = []
+    seen_users = set()
+    
+    for s in sessions:
+        uid = s.get("user_id")
+        if uid and uid in users_info and uid not in seen_users:
+            user_data = users_info[uid]
+            active_users.append({
+                "user_id": uid,
+                "email": user_data["email"],
+                "name": user_data["name"],
+                "sessions_count": len([sess for sess in sessions if sess.get("user_id") == uid])
+            })
+            seen_users.add(uid)
+
+    response = {
+        "sessions_total": len(sessions),
+        "authenticated_users_total": len(active_users),
+        "active_users": active_users,  # Lista simplificada
+        "debug": debug_info,
+        "showing_all": show_all,
+        "limit_applied": not show_all
+    }
+
+    return jsonify(response), 200
+
+
+@app.route('/settings/redis/cleanup', methods=['POST'])
+@required_login
+@required_role('admin')
+def cleanup_redis_sessions():
+    """Limpeza manual de sessões Redis expiradas ou inválidas"""
     try:
         client = app.config['SESSION_REDIS']
         prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
         pattern = f"{prefix}*"
-
-        def load_session_bytes(b):
-            if b is None:
-                return {}
-            
-            # Flask-Session pode usar diferentes formatos dependendo da configuração
-            try:
-                # Tentar MessagePack primeiro (usado pelo Flask-Session por vezes)
-                return msgpack.unpackb(b, raw=False, strict_map_key=False)
-            except (ImportError, Exception):
-                pass
-            
-            try:
-                # Tentar pickle padrão
-                return pickle.loads(b)
-            except Exception as e1:
-                try:
-                    # Tentar pickle com protocolo específico
-                    return pickle.loads(b, encoding='latin1')
-                except Exception:
-                    pass
-                
-                try:
-                    # Tentar JSON
-                    if isinstance(b, bytes):
-                        return json.loads(b.decode('utf-8', errors='ignore'))
-                    else:
-                        return json.loads(str(b))
-                except Exception as e2:
-                    # Se tudo falhar, tentar extrair dados manualmente do raw
-                    try:
-                        raw_str = str(b)
-                        # Procurar por padrões conhecidos nos dados brutos
-                        extracted_data = {}
-                        
-                        # Procurar user_id no raw data
-                        user_id_match = re.search(r'user_id.*?(\d+)', raw_str)
-                        if user_id_match:
-                            extracted_data['user_id'] = int(user_id_match.group(1))
-                        
-                        # Procurar csrf_token
-                        csrf_match = re.search(r'csrf_token.*?([a-f0-9]{40})', raw_str)
-                        if csrf_match:
-                            extracted_data['csrf_token'] = csrf_match.group(1)
-                        
-                        # Procurar user_email
-                        email_match = re.search(r'user_email.*?([a-zA-Z0-9@._-]+)', raw_str)
-                        if email_match:
-                            extracted_data['user_email'] = email_match.group(1)
-                        
-                        if extracted_data:
-                            return extracted_data
-                        
-                    except Exception:
-                        pass
-                    
-                    # Debug: retornar info sobre o erro
-                    return {
-                        "_raw_sample": repr(b)[:200] if b else "None",
-                        "_pickle_error": str(e1),
-                        "_json_error": str(e2),
-                        "_type": str(type(b)),
-                        "_length": len(b) if b else 0
-                    }
-
-        sessions = []
-        user_ids = set()
-        debug_info = {"total_keys_found": 0, "deserialization_errors": 0}
-
-        for key in client.scan_iter(match=pattern, count=1000):
-            debug_info["total_keys_found"] += 1
-            key_str = key.decode() if isinstance(key, bytes) else str(key)
-            raw = client.get(key)
-            data = load_session_bytes(raw)
-
-            # Debug: verificar se conseguimos deserializar
-            if "_pickle_error" in data or "_json_error" in data:
-                debug_info["deserialization_errors"] += 1
-
-            # Procurar user_id em vários campos possíveis
-            user_id = None
-            for field in ['user_id', '_user_id', 'current_user_id']:
-                if field in data and data[field] is not None:
-                    user_id = str(data[field])
-                    break
-            
-            # Também tentar extrair de objetos user
-            if user_id is None and 'user' in data and isinstance(data['user'], dict):
-                if 'id' in data['user']:
-                    user_id = str(data['user']['id'])
-
-            if user_id is not None:
-                user_ids.add(user_id)
-
-            ttl = client.ttl(key)
-            expires_at = None
-            if ttl and ttl > 0:
-                expires_at = (datetime.utcnow() + timedelta(seconds=ttl)).replace(tzinfo=timezone.utc).isoformat()
-
-            session_info = {
-                "key": key_str.rsplit(':', 1)[-1],  # só o SID
-                "user_id": user_id,
-                "ttl_seconds": ttl,
-                "expires_at": expires_at,
-                "last_seen": data.get('last_seen'),
-                # Debug: mostrar campos disponíveis na sessão
-                "session_fields": list(data.keys()) if isinstance(data, dict) else []
-            }
-            
-            # Em modo debug, incluir dados raw (apenas para desenvolvimento)
-            if app.config.get('DEBUG', False):
-                session_info["raw_data"] = data
-
-            sessions.append(session_info)
-
-        # Ordenar sessões por last_seen (mais recentes primeiro) se disponível
-        sessions.sort(key=lambda x: x.get('last_seen', ''), reverse=True)
         
-        # Limitar resultados se não for show_all
-        if not show_all:
-            sessions = sessions[:10]
-
-        # Enriquecer com informações do utilizador
-        users_info = {}
-        if user_ids:
-            rows = User.query.filter(User.id.in_(list(user_ids))).all()
-            users_info = {str(u.id): {"id": u.id, "name": u.name, "email": u.email} for u in rows}
-
-        # Anexar informações do utilizador
-        for s in sessions:
-            uid = s.get("user_id")
-            if uid and uid in users_info:
-                s["user"] = users_info[uid]
-
-        response = {
-            "sessions_total": len(sessions),
-            "authenticated_users_total": len([s for s in sessions if s.get("user_id")]),
-            "sessions": sessions,
-            "debug": debug_info,
-            "showing_all": show_all,
-            "limit_applied": not show_all
-        }
-
-        return jsonify(response), 200
-
+        cleaned_sessions = 0
+        total_sessions = 0
+        
+        for key in client.scan_iter(match=pattern, count=1000):
+            total_sessions += 1
+            
+            # Verificar TTL
+            ttl = client.ttl(key)
+            if ttl == -1:  # Sessão sem TTL (problemática)
+                client.delete(key)
+                cleaned_sessions += 1
+                continue
+            
+            if ttl == -2:  # Chave já expirou
+                cleaned_sessions += 1
+                continue
+            
+            # Verificar se sessão tem dados válidos
+            try:
+                raw_data = client.get(key)
+                if not raw_data:
+                    client.delete(key)
+                    cleaned_sessions += 1
+            except Exception:
+                # Se não conseguir ler, remove
+                client.delete(key)
+                cleaned_sessions += 1
+        
+        return jsonify({
+            "success": True,
+            "message": f"Limpeza concluída: {cleaned_sessions} sessões removidas de {total_sessions} analisadas",
+            "cleaned_sessions": cleaned_sessions,
+            "total_sessions": total_sessions
+        }), 200
+        
     except Exception as e:
         return jsonify({
-            "error": f"Erro ao listar sessões Redis: {str(e)}",
-            "sessions_total": 0,
-            "authenticated_users_total": 0,
-            "sessions": []
+            "success": False,
+            "error": f"Erro na limpeza: {str(e)}"
         }), 500
 
 

@@ -18,10 +18,14 @@ class BaseConfig():
     # SESSIONS on REDIS
     SESSION_TYPE = 'redis'
     SESSION_REDIS = redis.from_url("redis://redis:6379/0")
-    SESSION_PERMANENT = False
+    SESSION_PERMANENT = True  # Ativar sessões permanentes com TTL
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = 'session:'
     SESSION_SERIALIZATION_FORMAT = 'msgpack'  # Usar msgpack para melhor compatibilidade
+    
+    # Tempo de vida das sessões (24 horas)
+    from datetime import timedelta
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
 
     # Chaves e URIs
     SECRET_KEY = os.getenv('FLASKAPP_SECRET_KEY', 'supersecretkey')
