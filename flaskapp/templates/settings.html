@@ -938,153 +938,156 @@
 
     <!-- status do REDIS -->
     <script>
-(function () {
-  // Configuração para cada painel Redis
-  const redisConfigs = [
-    {
-      id: 'redis-server',
-      endpoint: '/settings/redis/server.json',
-      title: 'Redis Server'
-    },
-    {
-      id: 'redis-sessions', 
-      endpoint: '/settings/redis/sessions.json',
-      title: 'Redis Sessions'
-    }
-  ];
+        function initializeRedisPanels() {
+        // Configuração para cada painel Redis
+        const redisConfigs = [
+            {
+            id: 'redis-server',
+            endpoint: '/settings/redis/server.json',
+            title: 'Redis Server'
+            },
+            {
+            id: 'redis-sessions', 
+            endpoint: '/settings/redis/sessions.json',
+            title: 'Redis Sessions'
+            }
+        ];
 
-  // Achata o JSON: {a:{b:1}, c:[2,3]} -> {"a.b":1, "c[0]":2, "c[1]":3}
-  function flatten(obj, prefix = '', out = {}) {
-    const isObj = v => v !== null && typeof v === 'object';
-    if (!isObj(obj)) { out[prefix || '(root)'] = obj; return out; }
-    if (Array.isArray(obj)) { obj.forEach((v, i) => flatten(v, `${prefix}[${i}]`, out)); return out; }
-    for (const [k, v] of Object.entries(obj)) {
-      const key = prefix ? `${prefix}.${k}` : k;
-      isObj(v) ? flatten(v, key, out) : (out[key] = v);
-    }
-    return out;
-  }
+        // Achata o JSON: {a:{b:1}, c:[2,3]} -> {"a.b":1, "c[0]":2, "c[1]":3}
+        function flatten(obj, prefix = '', out = {}) {
+            const isObj = v => v !== null && typeof v === 'object';
+            if (!isObj(obj)) { out[prefix || '(root)'] = obj; return out; }
+            if (Array.isArray(obj)) { obj.forEach((v, i) => flatten(v, `${prefix}[${i}]`, out)); return out; }
+            for (const [k, v] of Object.entries(obj)) {
+            const key = prefix ? `${prefix}.${k}` : k;
+            isObj(v) ? flatten(v, key, out) : (out[key] = v);
+            }
+            return out;
+        }
 
-  function buildTable(kv) {
-    const table = document.createElement('table');
-    table.className = 'table table-sm table-striped';
+        function buildTable(kv) {
+            const table = document.createElement('table');
+            table.className = 'table table-sm table-striped';
 
-    const thead = document.createElement('thead');
-    thead.innerHTML = '<tr><th style="width:45%">Chave</th><th>Valor</th></tr>';
-    table.appendChild(thead);
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th style="width:45%">Chave</th><th>Valor</th></tr>';
+            table.appendChild(thead);
 
-    const tbody = document.createElement('tbody');
-    const keys = Object.keys(kv).sort((a, b) => {
-      const order = k => (k === 'status') ? 0 :
-                        (k === 'sessions_count' || k === 'sessions_total') ? 1 :
-                        (k === 'authenticated_users_total') ? 2 :
-                        (k === 'latency_ms') ? 3 :
-                        (k === 'generated_at') ? 4 :
-                        (k === 'showing_all' || k === 'limit_applied') ? 5 :
-                        (k.startsWith('info.')) ? 100 : 50;
-      return order(a) - order(b) || a.localeCompare(b);
-    });
+            const tbody = document.createElement('tbody');
+            const keys = Object.keys(kv).sort((a, b) => {
+            const order = k => (k === 'status') ? 0 :
+                                (k === 'sessions_count' || k === 'sessions_total') ? 1 :
+                                (k === 'authenticated_users_total') ? 2 :
+                                (k === 'latency_ms') ? 3 :
+                                (k === 'generated_at') ? 4 :
+                                (k === 'showing_all' || k === 'limit_applied') ? 5 :
+                                (k.startsWith('info.')) ? 100 : 50;
+            return order(a) - order(b) || a.localeCompare(b);
+            });
 
-    for (const k of keys) {
-      const tr = document.createElement('tr');
-      const tdK = document.createElement('td'); tdK.textContent = k;
-      const tdV = document.createElement('td');
-      const v = kv[k];
-      tdV.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
-      tr.append(tdK, tdV);
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-    return table;
-  }
+            for (const k of keys) {
+            const tr = document.createElement('tr');
+            const tdK = document.createElement('td'); tdK.textContent = k;
+            const tdV = document.createElement('td');
+            const v = kv[k];
+            tdV.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+            tr.append(tdK, tdV);
+            tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            return table;
+        }
 
-  // Classe para gerenciar cada painel Redis
-  class RedisPanel {
-    constructor(config) {
-      this.config = config;
-      this.container = document.getElementById(`${config.id}-table-container`);
-      this.btn = document.getElementById(`${config.id}-refresh`);
-      this.auto = document.getElementById(`${config.id}-autorefresh`);
-      this.showAll = document.getElementById(`${config.id}-showall`);
-      this.errorBox = document.getElementById(`${config.id}-error`);
-      
-      this.timer = null;
-      this.loading = false;
-      
-      this.init();
-    }
+        // Classe para gerenciar cada painel Redis
+        class RedisPanel {
+            constructor(config) {
+            this.config = config;
+            this.container = document.getElementById(`${config.id}-table-container`);
+            this.btn = document.getElementById(`${config.id}-refresh`);
+            this.auto = document.getElementById(`${config.id}-autorefresh`);
+            this.showAll = document.getElementById(`${config.id}-showall`);
+            this.errorBox = document.getElementById(`${config.id}-error`);
+            
+            this.timer = null;
+            this.loading = false;
+            
+            this.init();
+            }
 
-    buildUrl() {
-      const params = new URLSearchParams();
-      if (this.showAll && this.showAll.checked) params.set('data', 'all');
-      const qs = params.toString();
-      return qs ? `${this.config.endpoint}?${qs}` : this.config.endpoint;
-    }
+            buildUrl() {
+            const params = new URLSearchParams();
+            if (this.showAll && this.showAll.checked) params.set('data', 'all');
+            const qs = params.toString();
+            return qs ? `${this.config.endpoint}?${qs}` : this.config.endpoint;
+            }
 
-    async fetchAndRender() {
-      if (this.loading) return;
-      try {
-        this.loading = true;
-        this.btn && (this.btn.disabled = true);
-        this.errorBox.hidden = true; 
-        this.errorBox.textContent = '';
+            async fetchAndRender() {
+            if (this.loading) return;
+            try {
+                this.loading = true;
+                this.btn && (this.btn.disabled = true);
+                this.errorBox.hidden = true; 
+                this.errorBox.textContent = '';
 
-        const r = await fetch(this.buildUrl(), { cache: 'no-store' });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
+                const r = await fetch(this.buildUrl(), { cache: 'no-store' });
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
 
-        // Render: achatar TUDO o que vier
-        const flat = flatten(data);
-        const table = buildTable(flat);
+                // Render: achatar TUDO o que vier
+                const flat = flatten(data);
+                const table = buildTable(flat);
 
-        this.container.innerHTML = '';
-        this.container.appendChild(table);
-      } catch (e) {
-        this.errorBox.hidden = false;
-        this.errorBox.textContent = e.message || `Erro ao obter estado do ${this.config.title}.`;
-        this.container.innerHTML = '';
-      } finally {
-        this.loading = false;
-        this.btn && (this.btn.disabled = false);
-      }
-    }
+                this.container.innerHTML = '';
+                this.container.appendChild(table);
+            } catch (e) {
+                this.errorBox.hidden = false;
+                this.errorBox.textContent = e.message || `Erro ao obter estado do ${this.config.title}.`;
+                this.container.innerHTML = '';
+            } finally {
+                this.loading = false;
+                this.btn && (this.btn.disabled = false);
+            }
+            }
 
-    startAuto() { 
-      this.stopAuto(); 
-      this.timer = setInterval(() => this.fetchAndRender(), 5000); 
-    }
-    
-    stopAuto() { 
-      if (this.timer) { 
-        clearInterval(this.timer); 
-        this.timer = null; 
-      } 
-    }
+            startAuto() { 
+            this.stopAuto(); 
+            this.timer = setInterval(() => this.fetchAndRender(), 5000); 
+            }
+            
+            stopAuto() { 
+            if (this.timer) { 
+                clearInterval(this.timer); 
+                this.timer = null; 
+            } 
+            }
 
-    init() {
-      // Event listeners
-      this.btn && this.btn.addEventListener('click', () => this.fetchAndRender());
-      this.auto && this.auto.addEventListener('change', () => 
-        this.auto.checked ? this.startAuto() : this.stopAuto()
-      );
-      this.showAll && this.showAll.addEventListener('change', () => this.fetchAndRender());
+            init() {
+            // Event listeners
+            this.btn && this.btn.addEventListener('click', () => this.fetchAndRender());
+            this.auto && this.auto.addEventListener('change', () => 
+                this.auto.checked ? this.startAuto() : this.stopAuto()
+            );
+            this.showAll && this.showAll.addEventListener('change', () => this.fetchAndRender());
 
-      // Initial load
-      this.fetchAndRender();
-      if (this.auto && this.auto.checked) this.startAuto();
+            // Initial load
+            this.fetchAndRender();
+            if (this.auto && this.auto.checked) this.startAuto();
 
-      // Handle visibility change
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) this.stopAuto();
-        else if (this.auto && this.auto.checked) this.startAuto();
-      });
-    }
-  }
+            // Handle visibility change
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) this.stopAuto();
+                else if (this.auto && this.auto.checked) this.startAuto();
+            });
+            }
+        }
 
-  // Inicializar todos os painéis Redis
-  redisConfigs.forEach(config => new RedisPanel(config));
-})();
-</script>
+        // Inicializar todos os painéis Redis
+        redisConfigs.forEach(config => new RedisPanel(config));
+        }
+
+        // Executar quando a página carregar
+        initializeRedisPanels();
+    </script>
 
     <script>
         // Função para mostrar/ocultar senha
