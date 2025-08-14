@@ -13,6 +13,8 @@ O objetivo da aplicação **Class Photo Booth** é permitir a captura de fotogra
 - **Exposição de erros para debugging**: Blocos try removidos em pontos críticos para facilitar debugging.
 - **Atualização de requirements.txt**: Adicionado `msgpack` como dependência.
 
+- **Funcionalidade PWA (Progressive Web App)**: Permite adicionar a aplicação à tela principal do telemóvel com ícone personalizado e nome, para experiência mobile otimizada.
+
 ## 📋 Funcionalidades
 ```
 📸 CLASS PHOTO BOOTH v5.0

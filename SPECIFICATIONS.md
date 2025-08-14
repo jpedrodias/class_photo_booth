@@ -10,6 +10,8 @@
 - **Exposição de erros para debugging**: Blocos try removidos em pontos críticos para facilitar debugging.
 - **Atualização de requirements.txt**: Adicionado `msgpack` como dependência.
 
+- **Funcionalidade PWA (Progressive Web App)**: Todas as páginas principais podem ser adicionadas à tela principal do telemóvel, exibindo ícone personalizado e nome, proporcionando experiência mobile otimizada.
+
 # �📸 Especificação Técnica Completa – Class Photo Booth v5.0
 
 ## 1. Introdução
