@@ -1,4 +1,16 @@
-# 📸 Especificação Técnica Completa – Class Photo Booth v5.0
+# � Alterações Recentes (v5.0)
+
+- **Sessões Flask migradas para Redis (RAM-only)**: Utiliza Flask-Session com backend Redis, configurado para não persistir dados em disco (apenas memória).
+- **Serialização das sessões com msgpack**: Maior compatibilidade e performance.
+- **Configuração por variáveis de ambiente (.env)**: Email, Redis, debug, etc. agora configuráveis por .env.
+- **Painéis de monitorização Redis**: Novos painéis em `settings.html` para monitorizar estado do Redis e sessões, com auto-refresh e debug.
+- **Logout robusto**: Remove explicitamente a sessão do Redis.
+- **Limpeza manual/automática de sessões**: Rotas administrativas para listar e limpar sessões expiradas ou inválidas.
+- **Função JS para mostrar/ocultar senha**: Melhor usabilidade nos modais de alteração de password.
+- **Exposição de erros para debugging**: Blocos try removidos em pontos críticos para facilitar debugging.
+- **Atualização de requirements.txt**: Adicionado `msgpack` como dependência.
+
+# �📸 Especificação Técnica Completa – Class Photo Booth v5.0
 
 ## 1. Introdução
 
@@ -487,11 +499,14 @@ docx_templates/
 ### 11.2 Dependências Python
 ```txt
 Flask                     # Framework web principal
-Flask-SQLAlchemy         # ORM para base de dados
-Flask-Mail               # Sistema de email
-opencv-python            # Processamento de imagens
-python-docx              # Geração de documentos Word
-Pillow                   # Manipulação avançada de imagens
+Flask-SQLAlchemy          # ORM para base de dados
+Flask-Mail                # Sistema de email
+Flask-Session             # Backend de sessões (Redis)
+redis                     # Cliente Redis
+msgpack                   # Serialização eficiente de sessões
+opencv-python             # Processamento de imagens
+python-docx               # Geração de documentos Word
+Pillow                    # Manipulação avançada de imagens
 ```
 
 ### 11.3 Configuração de Ambiente
@@ -503,9 +518,20 @@ DATABASE_URL=sqlite:///alunos.db             # URL da base de dados
 FLASKAPP_PORT=80                             # Porta de exposição
 
 # Configurações de email
+MAIL_SERVER=smtp.office365.com               # Servidor SMTP
+MAIL_PORT=587                                # Porta SMTP
+MAIL_USE_TLS=True                            # TLS
+MAIL_USE_SSL=False                           # SSL
 MAIL_USERNAME=seuemail@outlook.com           # Email para envio
 MAIL_PASSWORD=suapassword                    # Password do email
 MAIL_SENDER=Class Photo Booth <seuemail@outlook.com>  # Remetente
+# Configurações Redis
+REDIS_HOST=redis                             # Host Redis (container)
+REDIS_PORT=6379                              # Porta Redis
+REDIS_DB=0                                   # DB Redis
+SESSION_TYPE=redis                           # Backend de sessões
+SESSION_KEY_PREFIX=session:                  # Prefixo das sessões
+SESSION_SERIALIZATION_FORMAT=msgpack         # Formato de serialização
 
 # Configurações Docker
 TZ=Europe/Lisbon                             # Timezone

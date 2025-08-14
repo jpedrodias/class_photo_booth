@@ -1,10 +1,21 @@
 # Class-Photo-Booth
 O objetivo da aplicação **Class Photo Booth** é permitir a captura de fotografias de alunos por turma. A aplicação facilita a gestão, visualização e exportação das fotografias de forma organizada.
 
-## 📋 Funcionalidades
+## � Alterações Recentes
 
+- **Sessões Flask migradas para Redis (RAM-only)**: Utiliza Flask-Session com backend Redis, configurado para não persistir dados em disco (apenas memória).
+- **Serialização das sessões com msgpack**: Maior compatibilidade e performance.
+- **Configuração por variáveis de ambiente (.env)**: Email, Redis, debug, etc. agora configuráveis por .env.
+- **Painéis de monitorização Redis**: Novos painéis em `settings.html` para monitorizar estado do Redis e sessões, com auto-refresh e debug.
+- **Logout robusto**: Remove explicitamente a sessão do Redis.
+- **Limpeza manual/automática de sessões**: Rotas administrativas para listar e limpar sessões expiradas ou inválidas.
+- **Função JS para mostrar/ocultar senha**: Melhor usabilidade nos modais de alteração de password.
+- **Exposição de erros para debugging**: Blocos try removidos em pontos críticos para facilitar debugging.
+- **Atualização de requirements.txt**: Adicionado `msgpack` como dependência.
+
+## 📋 Funcionalidades
 ```
-📸 CLASS PHOTO BOOTH v4.1
+📸 CLASS PHOTO BOOTH v5.0
 Sistema Completo de Gestão de Fotografias Escolares
 
   🔐 SISTEMA DE AUTENTICAÇÃO COMPLETO
@@ -141,28 +152,6 @@ Sistema Completo de Gestão de Fotografias Escolares
 💡 Class Photo Booth - Solução empresarial completa para fotografias escolares
 🔐 Multi-user • 📱 Mobile-ready • 🚀 Production-ready • 🛡️ Enterprise-grade
 
-## 🆕 Melhorias Recentes (v4.1)
-
-### 🔄 **Renomeação Automática de Arquivos**
-- Quando o processo de um aluno é alterado, todas as fotos são automaticamente renomeadas
-- Mantém consistência entre base de dados e sistema de ficheiros
-- Gestão robusta de erros com rollback automático em caso de falha
-
-### 📊 **Controlo de Estado Avançado**
-- Duplo controlo com flags `foto_existe` e `foto_tirada`
-- Sincronização precisa entre base de dados e ficheiros
-- Estatísticas dinâmicas em tempo real
-
-### 🎨 **Interface Aprimorada**
-- Drag & Drop direto nos cartões dos alunos
-- Destaque visual durante operações de arraste
-- Preservação de scroll entre operações
-- Barras de progresso com estatísticas atualizadas
-
-### 🛡️ **Robustez e Segurança**
-- Sistema de rollback automático em operações críticas
-- Validação aprimorada de dados e integridade
-- Gestão de erros com feedback específico ao utilizador
 
 ## 🚀 Instalação e Configuração
 
