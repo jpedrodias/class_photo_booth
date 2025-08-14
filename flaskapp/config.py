@@ -1,4 +1,5 @@
 import os
+import redis
 
 
 class BaseConfig():
@@ -6,12 +7,21 @@ class BaseConfig():
     DEBUG = os.getenv('FLASKAPP_DEBUG', 'True').lower() in ['true', '1', 'yes']
     TESTING = False
 
-    # Configurações de sessão
-    SESSION_COOKIE_NAME = 'flaskapp_session'
-    SESSION_TYPE = 'filesystem'
-    SESSION_FILE_DIR = os.path.join(os.path.dirname(__file__), 'session_files')
-    SESSION_FILE_MODE = 600
-    SESSION_FILE_THRESHOLD = 2000
+    
+    # SESSIONS on FILE » MUITO LENTO em TESTES
+    #SESSION_COOKIE_NAME = 'flaskapp_session'
+    #SESSION_TYPE = 'filesystem'
+    #SESSION_FILE_DIR = os.path.join(os.path.dirname(__file__), 'session_files')
+    #SESSION_FILE_MODE = 600
+    #SESSION_FILE_THRESHOLD = 2000
+
+    # SESSIONS on REDIS
+    SESSION_TYPE = 'redis'
+    SESSION_REDIS = 'redis://redis:6379/0'
+    SESSION_PERMANENT = False
+    SESSION_USE_SIGNER = True
+    SESSION_KEY_PREFIX = 'session:'
+    SESSION_REDIS = redis.from_url("redis://redis:6379/0")
 
     # Chaves e URIs
     SECRET_KEY = os.getenv('FLASKAPP_SECRET_KEY', 'supersecretkey')
