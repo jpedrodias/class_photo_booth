@@ -25,7 +25,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
 # Flask imports
-from flask import Flask, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
 from flask_mail import Mail, Message
 from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
@@ -558,6 +558,7 @@ def required_role(min_role):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
 
 
 # Certifique-se de que as pastas existem com permissões adequadas
@@ -2860,6 +2861,42 @@ def login_log_management(log_id=None):
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida para gestão de logs de login!', 'error')
     return redirect(url_for('settings'))
+
+
+
+# Obter informações do servidor Redis
+@app.route('/settings/redis.json', methods=['GET'])
+def get_redis_info():
+    client = app.config['SESSION_REDIS']
+    try:
+        start = time.time()
+        pong = client.ping()
+        latency_ms = round((time.time() - start) * 1000, 2)
+
+        info = client.info()
+
+        # Conta apenas sessões (session:*)
+        prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
+        pattern = f"{prefix}*"
+        sessions_count, cursor = 0, 0
+        while True:
+            cursor, keys = client.scan(cursor=cursor, match=pattern, count=1000)
+            sessions_count += len(keys)
+            if cursor == 0:
+                break
+
+        payload = {
+            "status": "online" if pong else "offline",
+            "latency_ms": latency_ms,
+            "sessions_count": sessions_count,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "info": info,   # devolve tudo
+        }
+        return jsonify(payload), 200
+
+    except redis.exceptions.RedisError as e:
+        return jsonify({"status": "offline", "error": str(e)}), 503
+    
 
 
 create_directories_with_permissions()

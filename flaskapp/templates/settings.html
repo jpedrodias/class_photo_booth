@@ -784,6 +784,29 @@
                 </div>
             </div>
             {% endif %}
+
+
+            <!-- Painel Redis -->
+            <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="m-0">Redis</h3>
+                <div>
+                <label class="form-check-label me-2" title="Atualizar automaticamente de 5 em 5 segundos">
+                    <input id="redis-autorefresh" type="checkbox" class="form-check-input" checked>
+                    Auto (5s)
+                </label>
+                <button id="redis-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="redis-error" class="text-danger mb-2" hidden></div>
+                <div id="redis-table-container"></div>
+            </div>
+            </div>
+
+
+            <!-- End Painel Redis -->
+
         </div>
         
 
@@ -871,7 +894,126 @@
         </div>
     </div>
 
+
+
+
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+
+    <script>
+        (function () {
+        const ENDPOINT = '/settings/redis.json';
+        const container = document.getElementById('redis-table-container');
+        const btn = document.getElementById('redis-refresh');
+        const auto = document.getElementById('redis-autorefresh');
+        const errorBox = document.getElementById('redis-error');
+
+        let timer = null, loading = false;
+
+        // Achata o JSON: {a:{b:1}, c:[2,3]} -> {"a.b":1, "c[0]":2, "c[1]":3}
+        function flatten(obj, prefix = '', out = {}) {
+            const isObj = v => v !== null && typeof v === 'object';
+            if (!isObj(obj)) {
+            out[prefix || '(root)'] = obj;
+            return out;
+            }
+            if (Array.isArray(obj)) {
+            obj.forEach((v, i) => flatten(v, `${prefix}[${i}]`, out));
+            return out;
+            }
+            for (const [k, v] of Object.entries(obj)) {
+            const key = prefix ? `${prefix}.${k}` : k;
+            if (isObj(v)) flatten(v, key, out);
+            else out[key] = v;
+            }
+            return out;
+        }
+
+        // Constrói uma <table> a partir de um objeto chave→valor
+        function buildTable(kv) {
+            const table = document.createElement('table');
+            table.className = 'table table-sm table-striped'; // herda estilo se usas Bootstrap
+
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th style="width:45%">Chave</th><th>Valor</th></tr>';
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+
+            // Ordena as chaves: status primeiro, depois sessions_count/latency, depois o resto
+            const keys = Object.keys(kv).sort((a, b) => {
+            const order = k => (k === 'status') ? 0 :
+                                (k === 'sessions_count') ? 1 :
+                                (k === 'latency_ms') ? 2 :
+                                (k === 'generated_at') ? 3 :
+                                (k.startsWith('info.')) ? 100 : 50;
+            return order(a) - order(b) || a.localeCompare(b);
+            });
+
+            for (const k of keys) {
+            const tr = document.createElement('tr');
+            const tdK = document.createElement('td');
+            tdK.textContent = k;
+
+            const tdV = document.createElement('td');
+            const v = kv[k];
+            tdV.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+
+            tr.append(tdK, tdV);
+            tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            return table;
+        }
+
+        async function fetchAndRender() {
+            if (loading) return;
+            try {
+            loading = true;
+            btn && (btn.disabled = true);
+            errorBox.hidden = true;
+            errorBox.textContent = '';
+
+            const r = await fetch(ENDPOINT, { cache: 'no-store' });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+
+            // Achatar TUDO o que vier no JSON e renderizar
+            const flat = flatten(data);
+            const table = buildTable(flat);
+
+            container.innerHTML = '';
+            container.appendChild(table);
+            } catch (e) {
+            errorBox.hidden = false;
+            errorBox.textContent = e.message || 'Erro ao obter estado do Redis.';
+            container.innerHTML = '';
+            } finally {
+            loading = false;
+            btn && (btn.disabled = false);
+            }
+        }
+
+        function startAuto(){ stopAuto(); timer = setInterval(fetchAndRender, 5000); }
+        function stopAuto(){ if (timer) { clearInterval(timer); timer = null; } }
+
+        btn && btn.addEventListener('click', fetchAndRender);
+        auto && auto.addEventListener('change', () => auto.checked ? startAuto() : stopAuto());
+
+        fetchAndRender();
+        if (auto && auto.checked) startAuto();
+
+        // Opcional: poupa recursos quando a aba não está visível
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stopAuto();
+            else if (auto && auto.checked) startAuto();
+        });
+        })();
+    </script>
+
+
+
     <script>
         // Validação do formulário de adicionar utilizador
         document.addEventListener('DOMContentLoaded', function() {
