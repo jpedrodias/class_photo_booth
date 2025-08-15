@@ -8,9 +8,9 @@
   "description": "Gestão de fotografias escolares",
   "icons": [
     {
-      "src": "/static/student_icon.jpg",
+      "src": "/static/student_icon.png",
       "sizes": "192x192",
-      "type": "image/jpeg"
+      "type": "image/png"
     },
     {
       "src": "/static/favicon.svg",
