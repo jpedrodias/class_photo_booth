@@ -120,7 +120,7 @@ class PreUser(db.Model, AddUserSecurityCheck):
     # Remember: to QUERY use "_email" and not "email"; to Instantiate use "email" and not "_email"
     _email = db.Column('email', db.String(120), unique=True, nullable=False)
     code = db.Column(db.String(120), unique=False, nullable=False)
-    date = db.Column(db.DateTime, unique=False, nullable=False, default=datetime.utcnow)
+    date = db.Column(db.DateTime, unique=False, nullable=False, default=lambda: datetime.now(timezone.utc))
     reason = db.Column(db.String(255), unique=False, nullable=True, default='')  # Motivo opcional para o pré-registo
 
     def __repr__(self):
@@ -490,11 +490,33 @@ class BannedIPs(db.Model):
 
 # Funções auxiliares para autenticação e segurança
 def get_current_user():
-    """Obtém o utilizador atual da sessão"""
+    """Obtém o utilizador atual da sessão e renova TTL se sliding_expiry=True"""
     user_id = session.get('user_id')
-    if user_id:
-        return db.session.get(User, user_id)
-    return None
+    if not user_id:
+        return None
+    
+    # Verificar expiração
+    exp_ts = session.get('expires_at')
+    if exp_ts:
+        try:
+            if datetime.now(timezone.utc).timestamp() > float(exp_ts):
+                session.clear()
+                return None
+        except Exception:
+            session.clear()
+            return None
+    
+    # Atualizar last_seen apenas para requests não-API (evitar atualizar constantemente)
+    # Não atualizar last_seen para requests de API/status para não interferir com monitorização
+    if not request.path.startswith('/settings/redis/'):
+        session['last_seen'] = datetime.now(timezone.utc).isoformat()
+    
+    # Se sliding_expiry=True, renovar TTL usando configuração
+    if session.get('sliding_expiry', False):
+        new_expiry = (datetime.now(timezone.utc) + app.config['TEMPORARY_SESSION_LIFETIME']).timestamp()
+        session['expires_at'] = new_expiry
+    
+    return db.session.get(User, user_id)
 
 
 # Decorator para rotas que requerem login
@@ -833,15 +855,6 @@ def create_docx_with_photos(turma_nome):
 
 
 # ========== Rotas Flask ==========
-@app.before_request
-def require_login():
-    # Endpoints que não requerem autenticação
-    public_endpoints = ['login', 'static']
-    
-    if request.endpoint not in public_endpoints and not get_current_user():
-        return redirect(url_for('login'))
-
-
 def no_cache(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -933,11 +946,15 @@ def login(action_url=None):
                 # Configurar duração da sessão baseado no "remember me"
                 if remember_me:
                     session.permanent = True
-                    app.permanent_session_lifetime = timedelta(days=30)  # 30 dias
+                    # Usar configuração PERMANENT_SESSION_LIFETIME
+                    session['expires_at'] = (datetime.now(timezone.utc) + app.config['PERMANENT_SESSION_LIFETIME']).timestamp()
+                    session['sliding_expiry'] = False  # Não renovar automaticamente
                 else:
                     session.permanent = False
-                    app.permanent_session_lifetime = timedelta(hours=2)  # 2 horas
-                
+                    # Usar configuração TEMPORARY_SESSION_LIFETIME com renovação automática (sliding)
+                    session['expires_at'] = (datetime.now(timezone.utc) + app.config['TEMPORARY_SESSION_LIFETIME']).timestamp()
+                    session['sliding_expiry'] = True  # Renovar a cada pedido
+
                 LoginLog.log_attempt(user.id, ip_address, True)
                 
                 # Verificar se o utilizador tem permissões
@@ -3073,6 +3090,7 @@ def list_redis_sessions():
             "ttl_seconds": ttl,
             "expires_at": expires_at,
             "last_seen": data.get('last_seen') or '1900-01-01',  # Default para ordenação
+            "sliding_expiry": data.get('sliding_expiry', False),  # Mostrar se tem renovação automática
             # Debug: mostrar campos disponíveis na sessão
             "session_fields": list(data.keys()) if isinstance(data, dict) else []
         }
@@ -3104,22 +3122,53 @@ def list_redis_sessions():
         uid = s.get("user_id")
         if uid and uid in users_info and uid not in seen_users:
             user_data = users_info[uid]
+            user_sessions = [sess for sess in sessions if sess.get("user_id") == uid]
+            
+            # Encontrar o last_seen mais recente para este utilizador
+            most_recent_last_seen = None
+            most_recent_expires_at = None
+            for sess in user_sessions:
+                last_seen = sess.get("last_seen")
+                expires_at = sess.get("expires_at")
+                
+                # Debug: guardar expires_at mais recente também
+                if expires_at and expires_at != 'null':
+                    if most_recent_expires_at is None or expires_at > most_recent_expires_at:
+                        most_recent_expires_at = expires_at
+                
+                if last_seen and last_seen != '1900-01-01':
+                    if most_recent_last_seen is None or last_seen > most_recent_last_seen:
+                        most_recent_last_seen = last_seen
+            
             active_users.append({
                 "user_id": uid,
                 "email": user_data["email"],
                 "name": user_data["name"],
-                "sessions_count": len([sess for sess in sessions if sess.get("user_id") == uid])
+                "sessions_count": len(user_sessions),
+                "last_seen": most_recent_last_seen or 'Never',
+                "expires_at": most_recent_expires_at or 'Never'
             })
             seen_users.add(uid)
 
+    # Ordenar active_users por last_seen (mais recente primeiro)
+    active_users.sort(key=lambda x: x.get('last_seen', '1900-01-01'), reverse=True)
+
+    # Criar resposta estruturada com nomes simplificados
     response = {
         "sessions_total": len(sessions),
         "authenticated_users_total": len(active_users),
-        "active_users": active_users,  # Lista simplificada
-        "debug": debug_info,
         "showing_all": show_all,
         "limit_applied": not show_all
     }
+    
+    # Adicionar utilizadores com nomenclatura simplificada
+    for index, user in enumerate(active_users):
+        response[f"User {index} last_seen"] = user["last_seen"]
+        response[f"User {index} expires_at"] = user["expires_at"]
+        response[f"User {index} email"] = user["email"]
+        response[f"User {index} name"] = user["name"]
+        response[f"User {index} sessions_count"] = user["sessions_count"]
+        response[f"User {index} user_id"] = user["user_id"]
 
     return jsonify(response), 200
 

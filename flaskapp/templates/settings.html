@@ -29,6 +29,23 @@
             font-weight: bold;
             font-size: 16px;
             flex-shrink: 0;
+            transition: background 0.3s ease;
+        }
+        
+        /* Status de atividade dos utilizadores */
+        .avatar-circle.status-online {
+            background: linear-gradient(135deg, #28a745, #20c997) !important;
+            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+        }
+        
+        .avatar-circle.status-away {
+            background: linear-gradient(135deg, #ffc107, #fd7e14) !important;
+            box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
+        }
+        
+        .avatar-circle.status-offline {
+            background: linear-gradient(135deg, #6c757d, #495057) !important;
+            box-shadow: none;
         }
     </style>
 </head>
@@ -122,7 +139,7 @@
                                     {% for user in users %}
                                     <tr>
                                         <td>
-                                            <div class="avatar-circle">
+                                            <div class="avatar-circle" id="avatar-user-{{ user.id }}">
                                                 {{ user.name[0].upper() }}
                                             </div>
                                         </td>
@@ -202,7 +219,7 @@
 
 
 
-<!-- Seção de Gestão de Pré Utilizadores -->
+        <!-- Seção de Gestão de Pré Utilizadores -->
         {% if preusers %}
         <div class="row mt-5">
             <div class="col-12">
@@ -294,7 +311,7 @@
                                         <th>utilizador</th>
                                         <th>Email</th>
                                         <th>Remote addr</th>
-                                        <th>Data</th>
+                                        <th>Data (UTC)</th>
                                         <th>Sucesso</th>
                                         <th class="text-center">Ações</th>
                                     </tr>
@@ -802,7 +819,7 @@
 
             <!-- Painel Redis Server -->
             <div class="col-lg-6">
-            <div class="card">
+            <div class="card border-0 shadow">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="m-0">Redis Server</h3>
                     <div class="d-flex align-items-center gap-3">
@@ -827,7 +844,7 @@
 
             <!-- Painel Redis Sessions -->
             <div class="col-lg-6">
-            <div class="card">
+            <div class="card border-0 shadow">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="m-0">Redis Sessions</h3>
                     <div class="d-flex align-items-center gap-3">
@@ -972,6 +989,25 @@
             return out;
         }
 
+        // Função para formatar datas com cores personalizadas
+        function formatDateValue(tdElement, value, color = '#000000') {
+            if (typeof value === 'string' && value !== 'Never' && value !== '1900-01-01' && value !== 'null' && value) {
+                try {
+                    const date = new Date(value);
+                    if (!isNaN(date.getTime())) {
+                        tdElement.textContent = date.toLocaleString('pt-PT');
+                        tdElement.style.fontWeight = 'bold';
+                        tdElement.style.color = color;
+                        return true; // Indica que a formatação foi aplicada
+                    }
+                } catch {
+                    // Se falhar, deixa o valor original
+                }
+            }
+            tdElement.textContent = value;
+            return false; // Indica que a formatação não foi aplicada
+        }
+
         function buildTable(kv) {
             const table = document.createElement('table');
             table.className = 'table table-sm table-striped';
@@ -981,6 +1017,18 @@
             table.appendChild(thead);
 
             const tbody = document.createElement('tbody');
+            
+            // Função auxiliar para ordenar campos dentro de cada utilizador
+            function getFieldOrder(key) {
+                if (key.includes('last_seen')) return 1;
+                if (key.includes('expires_at')) return 2;
+                if (key.includes('email')) return 3;
+                if (key.includes('name')) return 4;
+                if (key.includes('sessions_count')) return 5;
+                if (key.includes('user_id')) return 6;
+                return 9;
+            }
+            
             const keys = Object.keys(kv).sort((a, b) => {
             const order = k => (k === 'status') ? 0 :
                                 (k === 'sessions_count' || k === 'sessions_total') ? 1 :
@@ -988,21 +1036,118 @@
                                 (k === 'latency_ms') ? 3 :
                                 (k === 'generated_at') ? 4 :
                                 (k === 'showing_all' || k === 'limit_applied') ? 5 :
+                                (k.startsWith('User ')) ? 10 + parseInt(k.split(' ')[1]) * 10 + getFieldOrder(k) : // Agrupar utilizadores
+                                (k.includes('last_seen')) ? 6 :
+                                (k.includes('sliding_expiry')) ? 7 :
+                                (k.includes('expires_at')) ? 8 :
+                                (k.startsWith('active_users')) ? 10 :
+                                (k.startsWith('sessions_detail')) ? 20 :
                                 (k.startsWith('info.')) ? 100 : 50;
             return order(a) - order(b) || a.localeCompare(b);
             });
+            
+            // Função auxiliar para ordenar campos dentro de cada utilizador
+            function getFieldOrder(key) {
+                if (key.includes('last_seen')) return 1;
+                if (key.includes('email')) return 2;
+                if (key.includes('name')) return 3;
+                if (key.includes('sessions_count')) return 4;
+                if (key.includes('user_id')) return 5;
+                return 9;
+            }
 
             for (const k of keys) {
             const tr = document.createElement('tr');
             const tdK = document.createElement('td'); tdK.textContent = k;
             const tdV = document.createElement('td');
             const v = kv[k];
-            tdV.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+            
+            // Formatação especial para campos de utilizadores
+            if (k.startsWith('User ')) {
+                if (k.includes('last_seen')) {
+                    formatDateValue(tdV, v, '#28a745'); // Verde para last_seen
+                } else if (k.includes('expires_at')) {
+                    formatDateValue(tdV, v, '#dc3545'); // Vermelho para expires_at
+                } else if (k.includes('email')) {
+                    tdV.textContent = v;
+                    tdV.style.fontWeight = 'bold';
+                    tdV.style.color = '#007bff';
+                } else if (k.includes('name')) {
+                    tdV.textContent = v;
+                    tdV.style.fontWeight = 'bold';
+                } else {
+                    tdV.textContent = v;
+                }
+                // Adicionar background diferente para campos de utilizador
+                tr.style.backgroundColor = '#f8f9fa';
+            }
+            // Formatação especial para campos de data/hora (não utilizadores)
+            else if (k.includes('last_seen')) {
+                formatDateValue(tdV, v, '#28a745'); // Verde para last_seen
+            } else if (k.includes('expires_at')) {
+                formatDateValue(tdV, v, '#dc3545'); // Vermelho para expires_at
+            } else if (k.includes('generated_at')) {
+                formatDateValue(tdV, v, '#000000'); // Preto para generated_at
+            } else if (k.includes('sliding_expiry') && typeof v === 'boolean') {
+                tdV.textContent = v ? '✅ Sim (renova automaticamente)' : '❌ Não (TTL fixo)';
+                tdV.style.fontWeight = 'bold';
+            } else {
+                tdV.textContent = (typeof v === 'object') ? JSON.stringify(v) : String(v);
+            }
+            
             tr.append(tdK, tdV);
             tbody.appendChild(tr);
             }
             table.appendChild(tbody);
             return table;
+        }
+
+        // Função para atualizar as cores dos avatares baseado no status de atividade
+        function updateAvatarStatus(data) {
+            // Primeiro, resetar todos os avatares para o estado padrão (remover classes de status)
+            document.querySelectorAll('.avatar-circle').forEach(avatar => {
+                avatar.classList.remove('status-online', 'status-away', 'status-offline');
+                avatar.title = 'Sem dados de sessão recente';
+            });
+
+            // Obter tempo atual
+            const now = new Date();
+
+            // Processar utilizadores das sessões Redis
+            for (const [key, value] of Object.entries(data)) {
+                if (key.startsWith('User ') && key.includes('user_id')) {
+                    const userId = value;
+                    const userIndex = key.split(' ')[1];
+                    
+                    // Buscar o last_seen correspondente
+                    const lastSeenKey = `User ${userIndex} last_seen`;
+                    const lastSeenValue = data[lastSeenKey];
+                    
+                    if (lastSeenValue && lastSeenValue !== 'Never' && lastSeenValue !== '1900-01-01') {
+                        try {
+                            const lastSeen = new Date(lastSeenValue);
+                            const diffMinutes = (now - lastSeen) / (1000 * 60);
+                            
+                            const avatar = document.getElementById(`avatar-user-${userId}`);
+                            if (avatar) {
+                                if (diffMinutes <= 5) {
+                                    avatar.classList.add('status-online');
+                                    avatar.title = `🟢 Online - Último acesso há ${Math.round(diffMinutes)} minuto(s)`;
+                                } else if (diffMinutes <= 60) {
+                                    avatar.classList.add('status-away');
+                                    avatar.title = `🟡 Ausente - Último acesso há ${Math.round(diffMinutes)} minuto(s)`;
+                                } else {
+                                    avatar.classList.add('status-offline');
+                                    const diffHours = Math.round(diffMinutes / 60);
+                                    avatar.title = `⚫ Offline - Último acesso há ${diffHours} hora(s)`;
+                                }
+                            }
+                        } catch (e) {
+                            // Se falhar a parsing da data, deixar sem status
+                        }
+                    }
+                }
+            }
         }
 
         // Classe para gerenciar cada painel Redis
@@ -1046,6 +1191,11 @@
 
                 this.container.innerHTML = '';
                 this.container.appendChild(table);
+                
+                // Atualizar status dos avatares apenas para painel de sessões
+                if (this.config.id === 'redis-sessions') {
+                    updateAvatarStatus(flat);
+                }
             } catch (e) {
                 this.errorBox.hidden = false;
                 this.errorBox.textContent = e.message || `Erro ao obter estado do ${this.config.title}.`;

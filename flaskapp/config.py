@@ -1,4 +1,6 @@
 import os
+from datetime import timedelta
+
 import redis
 
 
@@ -22,10 +24,11 @@ class BaseConfig():
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = 'session:'
     SESSION_SERIALIZATION_FORMAT = 'msgpack'  # Usar msgpack para melhor compatibilidade
-    
-    # Tempo de vida das sessões (24 horas)
-    from datetime import timedelta
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=24)
+
+    # Tempo de vida das sessões (30 dias)
+    PERMANENT_SESSION_LIFETIME = timedelta(days=30)
+    # Tempo de vida das sessões temporárias (2 horas)
+    TEMPORARY_SESSION_LIFETIME = timedelta(hours=2)
 
     # Chaves e URIs
     SECRET_KEY = os.getenv('FLASKAPP_SECRET_KEY', 'supersecretkey')
