@@ -53,6 +53,8 @@ csrf = CSRFProtect(app)
 def inject_csrf_token():
     from flask_wtf.csrf import generate_csrf
     return dict(csrf_token=generate_csrf)
+# End inject_csrf_token
+
 
 # Inicializar SQLAlchemy
 db = SQLAlchemy(app)
@@ -202,7 +204,6 @@ class User(db.Model, AddUserSecurityCheck):
             'admin': ['view_turmas', 'view_photos', 'capture_photos', 'manage_students', 'edit_classes', 'manage_turmas', 'upload_csv', 'system_nuke']
         }
         return permission in permissions.get(self.role, [])
-    
 #end class User
 
 
@@ -250,7 +251,6 @@ class Turma(db.Model):
                 query = Turma.query.filter_by(nome_seguro=nome_seguro)
                 if self.id:
                     query = query.filter(Turma.id != self.id)
-        
         return nome_seguro
     
     def get_safe_directory_path(self, base_dir):
@@ -357,6 +357,7 @@ class Turma(db.Model):
         
     def __repr__(self):
         return f'<Turma {self.nome} ({self.nome_seguro})>'
+# End class Turma
 
 
 class Aluno(db.Model):
@@ -397,6 +398,7 @@ class Aluno(db.Model):
     
     def __repr__(self):
         return f'<Aluno {self.nome} ({self.processo})>'
+# End class Aluno
 
 
 class LoginLog(db.Model):
@@ -434,7 +436,6 @@ class LoginLog(db.Model):
         )
         db.session.add(login_log)
         db.session.commit()
-
 #End class LoginLog
 
 
@@ -483,8 +484,7 @@ class BannedIPs(db.Model):
             db.session.commit()
             return True
         return False
-
-#End BannedIPs
+# End class BannedIPs
 
 # ========== TOOLS ==========
 
@@ -517,6 +517,7 @@ def get_current_user():
         session['expires_at'] = new_expiry
     
     return db.session.get(User, user_id)
+# End def get_current_user
 
 
 # Decorator para rotas que requerem login
@@ -528,24 +529,7 @@ def required_login(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
-
-
-# Decorator para verificar permissões
-def required_permission(permission):
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            user = get_current_user()
-            if not user:
-                return redirect(url_for('login'))
-            
-            if not user.has_permission(permission):
-                flash('Não tem permissões para aceder a esta funcionalidade.', 'error')
-                return redirect(url_for('index'))
-            
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+# End def required_login
 
 
 # Decorator para verificar role mínimo
@@ -581,7 +565,7 @@ def required_role(min_role):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
-
+# End def required_role
 
 
 # Certifique-se de que as pastas existem com permissões adequadas
@@ -589,6 +573,7 @@ def create_directories_with_permissions():
     for directory in [PHOTOS_DIR, THUMBS_DIR]:
         if not safe_makedirs(directory, verbose=True):
             print(f"Erro crítico: Não foi possível criar diretório {directory}")
+# End def create_directories_with_permissions
 
 
 def safe_makedirs(directory, verbose=False):
@@ -611,7 +596,7 @@ def safe_makedirs(directory, verbose=False):
         if verbose:
             print(f"Erro ao criar diretório {directory}: {e}")
         return False
-
+# End def safe_makedirs
 
 
 # Funções para manipulação de documentos DOCX
@@ -663,6 +648,7 @@ def docx_replace(doc, dicionario):
                         for run in paragraph.runs:
                             if placeholder in run.text:
                                 run.text = run.text.replace(placeholder, str(value))
+# End docx_replace
 
 
 def process_image_for_docx(image_path, target_width_cm, target_height_cm):
@@ -725,6 +711,7 @@ def process_image_for_docx(image_path, target_width_cm, target_height_cm):
     except Exception as e:
         print(f"Erro ao processar imagem {image_path}: {e}")
         return None
+# End def process_image_for_docx
 
 
 def create_docx_with_photos(turma_nome):
@@ -852,9 +839,10 @@ def create_docx_with_photos(turma_nome):
     except Exception as e:
         print(f"Erro ao criar documento DOCX: {e}")
         return None
+# End def create_docx_with_photos
 
 
-# ========== Rotas Flask ==========
+# ========== Flask Routes ==========
 def no_cache(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -866,6 +854,7 @@ def no_cache(f):
         response.headers['Expires'] = '0'
         return response
     return wrapper
+# End def no_cache (decorator)
 
 
 @app.route('/')
@@ -879,6 +868,7 @@ def index():
     
     # Para utilizadores com permissões, redirecionar para turmas
     return redirect(url_for('turmas'))
+# End def index (homepage)
 
 
 @app.route('/login/', methods=['GET', 'POST'])
@@ -1278,6 +1268,7 @@ def login(action_url=None):
     action = request.args.get('action', 'login')
     email = request.args.get('email', '')
     return render_template('login.html', action=action, email=email)
+# End def login
 
 
 @app.route('/logout')
@@ -1299,6 +1290,7 @@ def logout():
     
     flash('Sessão terminada com sucesso.', 'success')
     return redirect(url_for('login'))
+# End def logout
 
 
 @app.route('/turmas/')
@@ -1348,9 +1340,11 @@ def turmas():
                          turmas=turmas_data, 
                          total_alunos_geral=total_alunos_geral,
                          total_fotos_geral=total_fotos_geral)
+# End def turmas
+
 
 @app.route('/turma/<nome_seguro>/')
-@no_cache
+@no_cache # Decorator para evitar cache das fotografias
 @required_login
 @required_role('viewer')
 def turma(nome_seguro):
@@ -1394,7 +1388,7 @@ def turma(nome_seguro):
                          alunos=alunos, 
                          fotos_existentes=fotos_existentes,
                          current_user=current_user)
-
+# End def turma
 
 
 @app.route('/turma/', methods=['POST'])
@@ -1501,6 +1495,7 @@ def turma_crud():
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida!', 'error')
     return redirect(url_for('turmas'))
+# End def turma_crud (POST only)
 
 
 @app.route('/student/', methods=['POST'])
@@ -1928,6 +1923,7 @@ def student():
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida!', 'error')
     return redirect(url_for('turmas'))
+# End def student_crud (POST only)
 
 
 @app.route('/upload/photo/<nome_seguro>/<processo>', methods=['POST'])
@@ -1992,6 +1988,7 @@ def upload_photo(nome_seguro, processo):
         return "Erro ao atualizar informações do aluno.", 500
 
     return "Foto enviada com sucesso.", 200
+# End def upload_photo (csrf exempt)
 
 
 @app.route('/photos/<folder_name>/<processo>.jpg')
@@ -2018,6 +2015,7 @@ def get_photo(folder_name, processo):
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     #print(f"Enviando foto: {photo_path}")
     return send_file(photo_path)
+# End def get_photo
 
 
 @app.route('/download/<ficheiro>')
@@ -2097,6 +2095,7 @@ def download(ficheiro=None):
         )
     else:
         return "Tipo de ficheiro não suportado.", 400
+# End def download (docx, zip, thumbs.zip)
 
 
 @app.route('/settings/')
@@ -2126,6 +2125,7 @@ def settings():
         can_system_nuke=True,
         can_manage_turmas=True
     )
+# End def settings
 
 
 # Rota para rescan de fotos e atualização de flag foto_tirada
@@ -2211,6 +2211,7 @@ def settings_rescan_photos():
     flash(' '.join(messages), 'success')
     
     return redirect(url_for('settings'))
+# End def settings_rescan_photos
 
 
 @app.route('/settings/csv/', methods=['POST'])
@@ -2481,7 +2482,7 @@ def settings_csv():
             print(f"Erro ao processar CSV: {e}")
             flash(f'Erro ao processar ficheiro CSV: {str(e)}', 'error')
             return redirect(url_for('settings'))
-
+# End def settings_csv
 
 
 @app.route('/settings/nuke/', methods=['POST'])
@@ -2514,6 +2515,7 @@ def settings_nuke():
         flash(f'Erro ao realizar limpeza completa: {str(e)}', 'error')
     
     return redirect(url_for('settings'))
+# End def settings_nuke
 
 
 @app.route('/settings/backup/', methods=['POST'])
@@ -2596,10 +2598,10 @@ def settings_backup():
         print(f"Erro ao criar backup: {e}")
         flash(f'Erro ao criar backup da base de dados: {str(e)}', 'error')
         return redirect(url_for('settings'))
+# End def settings_backup
 
 
 # Rotas para gestão de utilizadores integradas em /settings
-
 @app.route('/settings/users/', methods=['POST'])
 @app.route('/settings/users/<int:user_id>/', methods=['POST'])
 @required_login
@@ -2780,6 +2782,7 @@ def user_management(user_id=None):
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida!', 'error')
     return redirect(url_for('settings'))
+# End def user_management » settings_users_crud
 
 
 # Rota para gestão de IPs banidos integradas em /settings
@@ -2837,6 +2840,7 @@ def banned_ip_management(banned_ip_id=None):
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida para gestão de IPs banidos!', 'error')
     return redirect(url_for('settings'))
+# End def banned_ip_management
 
 
 # Rota para gestão de LoginLog integradas em /settings
@@ -2893,7 +2897,7 @@ def login_log_management(log_id=None):
     # Se a ação não for reconhecida, redirecionar
     flash('Ação não reconhecida para gestão de logs de login!', 'error')
     return redirect(url_for('settings'))
-
+# End def login_log_management
 
 
 # Obter informações do servidor Redis
@@ -2974,7 +2978,8 @@ def get_redis_status():
         return jsonify({"status": "offline", "error": str(e)}), 503
     except Exception as e:
         return jsonify({"status": "error", "error": str(e)}), 500
-    
+#End def get_redis_status
+
 
 @app.route('/settings/redis/sessions.json', methods=['GET'])
 @required_login
@@ -3171,8 +3176,10 @@ def list_redis_sessions():
         response[f"User {index} user_id"] = user["user_id"]
 
     return jsonify(response), 200
+# End def list_redis_sessions
 
 
+# não usada de momento
 @app.route('/settings/redis/cleanup', methods=['POST'])
 @required_login
 @required_role('admin')
@@ -3223,13 +3230,14 @@ def cleanup_redis_sessions():
             "success": False,
             "error": f"Erro na limpeza: {str(e)}"
         }), 500
+# End def cleanup_redis_sessions
 
 
 create_directories_with_permissions()
 # Inicializar base de dados quando o script é executado diretamente
 with app.app_context():
     db.create_all()
-    print("Base de dados inicializada. O primeiro utilizador a registar-se receberá permissões de administrador.")
+    print("Base de dados inicializada.")
 
 if __name__ == '__main__':
     app.run(debug=DEBUG, host='0.0.0.0', port=5000)
