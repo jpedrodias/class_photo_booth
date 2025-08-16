@@ -16,38 +16,6 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Class Photo Booth">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='student_icon.jpg') }}">
-    <style>
-        .avatar-circle {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #007bff, #6610f2);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 16px;
-            flex-shrink: 0;
-            transition: background 0.3s ease;
-        }
-        
-        /* Status de atividade dos utilizadores */
-        .avatar-circle.status-online {
-            background: linear-gradient(135deg, #28a745, #20c997) !important;
-            box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
-        }
-        
-        .avatar-circle.status-away {
-            background: linear-gradient(135deg, #ffc107, #fd7e14) !important;
-            box-shadow: 0 0 10px rgba(255, 193, 7, 0.3);
-        }
-        
-        .avatar-circle.status-offline {
-            background: linear-gradient(135deg, #6c757d, #495057) !important;
-            box-shadow: none;
-        }
-    </style>
 </head>
 <body>
     <!-- Navbar -->
@@ -291,7 +259,7 @@
                                 Login Logs
                             </h5>
                             <div>
-                                <form action="{{ url_for('login_log_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja eliminar TODOS os logs de login? Esta ação não pode ser desfeita!')">
+                                <form action="{{ url_for('login_log_management') }}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja eliminar TODOS os logs de login? Esta ação não pode ser desfeita!')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <input type="hidden" name="action" value="crud_login_clear_all">
                                     <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Eliminar todos os logs">
@@ -360,7 +328,7 @@
                                 IPs Banidos
                             </h5>
                             <div>
-                                <form action="{{ url_for('banned_ip_management') }}" method="post" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">
+                                <form action="{{ url_for('banned_ip_management') }}" method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja desbanir TODOS os IPs? Esta ação não pode ser desfeita!')">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                     <input type="hidden" name="action" value="crud_banned_ip_clear_all">
                                     <button type="submit" class="btn btn-outline-light btn-sm me-2" title="Desbanir todos os IPs">
@@ -836,7 +804,7 @@
                 </div>
                 <div class="card-body">
                     <div id="redis-server-error" class="text-danger mb-2" hidden></div>
-                    <div id="redis-server-table-container"></div>
+                    <div id="redis-server-table-container" class="redis-table-container"></div>
                 </div>
             </div>
             </div>
@@ -861,7 +829,7 @@
                 </div>
                 <div class="card-body">
                     <div id="redis-sessions-error" class="text-danger mb-2" hidden></div>
-                    <div id="redis-sessions-table-container"></div>
+                    <div id="redis-sessions-table-container" class="redis-table-container"></div>
                 </div>
             </div>
             </div>
@@ -1013,7 +981,7 @@
             table.className = 'table table-sm table-striped';
 
             const thead = document.createElement('thead');
-            thead.innerHTML = '<tr><th style="width:45%">Chave</th><th>Valor</th></tr>';
+            thead.innerHTML = '<tr><th class="w-45">Chave</th><th>Valor</th></tr>';
             table.appendChild(thead);
 
             const tbody = document.createElement('tbody');

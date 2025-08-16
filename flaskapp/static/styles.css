@@ -696,3 +696,94 @@ body {
     font-size: 0.75rem !important;
     line-height: 1 !important;
 }
+
+/* === AVATAR STATUS DE UTILIZADORES === */
+.avatar-circle {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--bs-primary), var(--bs-purple));
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1rem;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+/* Status de atividade dos utilizadores */
+.avatar-circle.status-online {
+    background: linear-gradient(135deg, var(--bs-success), var(--bs-teal)) !important;
+    box-shadow: 0 0 10px rgba(var(--bs-success-rgb), 0.3);
+}
+
+.avatar-circle.status-away {
+    background: linear-gradient(135deg, var(--bs-warning), var(--bs-orange)) !important;
+    box-shadow: 0 0 10px rgba(var(--bs-warning-rgb), 0.3);
+}
+
+.avatar-circle.status-offline {
+    background: linear-gradient(135deg, var(--bs-secondary), var(--bs-gray-600)) !important;
+    box-shadow: none;
+}
+
+/* === CARTÕES REDIS - CONTROLE DE OVERFLOW === */
+.redis-table-container {
+    max-height: 400px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.redis-table-container .table {
+    table-layout: fixed;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.redis-table-container .table td,
+.redis-table-container .table th {
+    word-wrap: break-word;
+    word-break: break-all;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    padding: 0.5rem 0.25rem;
+    font-size: 0.875rem;
+}
+
+.redis-table-container .table th:first-child,
+.redis-table-container .table td:first-child {
+    width: 45%;
+    max-width: 0;
+}
+
+.redis-table-container .table th:last-child,
+.redis-table-container .table td:last-child {
+    width: 55%;
+    max-width: 0;
+}
+
+/* Largura personalizada para tabela Redis */
+.w-45 {
+    width: 45% !important;
+}
+
+/* Scrollbar personalizada para os containers Redis */
+.redis-table-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.redis-table-container::-webkit-scrollbar-track {
+    background: var(--bs-gray-100);
+    border-radius: 3px;
+}
+
+.redis-table-container::-webkit-scrollbar-thumb {
+    background: var(--bs-gray-400);
+    border-radius: 3px;
+}
+
+.redis-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--bs-gray-500);
+}
