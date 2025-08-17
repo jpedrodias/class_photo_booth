@@ -1342,6 +1342,80 @@ def turmas():
                          total_fotos_geral=total_fotos_geral)
 # End def turmas
 
+# === ROTAS PARA FILTROS DE TURMAS === 
+# Adicionadas para permitir persistência de filtros entre sessões
+
+
+@app.route('/turmas/filters', methods=['GET'])
+@csrf.exempt  # API endpoint para JSON, isento de CSRF
+@required_login
+@required_role('viewer')
+def get_turma_filters():
+    """Retorna os filtros de turmas salvos na sessão do usuário"""
+    try:
+        filters = session.get('turma_filters', {
+            'showAll': True,
+            'visibleTurmas': []
+        })
+        
+        #print(f"Filtros carregados da sessão: {filters}")
+        
+        # Garantir que visibleTurmas é uma lista
+        if 'visibleTurmas' in filters:
+            if isinstance(filters['visibleTurmas'], set):
+                filters['visibleTurmas'] = list(filters['visibleTurmas'])
+        
+        return jsonify(filters)
+        
+    except Exception as e:
+        #print(f"Erro ao carregar filtros: {str(e)}")
+        return jsonify({'error': f'Erro ao carregar filtros: {str(e)}'}), 500
+
+
+@app.route('/turmas/filters', methods=['POST'])
+@csrf.exempt  # API endpoint para JSON, isento de CSRF
+@required_login
+@required_role('viewer')
+def save_turma_filters():
+    """Salva os filtros de turmas na sessão do usuário"""
+    try:
+        # Debug: log do request
+        #print(f"Content-Type: {request.content_type}")
+        #print(f"Raw data: {request.get_data()}")
+        
+        data = request.get_json()
+        #print(f"Parsed JSON: {data}")
+        
+        if not data:
+            #print("Erro: Dados não fornecidos")
+            return jsonify({'error': 'Dados não fornecidos'}), 400
+        
+        # Converter Set para lista se necessário (JSON não suporta Set)
+        if 'visibleTurmas' in data:
+            if isinstance(data['visibleTurmas'], set):
+                data['visibleTurmas'] = list(data['visibleTurmas'])
+            elif hasattr(data['visibleTurmas'], '__iter__') and not isinstance(data['visibleTurmas'], str):
+                data['visibleTurmas'] = list(data['visibleTurmas'])
+        
+        # Validar estrutura dos dados
+        filters = {
+            'showAll': data.get('showAll', True),
+            'visibleTurmas': data.get('visibleTurmas', [])
+        }
+
+        #print(f"Filtros a salvar: {filters}")
+
+        # Salvar na sessão
+        session['turma_filters'] = filters
+        session.permanent = True  # Tornar sessão permanente
+        
+        print("Filtros salvos com sucesso")
+        return jsonify({'success': True, 'message': 'Filtros salvos com sucesso'})
+        
+    except Exception as e:
+        print(f"Erro ao salvar filtros: {str(e)}")
+        return jsonify({'error': f'Erro ao salvar filtros: {str(e)}'}), 500
+
 
 @app.route('/turma/<nome_seguro>/')
 @no_cache # Decorator para evitar cache das fotografias

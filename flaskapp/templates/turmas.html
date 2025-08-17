@@ -70,13 +70,58 @@
     {% if turmas|length > 0 %}
     <div class="container">
         <div class="stats-card">
-            <div class="stats-number">{{ turmas|length }}</div>
+            <div class="stats-number" id="visibleTurmasCount">{{ turmas|length }}</div>
             <div class="stats-label">Turma{{ 's' if turmas|length != 1 else '' }} Disponív{{ 'eis' if turmas|length != 1 else 'el' }}</div>
+            
+            <!-- Filtros -->
+            <div class="row g-2 mt-3 mb-3">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn btn-sm btn-outline-primary" id="toggleAllTurmas" onclick="toggleAllTurmas()">
+                                <i class="bi bi-eye-fill" id="toggleAllIcon"></i>
+                                <span id="toggleAllText">Ocultar Todas</span>
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleFilterMenu()">
+                                <i class="bi bi-funnel-fill"></i>
+                                Filtros
+                            </button>
+                        </div>
+                        <small class="text-muted">
+                            <span id="filteredCount">{{ turmas|length }}</span> de {{ turmas|length }} turmas
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Menu de filtros (inicialmente oculto) -->
+            <div class="collapse" id="filterMenu">
+                <div class="card card-body mb-3">
+                    <div class="row g-2">
+                        <div class="col-12">
+                            <label class="form-label fw-bold mb-2">Selecionar turmas a mostrar:</label>
+                        </div>
+                        <div class="col-12" id="turmaFilterList">
+                            <!-- Os checkboxes serão gerados dinamicamente por JavaScript -->
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-success" onclick="selectAllTurmas()">
+                                    <i class="bi bi-check-all"></i> Selecionar Todas
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deselectAllTurmas()">
+                                    <i class="bi bi-x-square"></i> Deselecionar Todas
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             <!-- Contagem de alunos e fotos -->
             <div class="d-flex justify-content-between text-muted small mt-3 mb-2">
-                <span>{{ total_alunos_geral }} aluno{{ 's' if total_alunos_geral != 1 else '' }}</span>
-                <span>{{ total_fotos_geral }} foto{{ 's' if total_fotos_geral != 1 else '' }}</span>
+                <span><span id="visibleAlunosCount">{{ total_alunos_geral }}</span> aluno{{ 's' if total_alunos_geral != 1 else '' }}</span>
+                <span><span id="visibleFotosCount">{{ total_fotos_geral }}</span> foto{{ 's' if total_fotos_geral != 1 else '' }}</span>
             </div>
             
             <!-- Barra de progresso geral -->
@@ -84,12 +129,12 @@
             <div class="mb-2">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <small class="text-muted">Progresso Geral</small>
-                    <small class="fw-bold text-{% if percentage_geral == 100 %}success{% elif percentage_geral >= 75 %}info{% elif percentage_geral >= 50 %}warning{% else %}danger{% endif %}">
+                    <small class="fw-bold" id="progressPercentage">
                         {{ "%.0f"|format(percentage_geral) }}%
                     </small>
                 </div>
                 <div class="progress" style="height: 8px;">
-                    <div class="progress-bar bg-{% if percentage_geral == 100 %}success{% elif percentage_geral >= 75 %}info{% elif percentage_geral >= 50 %}warning{% else %}danger{% endif %}" 
+                    <div class="progress-bar" id="progressBar"
                          role="progressbar" 
                          style="width: {{ percentage_geral }}%;" 
                          aria-valuenow="{{ percentage_geral }}" 
@@ -100,9 +145,9 @@
             </div>
         </div>
         
-        <div class="row g-3">
+        <div class="row g-3" id="turmasContainer">
             {% for turma in turmas %}
-            <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+            <div class="col-6 col-md-4 col-lg-3 col-xl-3 turma-item" data-turma-id="{{ turma.id }}" data-turma-nome="{{ turma.nome }}" data-alunos="{{ turma.total_alunos }}" data-fotos="{{ turma.alunos_com_foto }}">
                 <div class="turma-card h-100" style="cursor: pointer;">
                     {% if turma.total_alunos > 0 and turma.alunos_com_foto == turma.total_alunos %}
                     <div class="turma-completed-status">
@@ -360,6 +405,353 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // === FILTROS DE TURMAS ===
+        let turmaFilterState = {
+            showAll: true,
+            visibleTurmas: new Set(),
+            initialized: false
+        };
+        
+        // Carrega filtros - tenta do servidor primeiro, depois localStorage
+        async function loadTurmaFilters() {
+            try {
+                // Tentar carregar do servidor primeiro
+                const response = await fetch("{{ url_for('get_turma_filters') }}", {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Filtros carregados do servidor:', data);
+                    
+                    // Converter Array para Set
+                    turmaFilterState = {
+                        showAll: data.showAll !== undefined ? data.showAll : true,
+                        visibleTurmas: new Set(data.visibleTurmas || []),
+                        initialized: true
+                    };
+                    
+                    // Verificar se as turmas salvas ainda existem na página
+                    validateAndApplyFilters();
+                    return;
+                }
+            } catch (error) {
+                console.log('Servidor não disponível, tentando localStorage:', error);
+            }
+            
+            // Fallback para localStorage
+            try {
+                const savedFilters = localStorage.getItem('turmaFilters');
+                if (savedFilters) {
+                    const data = JSON.parse(savedFilters);
+                    
+                    // Verificar se os filtros não são muito antigos (7 dias)
+                    const daysSinceLastSave = (Date.now() - (data.timestamp || 0)) / (1000 * 60 * 60 * 24);
+                    if (daysSinceLastSave > 7) {
+                        console.log('Filtros salvos são muito antigos, inicializando padrão');
+                        localStorage.removeItem('turmaFilters');
+                        initializeDefaultFilters();
+                        return;
+                    }
+                    
+                    console.log('Filtros carregados do localStorage:', data);
+                    
+                    // Converter Array para Set
+                    turmaFilterState = {
+                        showAll: data.showAll !== undefined ? data.showAll : true,
+                        visibleTurmas: new Set(data.visibleTurmas || []),
+                        initialized: true
+                    };
+                    
+                    validateAndApplyFilters();
+                } else {
+                    console.log('Nenhum filtro salvo encontrado, inicializando padrão');
+                    initializeDefaultFilters();
+                }
+            } catch (error) {
+                console.log('Erro ao carregar filtros, usando padrão:', error);
+                initializeDefaultFilters();
+            }
+        }
+        
+        // Valida e aplica filtros carregados
+        function validateAndApplyFilters() {
+            // Verificar se as turmas salvas ainda existem na página
+            const currentTurmaIds = new Set();
+            document.querySelectorAll('.turma-item').forEach(item => {
+                currentTurmaIds.add(item.dataset.turmaId);
+            });
+            
+            // Filtrar turmas que não existem mais
+            const validVisibleTurmas = new Set();
+            turmaFilterState.visibleTurmas.forEach(turmaId => {
+                if (currentTurmaIds.has(turmaId)) {
+                    validVisibleTurmas.add(turmaId);
+                }
+            });
+            turmaFilterState.visibleTurmas = validVisibleTurmas;
+            
+            // Se não há turmas visíveis e showAll é false, inicializar com padrão
+            if (!turmaFilterState.showAll && turmaFilterState.visibleTurmas.size === 0) {
+                console.log('Estado inválido detectado, inicializando padrão');
+                initializeDefaultFilters();
+                return;
+            }
+            
+            console.log('Aplicando filtros carregados:', turmaFilterState);
+            applyFilters();
+        }
+        
+        // Salva filtros - tenta no servidor primeiro, depois localStorage
+        async function saveTurmaFilters() {
+            const dataToSave = {
+                showAll: turmaFilterState.showAll,
+                visibleTurmas: Array.from(turmaFilterState.visibleTurmas),
+                timestamp: Date.now()
+            };
+            
+            console.log('Salvando filtros:', dataToSave);
+            
+            // Tentar salvar no servidor primeiro
+            try {
+                const response = await fetch("{{ url_for('save_turma_filters') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(dataToSave)
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Filtros salvos no servidor:', result);
+                    
+                    // Também salvar no localStorage como backup
+                    localStorage.setItem('turmaFilters', JSON.stringify(dataToSave));
+                    
+                    showFilterSavedFeedback('Filtros salvos no servidor');
+                    return;
+                }
+            } catch (error) {
+                console.log('Erro ao salvar no servidor, usando localStorage:', error);
+            }
+            
+            // Fallback para localStorage
+            try {
+                localStorage.setItem('turmaFilters', JSON.stringify(dataToSave));
+                console.log('Filtros salvos no localStorage');
+                showFilterSavedFeedback('Filtros salvos localmente');
+            } catch (error) {
+                console.error('Erro ao salvar filtros:', error);
+            }
+        }
+        
+        // Mostra feedback visual quando filtros são salvos
+        function showFilterSavedFeedback(message = 'Filtros salvos automaticamente') {
+            // Criar elemento de feedback se não existir
+            let feedback = document.getElementById('filterSavedFeedback');
+            if (!feedback) {
+                feedback = document.createElement('div');
+                feedback.id = 'filterSavedFeedback';
+                feedback.className = 'position-fixed top-0 start-50 translate-middle-x mt-3 alert alert-success alert-dismissible fade';
+                feedback.style.zIndex = '9999';
+                document.body.appendChild(feedback);
+            }
+            
+            // Atualizar conteúdo
+            feedback.innerHTML = `
+                <i class="bi bi-check-circle-fill me-2"></i>
+                ${message}
+            `;
+            
+            // Mostrar feedback
+            feedback.classList.add('show');
+            
+            // Esconder após 2 segundos
+            setTimeout(() => {
+                if (feedback) {
+                    feedback.classList.remove('show');
+                }
+            }, 2000);
+        }
+        
+        // Inicializa filtros com todas as turmas visíveis
+        function initializeDefaultFilters() {
+            const turmaItems = document.querySelectorAll('.turma-item');
+            turmaFilterState.visibleTurmas = new Set();
+            turmaItems.forEach(item => {
+                turmaFilterState.visibleTurmas.add(item.dataset.turmaId);
+            });
+            turmaFilterState.showAll = true;
+            turmaFilterState.initialized = true;
+            console.log('Filtros inicializados com padrão:', turmaFilterState);
+            applyFilters(); // Aplicar filtros após inicializar
+        }
+        
+        // Gera lista de checkboxes para filtros
+        function generateFilterList() {
+            const filterList = document.getElementById('turmaFilterList');
+            const turmaItems = document.querySelectorAll('.turma-item');
+            
+            filterList.innerHTML = '';
+            turmaItems.forEach(item => {
+                const turmaId = item.dataset.turmaId;
+                const turmaNome = item.dataset.turmaNome;
+                const isChecked = turmaFilterState.visibleTurmas.has(turmaId);
+                
+                const checkboxHtml = `
+                    <div class="form-check form-check-inline me-3 mb-2">
+                        <input class="form-check-input" type="checkbox" id="turma-${turmaId}" 
+                               ${isChecked ? 'checked' : ''} 
+                               onchange="toggleTurmaVisibility('${turmaId}')">
+                        <label class="form-check-label" for="turma-${turmaId}">
+                            ${turmaNome}
+                        </label>
+                    </div>
+                `;
+                filterList.innerHTML += checkboxHtml;
+            });
+        }
+        
+        // Aplica filtros às turmas
+        function applyFilters() {
+            const turmaItems = document.querySelectorAll('.turma-item');
+            let visibleCount = 0;
+            let totalAlunos = 0;
+            let totalFotos = 0;
+            
+            turmaItems.forEach(item => {
+                const turmaId = item.dataset.turmaId;
+                const shouldShow = turmaFilterState.showAll || turmaFilterState.visibleTurmas.has(turmaId);
+                
+                if (shouldShow) {
+                    item.style.display = '';
+                    visibleCount++;
+                    totalAlunos += parseInt(item.dataset.alunos || 0);
+                    totalFotos += parseInt(item.dataset.fotos || 0);
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Atualizar contadores
+            updateCounters(visibleCount, totalAlunos, totalFotos);
+            
+            // Atualizar botão toggle
+            updateToggleButton();
+            
+            // Regenerar lista de filtros
+            generateFilterList();
+        }
+        
+        // Atualiza contadores na interface
+        function updateCounters(visibleCount, totalAlunos, totalFotos) {
+            document.getElementById('visibleTurmasCount').textContent = visibleCount;
+            document.getElementById('filteredCount').textContent = visibleCount;
+            document.getElementById('visibleAlunosCount').textContent = totalAlunos;
+            document.getElementById('visibleFotosCount').textContent = totalFotos;
+            
+            // Atualizar barra de progresso
+            const percentage = totalAlunos > 0 ? Math.round((totalFotos / totalAlunos) * 100) : 0;
+            document.getElementById('progressPercentage').textContent = percentage + '%';
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.setAttribute('aria-valuenow', percentage);
+            
+            // Atualizar classe da barra de progresso
+            progressBar.className = 'progress-bar ';
+            if (percentage === 100) {
+                progressBar.className += 'bg-success';
+                document.getElementById('progressPercentage').className = 'fw-bold text-success';
+            } else if (percentage >= 75) {
+                progressBar.className += 'bg-info';
+                document.getElementById('progressPercentage').className = 'fw-bold text-info';
+            } else if (percentage >= 50) {
+                progressBar.className += 'bg-warning';
+                document.getElementById('progressPercentage').className = 'fw-bold text-warning';
+            } else {
+                progressBar.className += 'bg-danger';
+                document.getElementById('progressPercentage').className = 'fw-bold text-danger';
+            }
+        }
+        
+        // Atualiza botão de toggle
+        function updateToggleButton() {
+            const toggleButton = document.getElementById('toggleAllTurmas');
+            const toggleIcon = document.getElementById('toggleAllIcon');
+            const toggleText = document.getElementById('toggleAllText');
+            
+            if (turmaFilterState.showAll) {
+                toggleIcon.className = 'bi bi-eye-slash-fill';
+                toggleText.textContent = 'Ocultar Todas';
+                toggleButton.className = 'btn btn-sm btn-outline-danger';
+            } else {
+                toggleIcon.className = 'bi bi-eye-fill';
+                toggleText.textContent = 'Mostrar Todas';
+                toggleButton.className = 'btn btn-sm btn-outline-success';
+            }
+        }
+        
+        // Toggle mostrar/ocultar todas as turmas
+        function toggleAllTurmas() {
+            turmaFilterState.showAll = !turmaFilterState.showAll;
+            applyFilters();
+            saveTurmaFilters();
+        }
+        
+        // Toggle menu de filtros
+        function toggleFilterMenu() {
+            const filterMenu = document.getElementById('filterMenu');
+            const bsCollapse = new bootstrap.Collapse(filterMenu, {
+                toggle: true
+            });
+        }
+        
+        // Toggle visibilidade de uma turma específica
+        function toggleTurmaVisibility(turmaId) {
+            if (turmaFilterState.visibleTurmas.has(turmaId)) {
+                turmaFilterState.visibleTurmas.delete(turmaId);
+            } else {
+                turmaFilterState.visibleTurmas.add(turmaId);
+            }
+            
+            // Se todas estão selecionadas, ativar showAll
+            const totalTurmas = document.querySelectorAll('.turma-item').length;
+            if (turmaFilterState.visibleTurmas.size === totalTurmas) {
+                turmaFilterState.showAll = true;
+            } else {
+                turmaFilterState.showAll = false;
+            }
+            
+            applyFilters();
+            saveTurmaFilters();
+        }
+        
+        // Selecionar todas as turmas
+        function selectAllTurmas() {
+            const turmaItems = document.querySelectorAll('.turma-item');
+            turmaFilterState.visibleTurmas = new Set();
+            turmaItems.forEach(item => {
+                turmaFilterState.visibleTurmas.add(item.dataset.turmaId);
+            });
+            turmaFilterState.showAll = true;
+            applyFilters();
+            saveTurmaFilters();
+        }
+        
+        // Deselecionar todas as turmas
+        function deselectAllTurmas() {
+            turmaFilterState.visibleTurmas = new Set();
+            turmaFilterState.showAll = false;
+            applyFilters();
+            saveTurmaFilters();
+        }
+        
+        // === RESTO DO CÓDIGO EXISTENTE ===
         function confirmLogout() {
             if (confirm('Tem certeza que deseja sair?')) {
                 window.location.href = '/logout';
@@ -509,6 +901,45 @@
         });
 
         
+        // === INICIALIZAÇÃO ===
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM carregado, inicializando filtros...');
+            
+            // Carregar filtros salvos
+            loadTurmaFilters();
+            
+            // Fallback: aplicar filtros após pequeno delay para garantir que funcionem
+            setTimeout(() => {
+                if (!turmaFilterState.initialized) {
+                    console.log('Filtros não foram inicializados, forçando inicialização padrão...');
+                    initializeDefaultFilters();
+                } else {
+                    console.log('Reaplicando filtros como fallback...');
+                    applyFilters();
+                }
+            }, 500);
+            
+            // Configurar listeners para expansão/contração de turmas
+            const expandButtons = document.querySelectorAll('.btn-expand-turma');
+            expandButtons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const turmaId = this.getAttribute('data-turma-id');
+                    const turmaContent = document.getElementById('turma-content-' + turmaId);
+                    const icon = this.querySelector('i');
+                    
+                    if (turmaContent.classList.contains('collapse')) {
+                        turmaContent.classList.remove('collapse');
+                        icon.classList.remove('bi-chevron-down');
+                        icon.classList.add('bi-chevron-up');
+                    } else {
+                        turmaContent.classList.add('collapse');
+                        icon.classList.remove('bi-chevron-up');
+                        icon.classList.add('bi-chevron-down');
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html>

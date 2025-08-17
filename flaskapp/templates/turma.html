@@ -1313,7 +1313,8 @@
             reader.onload = function(ev) {
                 const base64data = ev.target.result;
                 // Enviar para o mesmo endpoint da captura
-                fetch(`/upload/photo/${nome_seguro}/${processo}`, {
+                const uploadUrl = "{{ url_for('upload_photo', nome_seguro=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}".replace('PROCESSO_PLACEHOLDER', processo);
+                fetch(uploadUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: base64data })
@@ -1368,7 +1369,7 @@
                     document.getElementById('previewStudentName').textContent = nome;
                     
                     // Preparar URL da foto original
-                    const originalPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?size=original`;
+                    const originalPhotoUrl = "{{ url_for('get_photo', folder_name=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}".replace('PROCESSO_PLACEHOLDER', processo) + "?size=original";
                     
                     // Preparar botão de download
                     const downloadBtn = document.getElementById('downloadPhotoBtn');
@@ -1604,7 +1605,7 @@
             document.getElementById('previewStudentName').textContent = nome;
             
             // Preparar URL da foto original
-            const originalPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?size=original`;
+            const originalPhotoUrl = "{{ url_for('get_photo', folder_name=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}".replace('PROCESSO_PLACEHOLDER', processo) + "?size=original";
             
             // Preparar botão de download
             const downloadBtn = document.getElementById('downloadPhotoBtn');
@@ -1879,7 +1880,8 @@
             captureButton.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Processando...';
             captureButton.disabled = true;
             
-            fetch(`/upload/photo/{{ nome_seguro }}/${window.currentProcesso}`, {
+            const uploadUrl = "{{ url_for('upload_photo', nome_seguro=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}".replace('PROCESSO_PLACEHOLDER', window.currentProcesso);
+            fetch(uploadUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ image: photoData })
@@ -1946,7 +1948,7 @@
             
             // Adicionar timestamp para forçar reload da imagem (cache busting)
             const timestamp = new Date().getTime();
-            const newPhotoUrl = `/photos/{{ nome_seguro }}/${processo}.jpg?t=${timestamp}`;
+            const newPhotoUrl = "{{ url_for('get_photo', folder_name=nome_seguro, processo='PROCESSO_PLACEHOLDER') }}".replace('PROCESSO_PLACEHOLDER', processo) + `?t=${timestamp}`;
             
             // Criar nova imagem para pré-carregar
             const newImg = new Image();
