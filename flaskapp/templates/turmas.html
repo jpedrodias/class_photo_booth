@@ -87,9 +87,10 @@
                                 Filtros
                             </button>
                         </div>
-                        <small class="text-muted">
+                        <div class="text-muted small">
+                            <i class="bi bi-eye me-1"></i>
                             <span id="filteredCount">{{ turmas|length }}</span> de {{ turmas|length }} turmas
-                        </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -102,7 +103,7 @@
                             <label class="form-label fw-bold mb-2">Selecionar turmas a mostrar:</label>
                         </div>
                         <div class="col-12" id="turmaFilterList">
-                            <!-- Os checkboxes serão gerados dinamicamente por JavaScript -->
+                            <!-- Os switches serão gerados dinamicamente por JavaScript -->
                         </div>
                         <div class="col-12 mt-3">
                             <div class="d-flex gap-2">
@@ -597,23 +598,36 @@
             const turmaItems = document.querySelectorAll('.turma-item');
             
             filterList.innerHTML = '';
+            
+            // Criar container de grade para organizar switches em colunas
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'row g-2';
+            
             turmaItems.forEach(item => {
                 const turmaId = item.dataset.turmaId;
                 const turmaNome = item.dataset.turmaNome;
                 const isChecked = turmaFilterState.visibleTurmas.has(turmaId);
                 
-                const checkboxHtml = `
-                    <div class="form-check form-check-inline me-3 mb-2">
+                // Criar coluna responsiva para cada switch
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+                
+                const switchHtml = `
+                    <div class="form-check form-switch">
                         <input class="form-check-input" type="checkbox" id="turma-${turmaId}" 
                                ${isChecked ? 'checked' : ''} 
                                onchange="toggleTurmaVisibility('${turmaId}')">
-                        <label class="form-check-label" for="turma-${turmaId}">
+                        <label class="form-check-label fw-medium" for="turma-${turmaId}">
                             ${turmaNome}
                         </label>
                     </div>
                 `;
-                filterList.innerHTML += checkboxHtml;
+                
+                colDiv.innerHTML = switchHtml;
+                gridContainer.appendChild(colDiv);
             });
+            
+            filterList.appendChild(gridContainer);
         }
         
         // Aplica filtros às turmas

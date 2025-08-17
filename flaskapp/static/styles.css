@@ -102,7 +102,7 @@ body {
     padding: 2rem;
     text-align: center;
     margin: 2rem auto;
-    max-width: 350px;
+    width: 100%;
 }
 
 .stats-number {
@@ -786,4 +786,50 @@ body {
 
 .redis-table-container::-webkit-scrollbar-thumb:hover {
     background: var(--bs-gray-500);
+}
+
+/* === FILTROS DE TURMAS - SWITCHES === */
+#turmaFilterList .form-check {
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    transition: var(--transition);
+    margin-bottom: 0.5rem;
+}
+
+#turmaFilterList .form-check:hover {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--shadow-light);
+    transform: translateY(-1px);
+}
+
+#turmaFilterList .form-check-input:checked {
+    background-color: #4a5eaa;
+    border-color: #4a5eaa;
+}
+
+#turmaFilterList .form-check-input:focus {
+    border-color: #4a5eaa;
+    box-shadow: 0 0 0 0.25rem rgba(74, 94, 170, 0.25);
+}
+
+#turmaFilterList .form-check-label {
+    cursor: pointer;
+    color: #333;
+    font-size: 0.9rem;
+}
+
+#turmaFilterList .form-check-input:checked + .form-check-label {
+    color: #4a5eaa;
+    font-weight: 600;
+}
+
+/* Melhorar espaçamento no card de filtros com largura completa */
+.stats-card .row {
+    max-width: none;
+}
+
+.stats-card .card-body {
+    padding: 1.5rem;
 }
