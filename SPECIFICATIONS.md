@@ -129,221 +129,84 @@ O sistema destina-se a:
 - **Gestão de sessões**: Controlo de duração baseado em "remember me"
 - **Logout seguro**: Limpeza completa da sessão
 - **Primeiro utilizador**: Automaticamente promovido a administrador
-
-### 3.2 Sistema de Roles e Permissões
-#### 3.2.1 Hierarquia de Roles
-- **none**: Conta criada mas à espera de validação pelo administrador
-- **viewer**: Visualização de turmas e fotografias
-- **editor**: Visualização + captura de fotos + gestão de alunos
-- **admin**: Acesso completo incluindo gestão de turmas, utilizadores e sistema
-
-#### 3.2.2 Matriz de Permissões
-```
-Funcionalidade               | none | viewer | editor | admin |
-----------------------------|------|--------|--------|-------|
-Visualizar turmas           |  ❌  |   ✅   |   ✅   |   ✅  |
-Visualizar fotografias      |  ❌  |   ✅   |   ✅   |   ✅  |
-Capturar fotografias        |  ❌  |   ❌   |   ✅   |   ✅  |
 Gerir alunos (CRUD)         |  ❌  |   ❌   |   ✅   |   ✅  |
 Gerir turmas (CRUD)         |  ❌  |   ❌   |   ❌   |   ✅  |
-Upload CSV                  |  ❌  |   ❌   |   ❌   |   ✅  |
-Gestão de utilizadores      |  ❌  |   ❌   |   ❌   |   ✅  |
-Limpeza do sistema (nuke)   |  ❌  |   ❌   |   ❌   |   ✅  |
-```
+# Especificações Técnicas — Class Photo Booth v5.0
 
-### 3.3 Fluxo de Registo e Verificação
-1. **Registo inicial**: Utilizador insere email válido
-2. **Envio de email**: Sistema envia código de verificação de 6 caracteres
-3. **Verificação**: Utilizador insere código, nome completo e password segura
-4. **Validação de password**: Mínimo 6 caracteres com maiúsculas, minúsculas e números
-5. **Criação de conta**: Primeiro utilizador = admin, restantes = none (à espera de aprovação)
-6. **Aprovação**: Administrador pode alterar role de 'none' para 'viewer', 'editor' ou 'admin'
+Este documento serve como referência técnica. Contém a arquitetura, modelos de dados, permissões e fluxos principais.
 
-### 3.4 Sistema Anti-Brute Force
-- **Tracking de tentativas**: Registo de todas as tentativas de login (sucesso/falha)
-- **Limite de tentativas**: Máximo 5 tentativas falhadas em 15 minutos
-- **Bloqueio automático**: IPs com tentativas excessivas são automaticamente banidos
-- **Tabela BannedIPs**: Gestão persistente de IPs bloqueados
-- **Logging detalhado**: Rastreamento de IP, utilizador, timestamp e resultado
+Sumário rápido:
 
-### 3.5 Recuperação de Password
-- **Solicitação**: Utilizador insere email registado no sistema
-- **Código de recuperação**: Sistema envia código de 6 caracteres por email
-- **Reset seguro**: Utilizador insere código e define nova password
-- **Validação**: Mesmos critérios de segurança da password inicial
-- **Expiração**: Códigos válidos por 24 horas apenas
+- Arquitetura: Flask + SQLAlchemy + Redis (sessions) + Docker
+- Modelos: User, PreUser, LoginLog, BannedIPs, Turma, Aluno
+- Autenticação: email verification, password reset, roles (none/viewer/editor/admin)
+- Upload CSV: modos replace/merge, validação de processos (únicos e numéricos)
+- Downloads: ZIP (originais/thumbs) e DOCX gerados dinamicamente
 
-## 4. Sistema de Email e Comunicações
+Para guias de instalação e deployment veja `INSTALL.md`.
 
-### 4.1 Configuração de Email
-- **Servidor SMTP**: Suporte para Office365 (smtp.office365.com:587)
-- **Autenticação**: Configuração via variáveis de ambiente
-- **Templates HTML**: Emails responsivos com branding consistente
-- **Fallback**: Gestão de erros com feedback ao utilizador
+## 1. Arquitetura geral
 
-### 4.2 Templates de Email Implementados
-#### 4.2.1 Verificação de Email (`template_email_send_verification.html`)
-- **Propósito**: Confirmar email durante registo
-- **Conteúdo**: Código de verificação de 6 caracteres alfanuméricos
-- **Design**: HTML responsivo com branding da aplicação
-- **Validade**: 24 horas
+- Backend: Python 3.12, Flask
+- ORM: SQLAlchemy (compatível com SQLite e PostgreSQL)
+- Sessões: Flask-Session com backend Redis (in-memory)
+- Processamento de imagens: OpenCV e Pillow (PIL)
+- Geração de documentos: python-docx
+- Containerização: Docker + Docker Compose
 
-#### 4.2.2 Recuperação de Password (`template_email_send_password_reset.html`)
-- **Propósito**: Reset de password esquecida
-- **Conteúdo**: Código de recuperação de 6 caracteres alfanuméricos
-- **Instruções**: Passo-a-passo para reset seguro
-- **Validade**: 24 horas
+## 2. Modelos de dados (resumo)
 
-### 4.3 Gestão de Códigos
-- **Geração**: Algoritmo seguro com letras minúsculas e números
-- **Armazenamento**: Tabela PreUser com timestamps
-- **Expiração**: Limpeza automática de códigos expirados
-- **Unicidade**: Verificação de códigos únicos por email
+- User: id, username (email), password_hash, name, role, is_verified
+- PreUser: email, code, date (codes temporários para verificação/reset)
+- LoginLog: date, success, remote_addr, user_id
+- BannedIPs: remote_addr, date (para anti-brute-force)
+- Turma: id, nome, nome_seguro, nome_professor, email_professor, last_updated
+- Aluno: id, processo (único global), nome, numero, email, autorizacao, foto_existe, foto_tirada, turma_id
 
-## 5. Gestão de Dados
+Notas:
 
-### 5.1 Sistema de Base de Dados Avançado
-#### 5.1.1 Modelo User (Utilizadores)
-- **Campos**: ID, email (único), password_hash, name, role, is_verified
-- **Validação**: Email regex, password strength (6+ chars, mixed case, numbers)
-- **Segurança**: Hashing com Werkzeug, proteção contra SQL injection
-- **Relacionamentos**: One-to-Many com LoginLog
-- **Métodos**: has_permission(), check_password(), validação de email/password
+- `Aluno.processo` é único em toda a aplicação (controle por import/CRUD).
+- `Turma.nome_seguro` é sanitizado para uso em filesystem (criado com secure_filename).
 
-#### 5.1.2 Modelo PreUser (Verificações Pendentes)
-- **Campos**: ID, email, code, date
-- **Propósito**: Armazenar utilizadores em processo de verificação
-- **Códigos**: 6 caracteres alfanuméricos gerados aleatoriamente
-- **Cleanup**: Limpeza automática de registos expirados (>24h)
+## 3. Autenticação e autorização
 
-#### 5.1.3 Modelo LoginLog (Auditoria)
-- **Campos**: ID, date, success, remote_addr (IP), user_id
-- **Propósito**: Tracking de tentativas de login para segurança
-- **Anti-brute force**: Contagem de tentativas falhadas por IP
-- **Estatísticas**: Base para análise de padrões de acesso
+- Registo por email com código de 6 caracteres.
+- Recuperação de senha por código.
+- Primeiro utilizador criado é promovido a `admin`.
+- Hierarquia de roles: none < viewer < editor < admin.
 
-#### 5.1.4 Modelo BannedIPs (Segurança)
-- **Campos**: ID, date, remote_addr (IP)
-- **Propósito**: Bloqueio automático de IPs com comportamento malicioso
-- **Gestão**: Métodos is_banned(), ban_ip() para controlo automático
+Funções utilitárias presentes no código:
 
-#### 5.1.5 Modelo Turma (Classes)
-- **Campos**: ID, nome (display), nome_seguro (filesystem), nome_professor, email_professor, last_updated, relacionamento com alunos
-- **Campos de Professor**: nome_professor (string), email_professor (string, opcional)
-- **Timestamps**: last_updated automático para rastreamento de alterações
-- **Segurança**: Sanitização automática de nomes para filesystem seguro
-- **Métodos**: create_directories(), update_nome(), delete_directories(), update_last_modified()
-- **Validação**: Unicidade de nome_seguro, gestão de colisões
-- **Importação CSV**: Suporte a colunas professor e email_professor/email
+- `get_current_user()` — lê sessão e valida expirations/sliding session
+- Decoradores: `required_login`, `required_role(min_role)`, `required_permission(permission)`
 
-#### 5.1.6 Modelo Aluno (Estudantes)
-- **Campos**: ID, processo (único global), nome, numero, email, autorizacao, foto_existe, foto_tirada, turma_id
-- **Campo Email**: email (string, opcional) para contacto direto com aluno
-- **Campo Autorização**: autorizacao (boolean, default True) para controlo de publicação em redes sociais
-- **Sistema Visual**: Badge colorido conforme estado de autorização:
-  - **Verde (success)**: Foto tirada + autorização concedida
-  - **Vermelho (danger)**: Foto tirada + sem autorização
-  - **Amarelo (warning)**: Foto não tirada (independente da autorização)
-- **Constraints**: Processo único em toda a aplicação (não apenas por turma)
-- **Validação**: Processo deve ser número inteiro positivo
-- **Relacionamento**: Many-to-One com Turma
-- **Gestão de Estados**: Flag `foto_existe` para controlo de existência de ficheiro, `foto_tirada` para controlo de captura
-- **Renomeação Automática**: Quando o processo de um aluno é alterado, os arquivos de foto são automaticamente renomeados
-- **Importação CSV**: Suporte a coluna email opcional
+## 4. Importação CSV
 
-### 5.2 Upload CSV (RF-CSV)
-- **Formato suportado**: `turma,processo,nome,numero` (número opcional)
-- **Validação de Processo**: CSV rejeita processos não numéricos e duplicados
-- **Unicidade Global**: Processo deve ser único em toda a aplicação
-- **Modos de operação**: Substituição completa ou merge de dados
-- **Validação automática**: Verificação de extensão .csv
-- **Gestão de fotos**: Manutenção e movimentação automática de imagens
-- **Interface avançada**: Drag & drop com seleção de modo
-- **Permissões**: Apenas administradores podem fazer upload
+- Formato esperado (mínimo): `turma,processo,nome` (campo `numero` opcional).
+- Validação: `processo` deve ser inteiro positivo; duplicados no CSV são rejeitados.
+- Operações: `replace` (substitui toda a DB de turmas/alunos) e `merge` (atualiza/insere mantendo dados existentes).
+- Fotos existentes são movidas automaticamente para a turma indicada quando necessário.
 
-### 5.3 Sistema de Autorização de Fotografias
-- **Campo Booleano**: `autorizado` determina se a foto pode ser usada
-- **Interface Visual**: Badges coloridos indicam estado de autorização:
-  - **Verde**: Aluno autorizado com foto disponível
-  - **Vermelho**: Aluno não autorizado ou sem foto
-  - **Amarelo**: Estados transitórios ou pendentes
-- **Controlo Manual**: Possibilidade de alterar autorização por aluno
-- **Integração com CSV**: Campo email opcional suporta comunicação sobre autorizações
-- **Impacto Visual**: Estados refletidos em tempo real na interface
+## 5. Upload / Captura de imagens
 
-### 5.4 CRUD Completo com Controlo de Acesso
-#### 5.3.1 Gestão de Utilizadores (Admin apenas)
-- **Criar utilizador**: Formulário modal com validação completa
-- **Editar utilizador**: Modificação de nome, email e role
-- **Reset password**: Funcionalidade para administradores resetarem passwords
-- **Gerir roles**: Alteração de permissões (none/viewer/editor/admin)
-- **Validação**: Email único, password strength, roles válidos
+- Upload via API `/upload/photo/<nome_seguro>/<processo>` aceita imagem em base64.
+- Upload manual via formulário com verificação de extensão.
+- Processamento: crop central + geração de thumbnail 250x250.
 
-#### 5.3.2 Gestão de Turmas (Admin apenas)
-- **Criar turma**: Formulário modal com validação e sanitização automática
-- **Editar turma**: Renomeação com movimentação automática de fotos
-- **Remover turma**: Remoção em cascata com limpeza completa de arquivos
-- **Validação**: Verificação de nomes únicos e sanitização para filesystem
+## 6. Admin / Redis / Sessões
 
-#### 5.3.3 Gestão de Alunos (Editor+)
-- **Adicionar aluno**: Formulário com processo (apenas números inteiros), nome e número
-- **Validação de Processo**: Sistema rejeita processos não numéricos e já existentes globalmente
-- **Unicidade Global**: Processo único em toda a aplicação (sugestão: NIF, número de estudante)
-- **Editar aluno**: Modificação de dados com validação completa
-- **Renomeação Automática de Arquivos**: Quando o processo é alterado, fotos originais e thumbnails são automaticamente renomeadas
-- **Transferir aluno**: Movimentação entre turmas com fotos (sem conflito de processo)
-- **Remover aluno**: Limpeza completa de dados e arquivos
-- **Remover foto**: Manutenção de flags de estado (`foto_existe`, `foto_tirada`)
+- Painel em `/settings` para listar sessões Redis, limpar sessões inválidas e inspecionar tráfego.
+- Serialização: `msgpack` é tentado; fallback para `pickle` e JSON.
 
-## 6. Interface Responsiva e UX
+## 7. Boas práticas de deployment
 
-### 6.1 Design Mobile-First
-- **Viewport otimizado**: Experiência consistente em dispositivos
-- **Grid responsivo**: Adaptação automática a diferentes ecrãs
-- **Touch-friendly**: Botões adequados para interação táctil
-- **Cursor consistente**: Pointer em todos os elementos interativos
-- **Navegação contextual**: Breadcrumbs e botões de retorno inteligentes
+- Desativar `DEBUG` em produção.
+- Executar com Gunicorn e configurar `NUM_WORKERS` conforme CPUs.
+- Proteger serviços com proxy reverso (nginx) e TLS.
 
-### 6.2 Páginas Principais
+---
 
-#### 6.2.1 Login Completo (`/login`)
-- **Design moderno**: Gradientes e sombras suaves com glassmorphism
-- **Múltiplas ações**: Login, registo, verificação, recuperação de password
-- **Validação client-side**: Feedback imediato com JavaScript
-- **Estados dinâmicos**: Interface adapta conforme ação selecionada
-- **Formulários responsivos**: Campos adaptativos por tipo de ação
-- **Proteção visual**: Indicadores de segurança e campos obrigatórios
-
-#### 6.2.2 Página Inicial (`/`)
-- **Redirecionamento inteligente**: Baseado no role do utilizador
-- **Boas-vindas personalizadas**: Mensagem específica por role
-- **Utilizadores 'none'**: Página explicativa sobre aguardar aprovação
-- **Utilizadores ativos**: Redirecionamento automático para turmas
-
-#### 6.2.3 Listagem de Turmas (`/turmas`)
-- **Cards interativos**: Efeitos hover e animações
-- **Estatísticas visuais**: Total de alunos e fotos por turma
-- **Ações contextuais**: Editar e remover turmas (admin apenas)
-- **Status visual**: Indicador de turmas completas
-- **Modal para nova turma**: Criação rápida via popup (admin apenas)
-- **Controlo de acesso**: Interface adapta conforme permissões do utilizador
-
-### 6.2.4 Gestão da Turma (`/turma/<nome_seguro>`)
-- **Grid adaptativo**: Layout responsivo para alunos
-- **Estatísticas detalhadas**: Contagem de fotos e progresso
-- **Cartões de aluno**: Com thumbnail e ações CRUD conforme permissões
-- **Drag & Drop de imagem**: Arraste um ficheiro JPG/PNG para o cartão do aluno para abrir automaticamente o modal de upload manual, com os dados do aluno preenchidos e o ficheiro já selecionado, pronto para envio
-- **Destaque visual**: Cartão do aluno recebe destaque visual ao arrastar ficheiro (CSS `.student-card.dragover` em `styles.css`)
-- **Dropdown de download**: Opções ZIP e DOCX
-- **Ações por aluno**: Editar, transferir, remover, remover foto (baseado em role)
-- **Suporte completo**: Todos os alunos aparecem (com/sem foto)
-- **Captura de fotos**: Botão direto para interface de captura (editor+)
-
-#### 6.2.5 Configurações (`/settings`)
-- **Interface administrativa**: Separação clara entre upload CSV e gestão de utilizadores
-- **Upload flexível**: CSV com substituição ou merge (admin apenas)
-- **Gestão de utilizadores**: Interface completa para administração de contas
-- **Tabela de utilizadores**: Vista detalhada com roles, status e ações
+Se quiser, posso adicionar diagramas (ERD), exemplos de `docker-compose.yml` ou um resumo das rotas API mais relevantes.
 - **Modais CRUD**: Criar, editar, reset password para utilizadores
 - **Limpeza de dados**: Função nuke com senha de administrador
 - **Estados adaptativos**: Interface baseada na existência de dados e permissões

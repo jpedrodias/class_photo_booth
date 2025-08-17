@@ -39,131 +39,38 @@ Sistema Completo de Gestão de Fotografias Escolares
   └─ 🔒 Controlo granular de acesso por funcionalidade
 
   �🏠 GESTÃO DE TURMAS (Admin)
-  ├─ ✅ Criação e edição de turmas com nomes seguros
-  ├─ 📋 Listagem com estatísticas visuais
-  ├─ 🗑️ Eliminação em cascata com limpeza de ficheiros
-  ├─ 📊 Estatísticas: alunos totais vs fotos tiradas
-  ├─ ✨ Indicador visual de turmas completas
-  └─ 🔄 Renomeação automática com movimentação de fotos
+  ## Class Photo Booth
 
-  👥 GESTÃO DE ALUNOS (Editor+)
-  ├─ ➕ Adicionar alunos com processo único global
-  ├─ ✏️ Editar dados com validação completa
-  ├─ 🔄 Transferir alunos entre turmas (com fotos)
-  ├─ 🗑️ Remover alunos com limpeza de ficheiros
-  ├─ 📁 Upload em massa via CSV (substituição/merge)
-  ├─ 🔢 Validação de processo (apenas números únicos)
-  ├─ 🖼️ Remoção individual de fotografias
-  ├─ 🔄 Sincronização automática com base de dados
-  ├─ 📝 Renomeação automática de arquivos ao alterar processo
-  ├─ 🛡️ Gestão robusta de erros com rollback automático
-  └─ 📊 Controlo duplo de estado (foto_existe + foto_tirada)
+  O Class Photo Booth é uma aplicação web para captura, gestão e exportação de fotografias de alunos por turma.
 
-  📸 CAPTURA DE FOTOGRAFIAS (Editor+)
-  ├─ 📷 Interface avançada com múltiplas câmaras
-  ├─ 👀 Pré-visualização em tempo real
-  ├─ 🎯 Captura com clique, ENTER ou toque
-  ├─ 🔄 Recaptura ilimitada até satisfação
-  ├─ 🖼️ Geração automática de thumbnails (250x250px)
-  ├─ 💾 Armazenamento seguro com nomes sanitizados
-  ├─ 📱 Interface otimizada para dispositivos móveis
-  ├─ 🎨 Drag & Drop direto no cartão do aluno
-  └─ 🔄 Atualização dinâmica de contadores e estado
+  Este repositório contém o código-fonte, templates e scripts necessários para executar a aplicação em ambiente de desenvolvimento ou produção.
 
-  📥 DOWNLOADS MÚLTIPLOS (Viewer+)
-  ├─ 📦 ZIP Fotos Originais (alta resolução por turma)
-  ├─ 🖼️ ZIP Thumbnails (otimizado, tamanho reduzido)
-  ├─ 📄 Documento DOCX profissional por turma
-  ├─ 💾 Download individual por aluno
-  └─ 🚀 Geração dinâmica com nomes de ficheiro seguros
+  ## Sumário (rápido)
 
-  📝 GERAÇÃO DE DOCUMENTOS WORD
-  ├─ 📄 Templates DOCX editáveis e profissionais
-  ├─ 🖼️ Inserção automática de fotos redimensionadas
-  ├─ 📊 Layout em tabelas organizadas com formatação
-  ├─ 🎨 Formatação automática com estilos consistentes
-  ├─ 📏 Redimensionamento inteligente de imagens
-  └─ 🖼️ Uso de thumbnails para performance otimizada
+  - Visão geral e funcionalidades: gerenciamento de turmas, alunos, captura de fotos, geração de DOCX e downloads em ZIP.
+  - Autenticação completa com verificação por email, recuperação de password e roles (none, viewer, editor, admin).
+  - Sessões em Redis, suporte PWA, processamento de imagem com OpenCV/Pillow.
 
-  📱 INTERFACE RESPONSIVA E UX
-  ├─ 💻 Layout desktop otimizado
-  ├─ 📱 Interface mobile-first touch-friendly
-  ├─ 🎛️ Barras de ação contextuais por role
-  ├─ 📋 Modais para todas as operações CRUD
-  ├─ 🎨 Feedback visual em tempo real
-  ├─ ♿ Acessibilidade e usabilidade otimizada
-  ├─ 🌈 Design glassmorphism moderno
-  ├─ 🎯 Navegação contextual inteligente
-  ├─ 🎨 Destaque visual durante drag-and-drop
-  ├─ 📊 Barras de progresso com estatísticas dinâmicas
-  └─ 🔄 Scroll preservation entre operações
+  Para instruções de instalação e deploy consulte `INSTALL.md`. Para a especificação técnica complète e arquitetura consulte `SPECIFICATIONS.md`.
 
-  ⚙️  CONFIGURAÇÕES E ADMINISTRAÇÃO (Admin)
-  ├─ 🔧 Painel de configurações centralizadas
-  ├─ � Gestão completa de utilizadores e roles
-  ├─ 📁 Upload CSV com validação avançada
-  ├─ 🔄 Reset completo (nuke) de dados e ficheiros
-  ├─ 📊 Estatísticas globais do sistema
-  ├─ 📧 Configuração de email para autenticação
-  └─ 🛡️ Gestão de segurança e IPs banidos
+  ---
 
-  📧 SISTEMA DE EMAIL INTEGRADO
-  ├─ 📨 Templates HTML responsivos personalizados
-  ├─ ✅ Verificação de email no registo
-  ├─ 🔑 Recuperação de password com códigos seguros
-  ├─ 🎨 Design consistente com branding da aplicação
-  ├─ ⏰ Códigos com expiração automática (24h)
-  ├─ 🔧 Configuração flexível de servidores SMTP
-  └─ ❌ Gestão de erros com fallback apropriado
+  ## Principais funcionalidades
 
-  🐳 DEPLOYMENT PROFISSIONAL
-  ├─ 🐳 Containerização Docker completa
-  ├─ 📂 Mapeamento de volumes para persistência
-  ├─ 🔧 Variáveis de ambiente configuráveis
-  ├─ 👤 UID/GID dinâmico para permissões
-  ├─ 🚀 Deploy produção-ready
-  ├─ 📋 Logs e monitorização avançada
-  ├─ 🔄 Scripts de inicialização automatizados
-  ├─ 💾 Base de dados SQLite com SQLAlchemy ORM
-  ├─ 🔧 Configuração flexível dev/prod
-  └─ 🛡️ Gestão segura de permissões e volumes
+  - Autenticação e verificação por email
+  - Gestão de utilizadores com roles e permissões
+  - CRUD de turmas e alunos, importação via CSV (replace/merge)
+  - Captura de fotos com suporte a múltiplas câmaras e geração de thumbnails
+  - Downloads por turma: ZIP (originais/thumbs) e DOCX com layout profissional
+  - Painel administrativo com monitorização de sessões Redis e gestão de utilizadores
 
-  📋 ESPECIFICAÇÕES TÉCNICAS
+  ## Contribuições
 
-  Backend:      Python 3.12 + Flask + SQLAlchemy + Flask-Mail
-  Frontend:     HTML5 + CSS3 + Bootstrap 5 + JavaScript ES6+
-  Base Dados:   SQLite com ORM e modelos relacionais avançados
-  Autenticação: Sistema completo com roles e anti-brute force
-  Email:        Flask-Mail com templates HTML responsivos
-  Imagens:      OpenCV + Pillow (PIL) + processamento avançado
-  Documentos:   python-docx com templates profissionais
-  Segurança:    Werkzeug Security + validação + sanitização
-  Deploy:       Docker + docker-compose + UID/GID dinâmico
+  Contribuições são bem-vindas. Use issues e pull requests. Consulte `SPECIFICATIONS.md` para detalhes técnicos.
 
-  🎯 CASOS DE USO
+  ## Licença e Contacto
 
-  🏫 Escolas:         Sistema completo com controlo de acesso multi-utilizador
-  👨‍🏫 Professores:     Captura e visualização com permissões granulares
-  👤 Editores:        Gestão de alunos e captura de fotografias
-  🔧 Administradores: Controlo total de utilizadores, turmas e sistema
-  📸 Fotógrafos:      Interface profissional para sessões organizadas
-  🏢 Organizações:    Documentação digital com roles e auditoria
-  📋 Secretarias:     Relatórios profissionais e gestão administrativa
-  🛡️ IT/Segurança:    Sistema robusto com autenticação e logging completo
-
-💡 Class Photo Booth - Solução empresarial completa para fotografias escolares
-🔐 Multi-user • 📱 Mobile-ready • 🚀 Production-ready • 🛡️ Enterprise-grade
-
-
-## 🚀 Instalação e Configuração
-
-### 📋 **Pré-requisitos**
-- Docker & Docker Compose
-- Arquivo `.env` configurado (veja exemplo abaixo)
-
-### ⚙️ **Configuração do .env**
-```env
-# Configurações da aplicação
+  Projeto licenciado sob MIT. Para questões: jpedrodias@gmail.com
 FLASKAPP_NAME=class-photo-booth
 FLASKAPP_FILE=app.py
 FLASKAPP_PORT=80
@@ -207,7 +114,7 @@ docker-compose up -d
 
 ## 📚 Documentação Completa
 
-Para documentação técnica detalhada, consulte o arquivo [`SPECIFICATION.md`](SPECIFICATION.md) que inclui:
+Para documentação técnica detalhada, consulte o arquivo [`SPECIFICATIONS.md`](SPECIFICATIONS.md) que inclui:
 - Arquitetura completa do sistema
 - Modelos de base de dados
 - Fluxos de utilizador
@@ -233,7 +140,7 @@ Este projeto está licenciado sob a [MIT License](LICENSE) - veja o arquivo LICE
 Para dúvidas, sugestões ou problemas:
 - 📧 Email: jpedrodias@gmail.com
 - 🐛 Issues: [GitHub Issues](https://github.com/jpedrodias/class_photo_booth/issues)
-- 📖 Documentação: [SPECIFICATION.md](SPECIFICATION.md)
+- 📖 Documentação: [SPECIFICATIONS.md](SPECIFICATIONS.md)
 
 ---
 
