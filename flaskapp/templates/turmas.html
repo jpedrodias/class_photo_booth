@@ -599,7 +599,7 @@
             
             filterList.innerHTML = '';
             
-            // Criar container de grade para organizar switches em colunas
+            // Criar container de grade para organizar chips em colunas
             const gridContainer = document.createElement('div');
             gridContainer.className = 'row g-2';
             
@@ -608,22 +608,24 @@
                 const turmaNome = item.dataset.turmaNome;
                 const isChecked = turmaFilterState.visibleTurmas.has(turmaId);
                 
-                // Criar coluna responsiva para cada switch
+                // Criar coluna responsiva para cada chip
                 const colDiv = document.createElement('div');
-                colDiv.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+                colDiv.className = 'col-6 col-sm-4 col-md-3 col-lg-2';
                 
-                const switchHtml = `
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="turma-${turmaId}" 
+                const chipHtml = `
+                    <label class="turma-filter-chip ${isChecked ? 'selected' : ''}" for="turma-${turmaId}">
+                        <input type="checkbox" id="turma-${turmaId}" 
                                ${isChecked ? 'checked' : ''} 
-                               onchange="toggleTurmaVisibility('${turmaId}')">
-                        <label class="form-check-label fw-medium" for="turma-${turmaId}">
-                            ${turmaNome}
-                        </label>
-                    </div>
+                               onchange="toggleTurmaVisibility('${turmaId}')"
+                               style="display: none;">
+                        <span class="chip-icon">
+                            <i class="bi ${isChecked ? 'bi-check-circle-fill' : 'bi-circle'}"></i>
+                        </span>
+                        <span class="chip-text">${turmaNome}</span>
+                    </label>
                 `;
                 
-                colDiv.innerHTML = switchHtml;
+                colDiv.innerHTML = chipHtml;
                 gridContainer.appendChild(colDiv);
             });
             
@@ -727,10 +729,19 @@
         
         // Toggle visibilidade de uma turma específica
         function toggleTurmaVisibility(turmaId) {
+            const chip = document.querySelector(`label[for="turma-${turmaId}"]`);
+            const icon = chip.querySelector('.chip-icon i');
+            
             if (turmaFilterState.visibleTurmas.has(turmaId)) {
                 turmaFilterState.visibleTurmas.delete(turmaId);
+                // Atualizar visual do chip
+                chip.classList.remove('selected');
+                icon.className = 'bi bi-circle';
             } else {
                 turmaFilterState.visibleTurmas.add(turmaId);
+                // Atualizar visual do chip
+                chip.classList.add('selected');
+                icon.className = 'bi bi-check-circle-fill';
             }
             
             // Se todas estão selecionadas, ativar showAll
@@ -753,6 +764,16 @@
                 turmaFilterState.visibleTurmas.add(item.dataset.turmaId);
             });
             turmaFilterState.showAll = true;
+            
+            // Atualizar visual de todos os chips
+            document.querySelectorAll('.turma-filter-chip').forEach(chip => {
+                chip.classList.add('selected');
+                const icon = chip.querySelector('.chip-icon i');
+                icon.className = 'bi bi-check-circle-fill';
+                const checkbox = chip.querySelector('input[type="checkbox"]');
+                checkbox.checked = true;
+            });
+            
             applyFilters();
             saveTurmaFilters();
         }
@@ -761,6 +782,16 @@
         function deselectAllTurmas() {
             turmaFilterState.visibleTurmas = new Set();
             turmaFilterState.showAll = false;
+            
+            // Atualizar visual de todos os chips
+            document.querySelectorAll('.turma-filter-chip').forEach(chip => {
+                chip.classList.remove('selected');
+                const icon = chip.querySelector('.chip-icon i');
+                icon.className = 'bi bi-circle';
+                const checkbox = chip.querySelector('input[type="checkbox"]');
+                checkbox.checked = false;
+            });
+            
             applyFilters();
             saveTurmaFilters();
         }
