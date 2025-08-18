@@ -2760,7 +2760,7 @@ def user_management(user_id=None):
             
             # Verificar se deve notificar o utilizador
             notify_user = request.form.get('notify_user') == 'on' or request.form.get('notify_user') == 'true'
-            
+
             # Validações básicas
             if not user.name or not user.email:
                 flash('Nome e email são obrigatórios.', 'error')
@@ -2776,7 +2776,6 @@ def user_management(user_id=None):
             
             # Enviar email de notificação se solicitado
             email_sent = True  # Assume sucesso por defeito
-            print(email_sent)
             
             if notify_user:
                 try:
