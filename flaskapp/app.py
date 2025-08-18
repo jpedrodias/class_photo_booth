@@ -2777,27 +2777,27 @@ def user_management(user_id=None):
             # Enviar email de notificação se solicitado
             email_sent = True  # Assume sucesso por defeito
             if notify_user:
-                try:
+                #try:
                     # Renderizar template HTML para o corpo do email
-                    html_body = render_template('template_email_account_updated.html', user_name=user.name)
-                    
-                    msg = Message(
-                        subject='Conta Atualizada - Class Photo Booth',
-                        sender=app.config.get('MAIL_DEFAULT_SENDER'),
-                        recipients=[user.email],
-                        html=html_body
-                    )
-                    
-                    # Tentar enviar email
-                    mail.send(msg)
-                    print(f"Email de notificação de conta atualizada enviado com sucesso para: {user.email}")
-                    email_sent = True
-                    
+                html_body = render_template('template_email_account_updated.html', user_name=user.name)
+                
+                msg = Message(
+                    subject='Conta Atualizada - Class Photo Booth',
+                    sender=app.config.get('MAIL_DEFAULT_SENDER'),
+                    recipients=[user.email],
+                    html=html_body
+                )
+                
+                # Tentar enviar email
+                mail.send(msg)
+                print(f"Email de notificação de conta atualizada enviado com sucesso para: {user.email}")
+                email_sent = True
+                """    
                 except Exception as e:
                     print(f"Erro ao enviar email de notificação para {user.email}: {e}")
                     print(f"Traceback completo: {traceback.format_exc()}")
                     email_sent = False
-            
+            """
             # Mensagem de sucesso baseada no envio do email
             if notify_user and email_sent:
                 flash(f'Utilizador {user.name} atualizado com sucesso. Email de notificação enviado.', 'success')
