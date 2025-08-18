@@ -2758,6 +2758,9 @@ def user_management(user_id=None):
             user.email = request.form.get('email', '').strip()
             user.role = request.form.get('role', 'none')
             
+            # Verificar se deve notificar o utilizador
+            notify_user = request.form.get('notify_user') == 'on'
+            
             # Validações básicas
             if not user.name or not user.email:
                 flash('Nome e email são obrigatórios.', 'error')
@@ -2770,7 +2773,39 @@ def user_management(user_id=None):
                 return redirect(url_for('settings'))
             
             db.session.commit()
-            flash(f'Utilizador {user.name} atualizado com sucesso.', 'success')
+            
+            # Enviar email de notificação se solicitado
+            email_sent = True  # Assume sucesso por defeito
+            if notify_user:
+                try:
+                    # Renderizar template HTML para o corpo do email
+                    html_body = render_template('template_email_account_updated.html', user_name=user.name)
+                    
+                    msg = Message(
+                        subject='Conta Atualizada - Class Photo Booth',
+                        sender=app.config.get('MAIL_DEFAULT_SENDER'),
+                        recipients=[user.email],
+                        html=html_body
+                    )
+                    
+                    # Tentar enviar email
+                    mail.send(msg)
+                    print(f"Email de notificação de conta atualizada enviado com sucesso para: {user.email}")
+                    email_sent = True
+                    
+                except Exception as e:
+                    print(f"Erro ao enviar email de notificação para {user.email}: {e}")
+                    print(f"Traceback completo: {traceback.format_exc()}")
+                    email_sent = False
+            
+            # Mensagem de sucesso baseada no envio do email
+            if notify_user and email_sent:
+                flash(f'Utilizador {user.name} atualizado com sucesso. Email de notificação enviado.', 'success')
+            elif notify_user and not email_sent:
+                flash(f'Utilizador {user.name} atualizado com sucesso, mas não foi possível enviar o email de notificação.', 'warning')
+            else:
+                flash(f'Utilizador {user.name} atualizado com sucesso.', 'success')
+            
             return redirect(url_for('settings'))
             
         except Exception as e:
