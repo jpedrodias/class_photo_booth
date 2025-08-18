@@ -378,16 +378,6 @@
         </div>
         {% endif %}
 
-
-
-
-
-
-
-
-
-
-
         <!-- Modais para Edição e Eliminação de Utilizadores -->
         {% for user in users %}
         <!-- Modal de Edição -->
@@ -844,60 +834,6 @@
         </div>
         
 
-        <!-- Modais de Edição -->
-        {% for user in users %}
-        <div class="modal fade" id="editModal{{ user.id }}" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Editar Utilizador</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <form action="{{ url_for('user_management', user_id=user.id) }}" method="post">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                        <input type="hidden" name="action" value="crud_user_edit">
-                        <div class="modal-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="name{{ user.id }}" class="form-label">Nome</label>
-                                        <input type="text" class="form-control" name="name" id="name{{ user.id }}" value="{{ user.name }}" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label for="email{{ user.id }}" class="form-label">Email</label>
-                                        <input type="email" class="form-control" name="email" id="email{{ user.id }}" value="{{ user.email }}" required>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="role{{ user.id }}" class="form-label">Papel</label>
-                                <select class="form-select" name="role" id="role{{ user.id }}" required>
-                                    <option value="none" {{ 'selected' if user.role == 'none' else '' }}>Sem Permissões</option>
-                                    <option value="viewer" {{ 'selected' if user.role == 'viewer' else '' }}>Visualizador</option>
-                                    <option value="editor" {{ 'selected' if user.role == 'editor' else '' }}>Editor</option>
-                                    <option value="admin" {{ 'selected' if user.role == 'admin' else '' }}>Administrador</option>
-                                </select>
-                                <div class="form-text">
-                                    <small>
-                                        <strong>Sem Permissões:</strong> Não pode aceder a nenhuma funcionalidade<br>
-                                        <strong>Visualizador:</strong> Pode ver turmas e fotos<br>
-                                        <strong>Editor:</strong> Pode tirar fotos e gerir alunos<br>
-                                        <strong>Administrador:</strong> Acesso total ao sistema
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="submit" class="btn btn-primary">Guardar Alterações</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
     </main>
 
 
