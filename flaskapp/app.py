@@ -488,6 +488,34 @@ class BannedIPs(db.Model):
 
 # ========== TOOLS ==========
 
+# returns a String, example 2021 ou 20/21
+def calc_School_Year(day=None, formato='{}{}', formato_size=2):
+    valid_input = False
+    if isinstance(day, type(None)):
+        day = datetime.today()
+    
+    if isinstance(day, str):
+        try:
+            day = datetime.strptime(day, '%Y-%m-%d')
+        except:
+            day = None
+            
+    if not isinstance(day, datetime):
+        raise TypeError('Expected datetime object or string "%Y-%m-%d" ')
+    
+    m = day.month
+    y = day.year
+    if m >= 8:
+        y1, y2 = y, y +1
+    else:
+        y1, y2 = y - 1, y
+    
+    y1 = f'{y1}'[formato_size:]
+    y2 = f'{y2}'[formato_size:]
+    return formato.format(y1, y2)
+#End def calc_School_Year
+
+
 # Funções auxiliares para autenticação e segurança
 def get_current_user():
     """Obtém o utilizador atual da sessão e renova TTL se sliding_expiry=True"""
@@ -716,129 +744,132 @@ def process_image_for_docx(image_path, target_width_cm, target_height_cm):
 
 def create_docx_with_photos(turma_nome):
     """Cria documento DOCX com fotos dos alunos da turma"""
-    try:
-        # Buscar turma na base de dados
-        turma_obj = Turma.query.filter_by(nome=turma_nome).first()
-        if not turma_obj:
-            return None
-        
-        # Caminho do template
-        template_path = os.path.join(BASE_DIR, 'docx_templates', 'template_relacao_alunos_fotos.docx')
-        if not os.path.exists(template_path):
-            return None
-        
-        # Criar documento a partir do template
-        doc = Document(template_path)
-        
-        # Definir propriedades do documento
-        doc.core_properties.author = 'Class Photo Booth by Pedro Dias'
-        doc.core_properties.title = f'Relação de Alunos - {turma_nome}'
-        doc.core_properties.subject = f'Relação de Alunos - {turma_nome}'
-        
-        # Dicionário para substituições
-        current_date = datetime.now().strftime('%d/%m/%Y')
-        dicionario = {
-            'turma': turma_nome,
-            'date': turma_obj.last_updated.strftime('%d/%m/%Y %H:%M:%S'),
-            'professor': turma_obj.nome_professor  # Pode ser personalizado
-        }
-        
-        # Substituir placeholders no template
-        docx_replace(doc, dicionario)
-        
-        # Obter alunos da turma ordenados
-        alunos_ordenados = sorted(
-            turma_obj.alunos, 
-            key=lambda x: (x.numero is None, x.numero if x.numero is not None else 0, x.nome)
-        )
-        
-        # Incluir todos os alunos (com e sem fotos)
-        if not alunos_ordenados:
-            return None
-        
-        # Configurar tabela
-        NUM_PER_ROW = 4
-        table = doc.add_table(rows=0, cols=NUM_PER_ROW)
-        table.style = 'Table Grid'
-        table.width = Cm(20)
-        table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        
-        # Configurar largura das colunas
-        for i in range(NUM_PER_ROW):
-            table.columns[i].alignment = WD_TABLE_ALIGNMENT.CENTER
-            table.columns[i].width = Cm(20/NUM_PER_ROW)
-        
-        # Determinar tamanho das imagens baseado no número total de alunos
-        num_alunos = len(alunos_ordenados)
-        if num_alunos > 28:
-            img_width, img_height = 3.47, 2.6 # 3.6, 2.7
-        else:
-            img_width, img_height = 4, 3
-        
-        # Adicionar fotos dos alunos à tabela
-        for index, aluno in enumerate(alunos_ordenados):
-            # Adicionar nova linha a cada NUM_PER_ROW alunos
-            if index % NUM_PER_ROW == 0:
-                row = table.add_row().cells
-            
-            coluna = index % NUM_PER_ROW
-            
-            # Caminho da thumbnail (imagem otimizada)
-            thumb_path = os.path.join(turma_obj.get_thumb_directory(), f'{aluno.processo}.jpg')
-            placeholder_path = os.path.join(BASE_DIR, 'static', 'student_icon.jpg')
-            
-            # Usar foto do aluno se existir, senão usar placeholder
-            image_path = thumb_path if os.path.exists(thumb_path) else placeholder_path
-            
-            if os.path.exists(image_path):
-                # Adicionar imagem à célula
-                paragraph = row[coluna].paragraphs[0]
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run = paragraph.add_run()
-                
-                try:
-                    # Processar imagem para ajustar dimensões e fazer crop
-                    processed_image = process_image_for_docx(image_path, img_width, img_height)
-                    
-                    if processed_image:
-                        run.add_picture(processed_image, width=Cm(img_width), height=Cm(img_height))
-                    else:
-                        # Fallback: usar imagem original
-                        run.add_picture(image_path, width=Cm(img_width), height=Cm(img_height))
-                    
-                    run.add_break()
-                    
-                    # Adicionar texto com número e nome formatado
-                    numero_display = aluno.numero if aluno.numero else index + 1
-                    text = f'{numero_display} {aluno.nome}'
-                    text_size = 12 if len(text) < 24 else 10
-                    text_run = paragraph.add_run(text)
-                    # Aplicar formatação Times New Roman 16pt
-                    text_run.font.name = 'Times New Roman'
-                    text_run.font.size = Pt(text_size)
-                except Exception as e:
-                    # Se houver erro ao adicionar imagem, adicionar apenas o texto
-                    numero_display = aluno.numero if aluno.numero else index + 1
-                    text = f'{numero_display} {aluno.nome}'
-                    text_size = 12 if len(text) < 24 else 10
-                    text_run = paragraph.add_run(text)
-                    # Aplicar formatação Times New Roman 16pt
-                    text_run.font.name = 'Times New Roman'
-                    text_run.font.size = Pt(text_size)
-                    print(f"Erro ao adicionar imagem para {aluno.nome}: {e}")
-        
-        table.alignment = WD_TABLE_ALIGNMENT.CENTER
-        
-        # Salvar documento na memória
-        memory_file = BytesIO()
-        doc.save(memory_file)
-        memory_file.seek(0)
-        
-        return memory_file
-        
-    except Exception as e:
-        print(f"Erro ao criar documento DOCX: {e}")
+    
+    DEFAULT_FONT = 'Calibri Light' # Definindo a fonte padrão como uma constante
+    # Buscar turma na base de dados
+    turma_obj = Turma.query.filter_by(nome=turma_nome).first()
+    if not turma_obj:
         return None
+    
+    # Caminho do template
+    template_path = os.path.join(BASE_DIR, 'templates', 'template_relacao_alunos_fotos.docx')
+    if not os.path.exists(template_path):
+        return None
+    
+    # Criar documento a partir do template
+    doc = Document(template_path)
+    
+    # Definir propriedades do documento
+    doc.core_properties.author = 'Class Photo Booth by Pedro Dias'
+    doc.core_properties.title = f'Relação de Alunos - {turma_nome}'
+    doc.core_properties.subject = f'Relação de Alunos - {turma_nome}'
+    
+    # Dicionário para substituições
+    current_date = datetime.now().strftime('%d/%m/%Y')
+    
+    dicionario = {
+        'turma': turma_nome,
+        'ano_letivo': calc_School_Year(turma_obj.last_updated.strftime('%Y-%m-%d'), '{}/{}'),
+        'date': turma_obj.last_updated.strftime('%d/%m/%Y %Hh%M'),
+        'professor': turma_obj.nome_professor  # Pode ser personalizado
+    }
+    
+    # Substituir placeholders no template
+    docx_replace(doc, dicionario)
+    
+    # Obter alunos da turma ordenados
+    alunos_ordenados = sorted(
+        turma_obj.alunos, 
+        key=lambda x: (x.numero is None, x.numero if x.numero is not None else 0, x.nome)
+    )
+    
+    # Incluir todos os alunos (com e sem fotos)
+    if not alunos_ordenados:
+        return None
+    
+    # Configurar tabela
+    NUM_PER_ROW = 4
+    table = doc.add_table(rows=0, cols=NUM_PER_ROW)
+    table.style = 'Table Grid'
+    table.width = Cm(20)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Configurar largura das colunas
+    for i in range(NUM_PER_ROW):
+        table.columns[i].alignment = WD_TABLE_ALIGNMENT.CENTER
+        table.columns[i].width = Cm(20/NUM_PER_ROW)
+    
+    # Determinar tamanho das imagens baseado no número total de alunos
+    num_alunos = len(alunos_ordenados)
+    if num_alunos > 28:
+        img_width, img_height = 3.47, 2.6 # 3.6, 2.7
+    else:
+        img_width, img_height = 4, 3
+    
+    # Adicionar fotos dos alunos à tabela
+    for index, aluno in enumerate(alunos_ordenados):
+        # Adicionar nova linha a cada NUM_PER_ROW alunos
+        if index % NUM_PER_ROW == 0:
+            row = table.add_row().cells
+        
+        coluna = index % NUM_PER_ROW
+        
+        # Caminho da thumbnail (imagem otimizada)
+        thumb_path = os.path.join(turma_obj.get_thumb_directory(), f'{aluno.processo}.jpg')
+        placeholder_path = os.path.join(BASE_DIR, 'static', 'student_icon.jpg')
+        
+        # Usar foto do aluno se existir, senão usar placeholder
+        image_path = thumb_path if os.path.exists(thumb_path) else placeholder_path
+        
+        if os.path.exists(image_path):
+            # Adicionar imagem à célula
+            paragraph = row[coluna].paragraphs[0]
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = paragraph.add_run()
+            
+            try:
+                # Processar imagem para ajustar dimensões e fazer crop
+                processed_image = process_image_for_docx(image_path, img_width, img_height)
+                
+                if processed_image:
+                    run.add_picture(processed_image, width=Cm(img_width), height=Cm(img_height))
+                else:
+                    # Fallback: usar imagem original
+                    run.add_picture(image_path, width=Cm(img_width), height=Cm(img_height))
+                
+                run.add_break()
+                
+                # Adicionar texto com número e nome formatado
+                numero_display = aluno.numero if aluno.numero else index + 1
+                text = f'{numero_display} {aluno.nome}'
+                text_size = 12 if len(text) < 24 else 10
+                text_run = paragraph.add_run(text)
+                # Aplicar formatação Times New Roman 16pt
+                text_run.font.name = DEFAULT_FONT 
+                text_run.font.size = Pt(text_size)
+            except Exception as e:
+                # Se houver erro ao adicionar imagem, adicionar apenas o texto
+                numero_display = aluno.numero if aluno.numero else index + 1
+                text = f'{numero_display} {aluno.nome}'
+                text_size = 12 if len(text) < 24 else 10
+                text_run = paragraph.add_run(text)
+                # Aplicar formatação Times New Roman 16pt
+                text_run.font.name = DEFAULT_FONT 
+                text_run.font.size = Pt(text_size)
+                print(f"Erro ao adicionar imagem para {aluno.nome}: {e}")
+    
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Salvar documento na memória
+    memory_file = BytesIO()
+    doc.save(memory_file)
+    memory_file.seek(0)
+    
+    return memory_file
+        
+    #except Exception as e:
+    #    print(f"Erro ao criar documento DOCX: {e}")
+    #    return None
 # End def create_docx_with_photos
 
 
