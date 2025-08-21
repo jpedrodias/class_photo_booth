@@ -986,5 +986,100 @@
             });
         });
     </script>
+
+    <script>
+    /**
+    * Controla o comportamento do botão "Voltar" no ecrã /turmas:
+    *  - 1º back → mostra aviso e bloqueia saída
+    *  - 2º back (≤2s) → permite sair (fecha PWA ou volta atrás)
+    */
+
+    let lastBackTime = 0;
+    let isArming = false;
+
+    /**
+    * Mostra uma notificação (toast) simples no ecrã
+    */
+    function showToast(message) {
+    let toast = document.getElementById('backToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'backToast';
+        toast.style.cssText = `
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.85);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 9999;
+        `;
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    setTimeout(() => {
+        toast.style.opacity = '0';
+    }, 1400);
+    }
+
+    /**
+    * Adiciona uma entrada falsa ao histórico para capturar o botão "Voltar"
+    */
+    function armHistoryTrap() {
+    history.pushState({ trap: true }, document.title, location.href);
+    }
+
+    /**
+    * Lida com o evento de retrocesso (popstate)
+    */
+    function handlePopState() {
+    if (isArming) return;
+
+    const now = Date.now();
+    const isSecondBack = now - lastBackTime < 2000;
+
+    if (isSecondBack) {
+        // Segunda vez → permite o comportamento normal do browser
+        return;
+    }
+
+    // Primeira vez → intercepta, mostra aviso e reconfigura histórico
+    lastBackTime = now;
+    isArming = true;
+    armHistoryTrap();
+    isArming = false;
+    showToast('Prima voltar novamente para sair');
+    }
+
+    /**
+    * Remove o listener ao sair da página
+    */
+    function cleanupBackButtonHandler() {
+    window.removeEventListener('popstate', handlePopState);
+    }
+
+    /**
+    * Inicializa o comportamento no ecrã /turmas
+    */
+    function init() {
+    const isOnTurmas = location.pathname.includes('/turmas');
+    if (!isOnTurmas) return;
+
+    // Arma o histórico e adiciona listener
+    armHistoryTrap();
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('beforeunload', cleanupBackButtonHandler);
+    }
+
+    // Inicializa no carregamento da página
+    window.addEventListener('load', init);
+    </script>
+
 </body>
 </html>
