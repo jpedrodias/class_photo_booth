@@ -986,5 +986,122 @@
             });
         });
     </script>
+
+<script>
+/**
+ * Controla o comportamento do botão "Voltar" no ecrã /turmas:
+ *  - 1º back → mostra aviso e bloqueia saída
+ *  - 2º back (≤2s) → permite sair (fecha PWA ou volta atrás)
+ */
+
+let lastBackTime = 0;
+let isArming = false;
+
+/**
+ * Mostra uma notificação (toast) simples no ecrã
+ */
+function showToast(message) {
+  console.log('[showToast] Mostrar toast:', message);
+
+  let toast = document.getElementById('backToast');
+  if (!toast) {
+    console.log('[showToast] Criar novo elemento toast');
+    toast = document.createElement('div');
+    toast.id = 'backToast';
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 9999;
+    `;
+    document.body.appendChild(toast);
+  }
+
+  toast.textContent = message;
+  toast.style.opacity = '1';
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+  }, 1400);
+}
+
+/**
+ * Adiciona uma entrada falsa ao histórico para capturar o botão "Voltar"
+ */
+function armHistoryTrap() {
+  console.log('[armHistoryTrap] A adicionar estado ao histórico');
+  history.pushState({ trap: true }, document.title, location.href);
+}
+
+/**
+ * Lida com o evento de retrocesso (popstate)
+ */
+function handlePopState(event) {
+  console.log('[handlePopState] Disparado!', event);
+
+  if (isArming) {
+    console.log('[handlePopState] Ignorado — está a armar');
+    return;
+  }
+
+  const now = Date.now();
+  const isSecondBack = now - lastBackTime < 2000;
+
+  if (isSecondBack) {
+    console.log('[handlePopState] Segunda vez: permitir voltar');
+    return; // Deixa o comportamento normal
+  }
+
+  console.log('[handlePopState] Primeira vez: interceptar');
+  lastBackTime = now;
+  isArming = true;
+  armHistoryTrap();
+  isArming = false;
+  showToast('Prima voltar novamente para sair');
+}
+
+/**
+ * Remove o listener ao sair da página
+ */
+function cleanupBackButtonHandler() {
+  console.log('[cleanupBackButtonHandler] A remover listener');
+  window.removeEventListener('popstate', handlePopState);
+}
+
+/**
+ * Inicializa o comportamento no ecrã /turmas
+ */
+function init() {
+  console.log('[init] A iniciar… path atual:', location.pathname);
+
+  const isOnTurmas = location.pathname.includes('/turmas');
+  console.log('[init] Está no ecrã /turmas?', isOnTurmas);
+
+  if (!isOnTurmas) {
+    console.log('[init] Não estamos em /turmas. Script não ativa.');
+    return;
+  }
+
+  console.log('[init] Ativar captura de botão voltar');
+  armHistoryTrap();
+  window.addEventListener('popstate', handlePopState);
+  window.addEventListener('beforeunload', cleanupBackButtonHandler);
+
+  console.log('[init] Script de back button configurado');
+}
+
+// Inicializa no carregamento da página
+window.addEventListener('load', init);
+</script>
+
+
 </body>
 </html>
