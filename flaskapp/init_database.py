@@ -21,7 +21,12 @@ if __name__ == '__main__':
         admin.role = 'admin'
         admin.is_active = True
         
-        db.session.add(admin)
-        db.session.commit()
+        try:
+            db.session.add(admin)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Erro ao criar utilizador administrador: {e}")
+
 
     print("Utilizador administrador criado com sucesso!")
