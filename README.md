@@ -139,7 +139,7 @@ Este projeto está licenciado sob a [MIT License](LICENSE) - veja o arquivo LICE
 ## 📞 Suporte
 
 Para dúvidas, sugestões ou problemas:
-- 📧 Email: jpedrodias@gmail.com
+- 📧 Email: 
 - 🐛 Issues: [GitHub Issues](https://github.com/jpedrodias/class_photo_booth/issues)
 - 📖 Documentação: [SPECIFICATIONS.md](SPECIFICATIONS.md)
 
