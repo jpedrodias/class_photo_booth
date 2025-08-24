@@ -27,7 +27,7 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 👥 Sistema de roles (none/viewer/editor/admin)
   ├─ 🛡️ Bloqueio automático de IPs suspeitos
   ├─ 📊 Auditoria completa de acessos
-  └─ ⚡ Primeiro utilizador promovido automaticamente a admin
+  └─ 👤 Utilizador 'admin@example.com' criado por defeito
 
   👤 GESTÃO AVANÇADA DE UTILIZADORES
   ├─ ➕ Criação de contas com validação de email
@@ -107,10 +107,11 @@ docker-compose up -d
 
 ### 🔧 **Primeiro Acesso**
 1. Aceder à aplicação no navegador
-2. Criar primeira conta (será automaticamente admin)
-3. Configurar email de verificação
-4. Importar dados via CSV (opcional)
-5. Começar a usar!
+2. Fazer login com o utilizador `admin@example.com` e a password `ChangeMe1#`
+3. Alterar a password do utilizador administrador
+4. Configurar email de verificação
+5. Importar dados via CSV (opcional)
+6. Começar a usar!
 
 ## 📚 Documentação Completa
 

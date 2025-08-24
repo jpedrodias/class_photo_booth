@@ -1,4 +1,3 @@
-
 # INSTALL.md – Guia de Instalação e Deploy
 
 Este ficheiro descreve como instalar, configurar e executar a aplicação Class Photo Booth, sobretudo usando Docker Compose (modo recomendado).
@@ -55,6 +54,14 @@ Para executar em background:
 docker compose up -d
 ```
 
+## Inicialização da Base de Dados
+
+Após iniciar os contentores pela primeira vez, execute o seguinte comando para criar a base de dados e o utilizador administrador:
+
+```powershell
+docker exec -it flaskapp /bin/bash -c "python ./init_database.py"
+```
+
 Parar os serviços:
 
 ```powershell
@@ -74,7 +81,7 @@ Escolha `-w <NUM_WORKERS>` com base no número de CPUs disponíveis.
 
 ## Verificações básicas após iniciar
 
-- Criar a primeira conta (será promovida a admin automaticamente)
+- Aceder com o utilizador 'admin@example.com' e password 'ChangeMe1#'.
 - Confirmar envio de emails de verificação (se SMTP configurado)
 - Importar CSV de teste e verificar uploads/renomeações de fotos
 - Conferir painel Redis em `/settings` para sessões e estatísticas

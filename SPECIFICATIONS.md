@@ -1,4 +1,4 @@
-# � Alterações Recentes (v5.0)
+#  Alterações Recentes (v5.0)
 
 - **Sessões Flask migradas para Redis (RAM-only)**: Utiliza Flask-Session com backend Redis, configurado para não persistir dados em disco (apenas memória).
 - **Serialização das sessões com msgpack**: Maior compatibilidade e performance.
@@ -12,7 +12,7 @@
 
 - **Funcionalidade PWA (Progressive Web App)**: Todas as páginas principais podem ser adicionadas à tela principal do telemóvel, exibindo ícone personalizado e nome, proporcionando experiência mobile otimizada.
 
-# �📸 Especificação Técnica Completa – Class Photo Booth v5.0
+# 📸 Especificação Técnica Completa – Class Photo Booth v5.0
 
 ## 1. Introdução
 
@@ -128,51 +128,13 @@ O sistema destina-se a:
 - **Recuperação de password**: Sistema de reset via email com códigos temporários
 - **Gestão de sessões**: Controlo de duração baseado em "remember me"
 - **Logout seguro**: Limpeza completa da sessão
-- **Primeiro utilizador**: Automaticamente promovido a administrador
-Gerir alunos (CRUD)         |  ❌  |   ❌   |   ✅   |   ✅  |
-Gerir turmas (CRUD)         |  ❌  |   ❌   |   ❌   |   ✅  |
-# Especificações Técnicas — Class Photo Booth v5.0
-
-Este documento serve como referência técnica. Contém a arquitetura, modelos de dados, permissões e fluxos principais.
-
-Sumário rápido:
-
-- Arquitetura: Flask + SQLAlchemy + Redis (sessions) + Docker
-- Modelos: User, PreUser, LoginLog, BannedIPs, Turma, Aluno
-- Autenticação: email verification, password reset, roles (none/viewer/editor/admin)
-- Upload CSV: modos replace/merge, validação de processos (únicos e numéricos)
-- Downloads: ZIP (originais/thumbs) e DOCX gerados dinamicamente
-
-Para guias de instalação e deployment veja `INSTALL.md`.
-
-## 1. Arquitetura geral
-
-- Backend: Python 3.12, Flask
-- ORM: SQLAlchemy (compatível com SQLite e PostgreSQL)
-- Sessões: Flask-Session com backend Redis (in-memory)
-- Processamento de imagens: OpenCV e Pillow (PIL)
-- Geração de documentos: python-docx
-- Containerização: Docker + Docker Compose
-
-## 2. Modelos de dados (resumo)
-
-- User: id, username (email), password_hash, name, role, is_verified
-- PreUser: email, code, date (codes temporários para verificação/reset)
-- LoginLog: date, success, remote_addr, user_id
-- BannedIPs: remote_addr, date (para anti-brute-force)
-- Turma: id, nome, nome_seguro, nome_professor, email_professor, last_updated
-- Aluno: id, processo (único global), nome, numero, email, autorizacao, foto_existe, foto_tirada, turma_id
-
-Notas:
-
-- `Aluno.processo` é único em toda a aplicação (controle por import/CRUD).
-- `Turma.nome_seguro` é sanitizado para uso em filesystem (criado com secure_filename).
+- **Utilizador 'admin@example.com' criado por defeito**: O sistema cria um utilizador administrador por defeito
 
 ## 3. Autenticação e autorização
 
 - Registo por email com código de 6 caracteres.
 - Recuperação de senha por código.
-- Primeiro utilizador criado é promovido a `admin`.
+- O sistema cria um utilizador 'admin@example.com' por defeito.
 - Hierarquia de roles: none < viewer < editor < admin.
 
 Funções utilitárias presentes no código:
@@ -409,12 +371,8 @@ GID=1000                                     # Group ID (auto-configurado)
 ### 12.1 Primeiro Acesso e Configuração Inicial
 1. **Navegador** → `http://localhost` → Página de login
 2. **Primeiro administrador**:
-   - Clica "Criar nova conta"
-   - Insere email válido → Sistema envia código por email
-   - Recebe email com código de verificação
-   - Completa registo com nome, password segura e código
-   - Sistema atribui automaticamente role "admin"
-   - Login automático → Redirecionamento para `/turmas` (vazia)
+   - Fazer login com o utilizador `admin@example.com` e a password `ChangeMe1#`
+   - Alterar a password do utilizador administrador
 3. **Upload inicial de dados**:
    - Acede a `/settings` → Upload CSV
    - Escolhe modo (substituir/merge) → Importação
