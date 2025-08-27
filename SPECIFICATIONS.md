@@ -1,4 +1,4 @@
-#  Alterações Recentes (v5.0)
+#  Alterações Recentes (v1.1)
 
 - **Sessões Flask migradas para Redis (RAM-only)**: Utiliza Flask-Session com backend Redis, configurado para não persistir dados em disco (apenas memória).
 - **Serialização das sessões com msgpack**: Maior compatibilidade e performance.
@@ -12,7 +12,7 @@
 
 - **Funcionalidade PWA (Progressive Web App)**: Todas as páginas principais podem ser adicionadas à tela principal do telemóvel, exibindo ícone personalizado e nome, proporcionando experiência mobile otimizada.
 
-# 📸 Especificação Técnica Completa – Class Photo Booth v5.0
+# 📸 Especificação Técnica Completa – Class Photo Booth v1.1
 
 ## 1. Introdução
 
@@ -517,7 +517,7 @@ GID=1000                                     # Group ID (auto-configurado)
 
 ---
 
-**Versão do Documento**: 5.0  
+**Versão do Documento**: 1.1  
 **Data de Atualização**: Janeiro 2025  
 **Estado da Implementação**: ✅ 100% Completo
 
