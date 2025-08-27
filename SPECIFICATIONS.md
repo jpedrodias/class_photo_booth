@@ -73,7 +73,7 @@ A aplicação foi desenvolvida para resolver os seguintes desafios:
 Hierarquia de Acesso:
 👑 admin     - Acesso completo ao sistema
 🔧 editor    - + Captura e gestão de alunos/turmas
-👁️  viewer    - + Visualização e download
+👁️ viewer    - + Visualização e download
 🚫 none      - Aguardando aprovação
 ```
 
@@ -403,34 +403,40 @@ BannedIPs {
 
 ### 2.1 Estrutura de Deployment
 ```
-├── docker-compose.yml      # Orquestração de containers
-├── Dockerfile             # Imagem da aplicação
-├── start.sh               # Script de inicialização com UID/GID
+├── .dockerignore          # Arquivos ignorados no Docker build
 ├── .env                   # Configurações de ambiente
-├── .gitignore             # Controlo de versionamento
-└── flaskapp/             # Código da aplicação
-    ├── app.py            # Backend Flask com SQLAlchemy e autenticação
-    ├── config.py         # Configurações da aplicação (Dev/Prod)
-    ├── requirements.txt  # Dependências Python
-    ├── database.sqlite   # Base de dados SQLite
-    ├── session_files/    # Ficheiros de sessão Flask
-    ├── templates/        # Templates HTML
-    │   ├── login.html    # Interface de autenticação completa
-    │   ├── home.html     # Página inicial personalizada por role
-    │   ├── turmas.html   # Listagem de turmas
-    │   ├── turma.html    # Gestão de alunos por turma
-    │   ├── settings.html # Configurações e gestão de utilizadores
-    │   ├── capture_photo.html # Interface de captura
-    │   ├── template_email_send_verification.html # Email de verificação
-    │   └── template_email_send_password_reset.html # Email de recuperação
-    ├── static/          # Assets estáticos
-    │   ├── favicon.ico
-    │   ├── student_icon.jpg
-    │   └── styles.css   # Estilos personalizados
-    ├── docx_templates/  # Templates para documentos Word
-    ├── photos_originals/ # Fotografias originais organizadas por turma
-    ├── photos_thumbs/   # Miniaturas (250x250) organizadas por turma
-    └── zips/            # Arquivos temporários para downloads
+├── docker-compose.yml     # Orquestração de containers
+├── Dockerfile            # Imagem da aplicação
+├── start.sh              # Script de inicialização com UID/GID
+├── .gitignore            # Controlo de versionamento
+├── flaskapp/             # Código da aplicação
+│   ├── app.py            # Backend Flask com SQLAlchemy e autenticação
+│   ├── config.py         # Configurações da aplicação (Dev/Prod)
+│   ├── init_database.py  # Inicialização da base de dados
+│   ├── requirements.txt  # Dependências Python
+│   ├── run.sh            # Script de execução
+│   ├── tasks.py          # Tarefas assíncronas para Redis Queue
+│   ├── worker.py         # Worker para processamento de emails
+│   ├── instance/         # Dados da instância
+│   │   └── database.sqlite # Base de dados SQLite
+│   ├── templates/        # Templates HTML
+│   │   ├── login.html    # Interface de autenticação completa
+│   │   ├── home.html     # Página inicial personalizada por role
+│   │   ├── turmas.html   # Listagem de turmas
+│   │   ├── turma.html    # Gestão de alunos por turma
+│   │   ├── settings.html # Configurações e gestão de utilizadores
+│   │   ├── template_email_send_verification.html # Email de verificação
+│   │   ├── template_email_send_password_reset.html # Email de recuperação
+│   │   └── template_email_account_updated.html # Notificação de conta atualizada
+│   ├── static/           # Assets estáticos
+│   │   ├── favicon.ico
+│   │   ├── favicon.svg
+│   │   ├── manifest.json # PWA manifest
+│   │   ├── student_icon.jpg
+│   │   ├── student_icon.png
+│   │   └── styles.css    # Estilos personalizados
+│   ├── photos_originals/ # Fotografias originais organizadas por turma
+│   └── photos_thumbs/    # Miniaturas (250x250) organizadas por turma
 ```
 
 ### 2.2 Base de Dados
@@ -464,17 +470,10 @@ BannedIPs {
 - **Logout seguro**: Limpeza completa da sessão
 - **Utilizador 'admin@example.com' criado por defeito**: O sistema cria um utilizador administrador por defeito
 
-## 3. Autenticação e autorização
-
-- Registo por email com código de 6 caracteres.
-- Recuperação de senha por código.
-- O sistema cria um utilizador 'admin@example.com' por defeito.
-- Hierarquia de roles: none < viewer < editor < admin.
-
-Funções utilitárias presentes no código:
-
-- `get_current_user()` — lê sessão e valida expirations/sliding session
-- Decoradores: `required_login`, `required_role(min_role)`, `required_permission(permission)`
+### 3.2 Hierarquia de Roles e Permissões
+- **Roles disponíveis**: none < viewer < editor < admin
+- **Funções utilitárias**: `get_current_user()`, decoradores `required_login`, `required_role()`, `required_permission()`
+- **Validação de sessão**: Controle de expiração e sliding session
 
 ## 4. Importação CSV
 
@@ -507,28 +506,30 @@ Se quiser, posso adicionar diagramas (ERD), exemplos de `docker-compose.yml` ou 
 - **Limpeza de dados**: Função nuke com senha de administrador
 - **Estados adaptativos**: Interface baseada na existência de dados e permissões
 
-### 6.3 Gestão de Utilizadores (Interface Administrativa)
-#### 6.3.1 Tabela de Utilizadores
+### 6.1 Gestão de Utilizadores (Interface Administrativa)
+#### 6.1.1 Tabela de Utilizadores
 - **Avatar personalizado**: Iniciais do nome em círculo colorido
 - **Informações detalhadas**: Nome, email, role, status de verificação
 - **Badges de role**: Cores distintas para cada nível de permissão
 - **Indicador "Você"**: Destaque para conta do utilizador atual
 - **Ações por linha**: Editar e reset password por utilizador
 
-#### 6.3.2 Modais de Gestão
+#### 6.1.2 Modais de Gestão
 - **Adicionar utilizador**: Formulário completo com nome, email e role
 - **Editar utilizador**: Modificação de dados existentes
 - **Reset password**: Modal específico com avisos de segurança
 - **Validação em tempo real**: Feedback imediato de erros
 - **Confirmações**: Diálogos para ações críticas
 
-### 6.4 Sistema de Captura (Editor+)
-- **Interface dedicada**: Página específica para captura de fotos
-- **Seleção de câmara**: Dropdown com dispositivos disponíveis
+### 6.2 Sistema de Captura (Editor+)
+- **Interface integrada**: Modal no template `turma.html` para captura de fotos
+- **Seleção de câmara**: Dropdown com dispositivos disponíveis via JavaScript
 - **Memória persistente**: localStorage para lembrar câmara escolhida
-- **Preview em tempo real**: Stream de vídeo ao vivo
-- **Controles por teclado**: Enter (capturar) / Escape (voltar)
-- **Atualização automática**: Flag foto_tirada na base de dados
+- **Preview em tempo real**: Stream de vídeo ao vivo usando MediaDevices API
+- **Captura via navegador**: Fotos capturadas diretamente no cliente via canvas
+- **Envio assíncrono**: AJAX POST para `/upload/photo/<nome_seguro>/<processo>`
+- **Controles por teclado**: Enter (capturar) / Escape (fechar modal)
+- **Atualização automática**: Flag foto_tirada na base de dados após upload bem-sucedido
 
 ## 7. Sistema de Email Assíncrono com Redis Queue
 
@@ -572,24 +573,27 @@ python worker.py             # Execução única (burst mode)
 - **Integração CSV**: Suporte a import de emails através de ficheiro CSV
 - **Comunicação automática**: Notificações sobre estado de autorizações
 
-## 8. Sistema de Captura e Processamento de Imagens
+## 7. Sistema de Captura e Processamento de Imagens
 
-### 8.1 Interface de Captura (`/capture_photo/<nome_seguro>/<processo>`)
+### 7.1 Interface de Captura (Modal em `/turma/<nome_seguro>`)
+- **Implementação**: Modal integrado no template `turma.html`
 - **Controlo de acesso**: Apenas editores e administradores
-- **Seleção de câmara**: Dropdown com dispositivos disponíveis
+- **Seleção de câmara**: Dropdown com dispositivos disponíveis via JavaScript
 - **Memória persistente**: localStorage para lembrar câmara escolhida
-- **Preview em tempo real**: Stream de vídeo ao vivo
-- **Controles por teclado**: Enter (capturar) / Escape (voltar)
-- **Atualização automática**: Flag foto_tirada na base de dados
+- **Preview em tempo real**: Stream de vídeo ao vivo usando MediaDevices API
+- **Captura via navegador**: Fotos capturadas diretamente no cliente via canvas
+- **Envio assíncrono**: AJAX POST para `/upload/photo/<nome_seguro>/<processo>`
+- **Controles por teclado**: Enter (capturar) / Escape (fechar modal)
+- **Atualização automática**: Flag foto_tirada na base de dados após upload bem-sucedido
 
-### 8.2 Processamento Avançado de Imagens
+### 7.2 Processamento Avançado de Imagens
 - **Captura original**: Resolução máxima da câmara
 - **Processamento PIL**: Redimensionamento e crop inteligente
 - **Thumbnails otimizadas**: 250x250px com crop central
 - **Qualidade diferenciada**: 95% originais, 50% thumbnails
 - **Formato consistente**: JPEG em ambos os tamanhos
 
-### 8.3 Armazenamento Organizado por Turma
+### 7.3 Armazenamento Organizado por Turma
 ```
 photos_originals/
 ├── turma_segura_1/
@@ -606,9 +610,9 @@ photos_thumbs/
     └── 4763.jpg
 ```
 
-## 9. Sistema de Download Avançado
+## 8. Sistema de Download Avançado
 
-### 9.1 Download ZIP (`/download/<turma>.zip`)
+### 8.1 Download ZIP (`/download/<turma>.zip`)
 - **Controlo de acesso**: Viewers e superiores podem fazer download
 - **Criação em memória**: Sem ficheiros temporários
 - **Compressão otimizada**: ZIP standard
@@ -616,7 +620,7 @@ photos_thumbs/
 - **Verificação de conteúdo**: Alerta se não há fotos
 - **Fotos originais**: Qualidade máxima para arquivo
 
-### 9.2 Geração de Documentos DOCX (`/download/<turma>.docx`)
+### 8.2 Geração de Documentos DOCX (`/download/<turma>.docx`)
 - **Templates Word**: Uso de templates `.docx` profissionais
 - **Layout inteligente**: Grid 4 colunas adaptativo baseado no número de alunos
 - **Substituição de placeholders**: Data, turma, professor
@@ -625,37 +629,37 @@ photos_thumbs/
 - **Qualidade otimizada**: 150 DPI para impressão
 - **Metadados**: Autor, título e propriedades do documento
 
-### 9.3 Processamento de Imagens para DOCX
+### 8.3 Processamento de Imagens para DOCX
 - **PIL avançado**: Redimensionamento proporcional
 - **Crop central**: Manutenção da proporção original
 - **Fallback inteligente**: Placeholder para alunos sem foto
 - **Otimização de tamanho**: Baseado no número total de alunos
 - **Uso de thumbnails**: Performance otimizada
 
-### 9.4 Interface de Download
+### 8.4 Interface de Download
 - **Dropdown Bootstrap**: Seleção de formato (ZIP/DOCX)
 - **Versões mobile e desktop**: Interfaces adaptadas
 - **Feedback visual**: Estados de loading
 - **Detecção de conteúdo**: Desativa se não há dados
 - **Controlo de permissões**: Baseado no role do utilizador
 
-## 10. Funcionalidades Avançadas
+## 9. Funcionalidades Avançadas
 
-### 10.1 Sistema de Placeholders e Drag & Drop
+### 9.1 Sistema de Placeholders e Drag & Drop
 - **Ícone padrão**: `student_icon.jpg` para alunos sem foto
 - **Integração completa**: Suporte em thumbnails e documentos
 - **Consistência visual**: Mesmo estilo para todos os estados
 - **Cursor uniforme**: Pointer em todos os cartões de aluno
 - **Drag & Drop**: Suporte a arrastar ficheiros de imagem diretamente para o cartão do aluno, com feedback visual e integração total ao fluxo de upload manual
 
-### 10.2 Gestão de Estados
+### 9.2 Gestão de Estados
 - **Flags de controlo**: `foto_existe` (existência do ficheiro) e `foto_tirada` (estado de captura)
 - **Ordenação inteligente**: Por número (nulls last) depois por nome
 - **Contagens dinâmicas**: Estatísticas em tempo real
 - **Sincronização**: Base de dados e sistema de ficheiros
 - **Renomeação consistente**: Manutenção da integridade entre nomes de processos e nomes de arquivos
 
-### 10.3 Movimentação e Gestão de Arquivos
+### 9.3 Movimentação e Gestão de Arquivos
 - **Transferência de alunos**: Move fotos entre turmas
 - **Renomeação de turmas**: Reorganiza estrutura de pastas
 - **Renomeação de processos**: Quando o processo de um aluno é alterado, arquivos de foto são automaticamente renomeados para manter consistência
@@ -663,9 +667,9 @@ photos_thumbs/
 - **Gestão de erros**: Rollback automático em caso de falha na renomeação
 - **Limpeza automática**: Remove arquivos órfãos
 
-### 10.4 Templates DOCX
+### 9.4 Templates DOCX
 ```
-docx_templates/
+templates/
 └── template_relacao_alunos_fotos.docx    # Template base para relatórios
 ```
 - **Placeholders dinâmicos**: `{turma}`, `{date}`, `{fullname_dt}`
@@ -673,15 +677,15 @@ docx_templates/
 - **Tabelas responsivas**: Ajuste automático de colunas
 - **Headers e footers**: Suporte completo a cabeçalhos
 
-## 11. Requisitos Técnicos
+## 10. Requisitos Técnicos
 
-### 11.1 Sistema Base
+### 10.1 Sistema Base
 - **Python 3.12+**: Linguagem principal
 - **Docker & Docker Compose**: Containerização
 - **Sistema operativo**: Linux, Windows, macOS
 - **Navegador moderno**: Chrome 90+, Firefox 90+, Safari 14+
 
-### 11.2 Dependências Python
+### 10.2 Dependências Python
 ```txt
 Flask                     # Framework web principal
 Flask-SQLAlchemy          # ORM para base de dados
@@ -724,9 +728,9 @@ UID=1000                                     # User ID (auto-configurado)
 GID=1000                                     # Group ID (auto-configurado)
 ```
 
-## 12. Fluxos de Utilizador Completos
+## 11. Fluxos de Utilizador Completos
 
-### 12.1 Primeiro Acesso e Configuração Inicial
+### 11.1 Primeiro Acesso e Configuração Inicial
 1. **Navegador** → `http://localhost` → Página de login
 2. **Primeiro administrador**:
    - Fazer login com o utilizador `admin@example.com` e a password `ChangeMe1#`
@@ -736,7 +740,7 @@ GID=1000                                     # Group ID (auto-configurado)
    - Escolhe modo (substituir/merge) → Importação
    - Dados importados → Redirecionamento para `/turmas`
 
-### 12.2 Gestão de Utilizadores (Admin)
+### 11.2 Gestão de Utilizadores (Admin)
 1. **Criar novos utilizadores**:
    - `/settings` → "Adicionar Utilizador" 
    - Modal com nome, email, role inicial
@@ -747,7 +751,7 @@ GID=1000                                     # Group ID (auto-configurado)
    - Reset password para utilizadores
    - Aprovação de contas (alterar de 'none' para role ativo)
 
-### 12.3 Registo de Novos Utilizadores
+### 11.3 Registo de Novos Utilizadores
 1. **Auto-registo**:
    - Página login → "Criar nova conta"
    - Insere email → Recebe código por email
@@ -757,34 +761,34 @@ GID=1000                                     # Group ID (auto-configurado)
    - Login → Página inicial com mensagem de aguardar validação
    - Administrador aprova alterando role para viewer/editor/admin
 
-### 12.4 Gestão de Turmas (Admin)
+### 11.4 Gestão de Turmas (Admin)
 1. **Visualização** → Cards com estatísticas e ações
 2. **Nova turma** → Modal com formulário de criação
 3. **Editar turma** → Renomeação com validação e movimentação de fotos
 4. **Remover turma** → Confirmação e limpeza completa de arquivos
 
-### 12.5 Gestão de Alunos (Editor+)
+### 11.5 Gestão de Alunos (Editor+)
 1. **Selecionar turma** → Visualização da pauta completa
 2. **Adicionar aluno** → Modal com processo, nome e número
 3. **Editar aluno** → Modificação de dados com validação
 4. **Transferir aluno** → Seleção de turma destino com movimentação de fotos
 5. **Remover elementos** → Aluno completo ou apenas foto
 
-### 12.6 Captura e Download
+### 11.6 Captura e Download
 1. **Captura (Editor+)** → Seleção de aluno → Escolha de câmara → Foto
 2. **Preview automático** → Thumbnail gerada e exibida
 3. **Download (Viewer+)** → Dropdown com opções ZIP/DOCX
 4. **Documentos** → ZIP com fotos originais ou DOCX formatado
 
-### 12.7 Recuperação de Password
+### 11.7 Recuperação de Password
 1. **Login** → "Esqueci-me da password"
 2. **Inserir email** → Sistema envia código de recuperação
 3. **Email recebido** → "Já tenho código de recuperação"
 4. **Inserir código e nova password** → Password alterada com sucesso
 
-## 13. Considerações de Segurança
+## 12. Considerações de Segurança
 
-### 13.1 Autenticação Multi-Camada
+### 12.1 Autenticação Multi-Camada
 - **Hashing de passwords**: Werkzeug Security com salt automático
 - **Validação de email**: Regex pattern matching para formato
 - **Força de password**: Mínimo 6 caracteres com maiúsculas, minúsculas e números
@@ -792,14 +796,14 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Timeout controlado**: Sessões de 2h (normal) ou 30 dias (remember me)
 - **Verificação por email**: Códigos de 6 caracteres com expiração de 24h
 
-### 13.2 Proteção Anti-Brute Force
+### 12.2 Proteção Anti-Brute Force
 - **Tracking de tentativas**: Todas as tentativas registadas em LoginLog
 - **Limite de tentativas**: Máximo 5 tentativas falhadas por IP em 15 minutos
 - **Bloqueio automático**: IPs maliciosos banidos automaticamente
 - **Tabela de IPs banidos**: Gestão persistente de bloqueios
 - **Logging detalhado**: IP, utilizador, timestamp, resultado para auditoria
 
-### 13.3 Validação de Dados
+### 12.3 Validação de Dados
 - **Entrada sanitizada**: Validação rigorosa de todos os formulários
 - **Prevenção SQL Injection**: SQLAlchemy ORM com queries parametrizadas
 - **Sanitização de filesystem**: secure_filename() para nomes de turmas
@@ -808,7 +812,7 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Tipo de ficheiros**: Apenas CSV e imagens aceites em uploads
 - **Limites de tamanho**: Proteção contra uploads excessivos
 
-### 13.4 Gestão Segura de Ficheiros
+### 12.4 Gestão Segura de Ficheiros
 - **Paths seguros**: safe_join() para prevenção de directory traversal
 - **Nomes sanitizados**: Conversão automática de nomes inseguros
 - **Permissões controladas**: Acesso restrito aos diretórios da aplicação
@@ -816,16 +820,16 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Limpeza automática**: Remoção segura de arquivos órfãos
 - **Estrutura de diretórios**: Organização segura por turma
 
-### 13.5 Controlo de Acesso Baseado em Roles
+### 12.5 Controlo de Acesso Baseado em Roles
 - **Decorators de autorização**: @required_login, @required_permission, @required_role
 - **Verificação por endpoint**: Cada rota protegida conforme necessário
 - **Interface adaptativa**: UI mostra apenas opções permitidas por role
 - **Validação server-side**: Dupla verificação de permissões no backend
 - **Auditoria de acesso**: Logging de ações por utilizador e role
 
-## 14. Performance e Otimização
+## 13. Performance e Otimização
 
-### 14.1 Base de Dados
+### 13.1 Base de Dados
 - **Índices otimizados**: Processo indexado globalmente para consultas rápidas
 - **Constraint único**: Unicidade global de processo para integridade de dados
 - **Relacionamentos eficientes**: Lazy loading com backref para otimização
@@ -833,41 +837,41 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Queries otimizadas**: Uso de filtros e joins eficientes
 - **Cleanup automático**: Limpeza de registos expirados (PreUser, códigos)
 
-### 14.2 Sistema de Email
+### 13.2 Sistema de Email
 - **Envio assíncrono**: Processamento em background para não bloquear UI
 - **Templates reutilizáveis**: HTML templates para consistência e performance
 - **Fallback handling**: Gestão de erros de envio com feedback apropriado
 - **Configuração flexível**: Suporte para diferentes provedores SMTP
 
-### 14.3 Processamento de Imagens
+### 13.3 Processamento de Imagens
 - **Thumbnails inteligentes**: Geração sob demanda com cache em filesystem
 - **Compressão otimizada**: Qualidades diferentes para originais vs thumbnails
 - **Processamento PIL/OpenCV**: Algoritmos otimizados para redimensionamento
 - **Cache de filesystem**: Reutilização de thumbnails existentes
 
-### 14.4 Interface e UX
+### 13.4 Interface e UX
 - **CSS otimizado**: Bootstrap 5 com customizações mínimas
 - **JavaScript essencial**: Funcionalidade crítica apenas, sem frameworks pesados
 - **Carregamento progressivo**: Imagens e conteúdo carregados sob demanda
 - **Cache headers**: Controlo de cache para assets estáticos
 - **Modais eficientes**: Reutilização de componentes Bootstrap
 
-## 15. Manutenção e Backup
+## 14. Manutenção e Backup
 
-### 15.1 Estrutura de Dados
+### 14.1 Estrutura de Dados
 - **Base de dados**: `database.sqlite` centralizando metadados
 - **Arquivos organizados**: Estrutura de pastas por turma
 - **Sincronização**: Coerência entre DB e filesystem
 - **Integridade**: Validação automática de consistência
 - **Renomeação automática**: Manutenção da consistência entre processos e nomes de arquivos
 
-### 15.2 Operações de Manutenção
+### 14.2 Operações de Manutenção
 - **Limpeza completa**: Função nuke com senha de administrador
 - **Backup seletivo**: Exportação de dados por turma
 - **Importação flexível**: CSV com merge ou substituição
 - **Logs detalhados**: Rastreamento de todas as operações
 
-### 15.3 Deployment e Updates
+### 14.3 Deployment e Updates
 - **Docker volumes**: Persistência de dados entre atualizações
 - **Git integration**: Versionamento com .gitignore adequado
 - **Dependency management**: requirements.txt com versões fixas
@@ -876,7 +880,7 @@ GID=1000                                     # Group ID (auto-configurado)
 ---
 
 **Versão do Documento**: 1.1  
-**Data de Atualização**: Janeiro 2025  
+**Data de Atualização**: Agosto 2025  
 **Estado da Implementação**: ✅ 100% Completo
 
 Esta especificação reflete fielmente a aplicação **Class Photo Booth** implementada, incluindo todas as funcionalidades avançadas: sistema completo de autenticação com roles e permissões, gestão de utilizadores, sistema de email com templates HTML, proteção anti-brute force, base de dados SQLAlchemy com modelos relacionais, CRUD completo para todas as entidades, geração de documentos DOCX, processamento avançado de imagens com PIL/OpenCV, gestão de placeholders, interface completamente responsiva com operações modais, sistema de autorização de fotografias com visual status badges, e controlo de acesso granular baseado em roles.
