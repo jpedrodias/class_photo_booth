@@ -25,4 +25,6 @@ echo "Iniciando aplicação..."
 docker-compose up -d
 
 echo "Verificando logs..."
+docker-compose logs -f postgres
+docker-compose logs -f redis
 docker-compose logs -f flaskapp
