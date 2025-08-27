@@ -101,9 +101,16 @@ cd class_photo_booth
 # 3. Construir e executar
 docker-compose up -d
 
-# 4. Aceder à aplicação
+# 4. Adicionar o primeiro user
+docker exec -it flaskapp /bin/bash -c "python ./init_database.py"
+
+# 5. Aceder à aplicação
 # http://localhost (ou porta configurada)
 ```
+
+PS: O passo 4 é opcional e neste caso, o primeiro utilizador a criar conta será o Admin.
+
+
 
 ### 🔧 **Primeiro Acesso**
 1. Aceder à aplicação no navegador
@@ -112,6 +119,8 @@ docker-compose up -d
 4. Configurar email de verificação
 5. Importar dados via CSV (opcional)
 6. Começar a usar!
+
+
 
 ## 📚 Documentação Completa
 
