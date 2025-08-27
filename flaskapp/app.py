@@ -2646,7 +2646,7 @@ def settings_backup():
             users_writer = csv.writer(users_csv)
             users_writer.writerow(['username', 'password', 'name', 'role', 'is_verified'])
             
-            users = User.query.all()
+            users = User.query.order_by(User.id).all()
             for user in users:
                 users_writer.writerow([
                     user.email,  # username
@@ -2663,7 +2663,7 @@ def settings_backup():
             alunos_writer = csv.writer(alunos_csv)
             alunos_writer.writerow(['processo', 'turma', 'numero', 'nome', 'email', 'autorizacao'])
             
-            alunos = Aluno.query.all()
+            alunos = Aluno.query.order_by(Aluno.id).all()
             for aluno in alunos:
                 alunos_writer.writerow([
                     aluno.processo,
