@@ -4,6 +4,7 @@ Flask-Mail
 Flask-WTF
 Flask-Session
 redis
+rq
 msgpack
 python-docx
 Pillow
