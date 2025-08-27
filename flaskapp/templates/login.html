@@ -758,6 +758,74 @@
                 // Password strength indicator error - ignored
             }
         }
+
+        // Monitoramento de tarefas de email
+        {% if job_id %}
+        function checkEmailJobStatus() {
+            const jobId = '{{ job_id }}';
+            
+            fetch(`/api/job_status/${jobId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('email-status');
+                    if (!statusElement) {
+                        // Criar elemento de status se não existir
+                        const alertDiv = document.createElement('div');
+                        alertDiv.id = 'email-status';
+                        alertDiv.className = 'alert alert-info mt-3';
+                        alertDiv.innerHTML = '<i class="bi bi-hourglass-split me-2"></i><span id="status-text">A verificar estado do email...</span>';
+                        
+                        // Adicionar após os flash messages
+                        const flashContainer = document.querySelector('.card-body');
+                        const forms = document.querySelector('form');
+                        if (forms) {
+                            flashContainer.insertBefore(alertDiv, forms);
+                        } else {
+                            flashContainer.appendChild(alertDiv);
+                        }
+                    }
+                    
+                    const statusText = document.getElementById('status-text');
+                    const parentAlert = statusElement;
+                    
+                    if (data.status === 'queued') {
+                        parentAlert.className = 'alert alert-info mt-3';
+                        statusText.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Email na fila de envio...';
+                    } else if (data.status === 'started') {
+                        parentAlert.className = 'alert alert-info mt-3';
+                        statusText.innerHTML = '<i class="bi bi-envelope me-2"></i>A enviar email...';
+                    } else if (data.status === 'finished') {
+                        parentAlert.className = 'alert alert-success mt-3';
+                        statusText.innerHTML = '<i class="bi bi-check-circle me-2"></i>Email enviado com sucesso!';
+                        clearInterval(window.emailStatusInterval);
+                    } else if (data.status === 'failed') {
+                        parentAlert.className = 'alert alert-warning mt-3';
+                        statusText.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Erro ao enviar email. Tente novamente se necessário.';
+                        clearInterval(window.emailStatusInterval);
+                    } else if (data.status === 'not_found') {
+                        parentAlert.className = 'alert alert-secondary mt-3';
+                        statusText.innerHTML = '<i class="bi bi-question-circle me-2"></i>Estado do email não disponível.';
+                        clearInterval(window.emailStatusInterval);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao verificar estado do email:', error);
+                });
+        }
+        
+        // Verificar estado a cada 3 segundos
+        window.emailStatusInterval = setInterval(checkEmailJobStatus, 3000);
+        
+        // Verificação inicial
+        checkEmailJobStatus();
+        
+        // Limpar interval quando sair da página
+        window.addEventListener('beforeunload', function() {
+            if (window.emailStatusInterval) {
+                clearInterval(window.emailStatusInterval);
+            }
+        });
+        {% endif %}
     </script>
 </body>
 </html>

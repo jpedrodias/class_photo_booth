@@ -2,9 +2,23 @@
 services:
   flaskapp:
     container_name: ${FLASKAPP_NAME}
-    #command: gunicorn -w 10 -b :5000 app:app
-    #command: ./run.sh ${FLASKAPP_FILE}
-    command: python ./${FLASKAPP_FILE}
+    command: >
+      bash -c "
+      echo 'Verificando Redis...';
+      python worker.py --verify;
+      if [ \$$? -eq 0 ]; then
+        echo 'Redis está pronto!';
+        echo 'Iniciando RQ worker em background...';
+        python worker.py --forever &
+        WORKER_PID=\$$!;
+        echo \"RQ worker iniciado com PID: \$$WORKER_PID\";
+        echo \"Running App: ${FLASKAPP_FILE}\";
+        gunicorn -w 10 -b :5000 app:app;
+      else
+        echo 'Falha na verificação do Redis. Saindo...';
+        exit 1;
+      fi
+      "
     restart: unless-stopped
     user: "${UID:-1000}:${GID:-1000}"
     build: 

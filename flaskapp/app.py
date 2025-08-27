@@ -17,6 +17,10 @@ from ipaddress import ip_address
 import redis
 import msgpack
 
+# Redis Queue imports
+from rq import Queue
+from rq.job import Job
+
 # OpenCV and numpy for image processing
 import cv2
 import numpy as np
@@ -61,6 +65,10 @@ db = SQLAlchemy(app)
 
 # Configurar Flask-Mail
 mail = Mail(app)
+
+# Configurar Redis Queue
+redis_conn = redis.from_url(app.config['RQ_REDIS_URL'])
+email_queue = Queue('email', connection=redis_conn, default_timeout=app.config['RQ_DEFAULT_TIMEOUT'])
 
 # Configuração das pastas
 BASE_DIR = app.config['BASE_DIR'] 
@@ -124,6 +132,7 @@ class PreUser(db.Model, AddUserSecurityCheck):
     code = db.Column(db.String(120), unique=False, nullable=False)
     date = db.Column(db.DateTime, unique=False, nullable=False, default=lambda: datetime.now(timezone.utc))
     reason = db.Column(db.String(255), unique=False, nullable=True, default='')  # Motivo opcional para o pré-registo
+    email_job_id = db.Column(db.String(36), unique=False, nullable=True)  # ID da tarefa de envio de email
 
     def __repr__(self):
         return f'<PreUser {self.email}>'
@@ -1018,47 +1027,48 @@ def login(action_url=None):
                 # Gerar código de verificação
                 code = PreUser.create_random_code()
                 
-                # Renderizar template HTML para o corpo do email
-                verify_link = f"{request.url_root.rstrip('/')}/login/verify?email={email}&code={code}"
-                html_body = render_template('template_email_send_verification.html', code=code, verify_link=verify_link)
+                # Enviar email de verificação de forma assíncrona
+                from tasks import send_verification_email
                 
-                msg = Message(
-                    subject='Verificação de Email - Class Photo Booth',
-                    sender=app.config.get('MAIL_DEFAULT_SENDER'),
-                    recipients=[email],
-                    html=html_body
+                # Preparar configurações do app para a tarefa
+                app_config = {
+                    'MAIL_SERVER': app.config['MAIL_SERVER'],
+                    'MAIL_PORT': app.config['MAIL_PORT'],
+                    'MAIL_USE_TLS': app.config['MAIL_USE_TLS'],
+                    'MAIL_USE_SSL': app.config['MAIL_USE_SSL'],
+                    'MAIL_USERNAME': app.config['MAIL_USERNAME'],
+                    'MAIL_PASSWORD': app.config['MAIL_PASSWORD'],
+                    'MAIL_DEFAULT_SENDER': app.config['MAIL_DEFAULT_SENDER'],
+                    'TEMPLATES_AUTO_RELOAD': True
+                }
+                
+                # Enqueue da tarefa
+                job = email_queue.enqueue(
+                    send_verification_email,
+                    app_config,
+                    email,
+                    code,
+                    request.url_root,
+                    job_timeout=300
                 )
                 
-                # Tentar enviar email
-                try:
-                    mail.send(msg)
-                    print(f"Email de verificação enviado com sucesso para: {email}")
-                    email_sent = True
-                except Exception as e:
-                    print(f"Erro ao enviar email para {email}: {e}")
-                    # Log mais detalhado do erro para debugging
-                    print(f"Traceback completo: {traceback.format_exc()}")
-                    email_sent = False
+                # Criar pré-utilizador imediatamente (o email será enviado em background)
+                pre_user = PreUser()
+                pre_user._email = email  # Set directly to avoid validation during construction
+                pre_user.code = code
+                pre_user.reason = 'Registo de novo utilizador'
+                pre_user.email_job_id = job.get_id()  # Armazenar ID da tarefa para tracking
+                db.session.add(pre_user)
+                db.session.commit()
                 
-                if email_sent:
-                    # Só criar pré-utilizador se o email foi enviado com sucesso
-                    pre_user = PreUser()
-                    pre_user._email = email  # Set directly to avoid validation during construction
-                    pre_user.code = code
-                    pre_user.reason = 'Registo de novo utilizador'
-                    db.session.add(pre_user)
-                    db.session.commit()
-                    
-                    flash('Email de verificação enviado. Verifique a sua caixa de entrada.', 'success')
-                    return render_template('login.html', action='verify', email=email)
-                else:
-                    # Email falhou - não criar PreUser
-                    flash('Erro ao enviar email de verificação. Verifique o seu endereço de email e tente novamente.', 'error')
-                    return render_template('login.html', action='register')
+                flash('Pedido de registo processado. O email de verificação está a ser enviado em background. Verifique a sua caixa de entrada em alguns minutos.', 'info')
+                return render_template('login.html', action='verify', email=email, job_id=job.get_id())
             
             except Exception as e:
                 db.session.rollback()
-                flash('Erro ao criar conta. Tente novamente.', 'error')
+                print(f"Erro ao processar registo: {e}")
+                print(f"Traceback completo: {traceback.format_exc()}")
+                flash('Erro ao processar registo. Tente novamente.', 'error')
                 return render_template('login.html', action='register')
         
         elif action == 'verify':
@@ -1182,45 +1192,42 @@ def login(action_url=None):
             # Gerar código de recuperação (igual ao de verificação)
             reset_code = PreUser.create_random_code()
 
-            # Gerar link direto para recuperação de senha
-            reset_link = f"{request.url_root.rstrip('/')}/login/reset_password?email={email}&code={reset_code}"
-            html_body = render_template('template_email_send_password_reset.html', code=reset_code, reset_link=reset_link)
-
-            msg = Message(
-                subject='Recuperação de Password - Class Photo Booth',
-                sender=app.config.get('MAIL_DEFAULT_SENDER'),
-                recipients=[email],
-                html=html_body
+            # Enviar email de recuperação de forma assíncrona
+            from tasks import send_password_reset_email
+            
+            # Preparar configurações do app para a tarefa
+            app_config = {
+                'MAIL_SERVER': app.config['MAIL_SERVER'],
+                'MAIL_PORT': app.config['MAIL_PORT'],
+                'MAIL_USE_TLS': app.config['MAIL_USE_TLS'],
+                'MAIL_USE_SSL': app.config['MAIL_USE_SSL'],
+                'MAIL_USERNAME': app.config['MAIL_USERNAME'],
+                'MAIL_PASSWORD': app.config['MAIL_PASSWORD'],
+                'MAIL_DEFAULT_SENDER': app.config['MAIL_DEFAULT_SENDER'],
+                'TEMPLATES_AUTO_RELOAD': True
+            }
+            
+            # Enqueue da tarefa
+            job = email_queue.enqueue(
+                send_password_reset_email,
+                app_config,
+                email,
+                reset_code,
+                request.url_root,
+                job_timeout=300
             )
 
-            # Tentar enviar email
-            try:
-                mail.send(msg)
-                print(f"Email de recuperação de password enviado com sucesso para: {email}")
-                email_sent = True
-            except Exception as e:
-                print(f"Erro ao enviar email de recuperação para {email}: {e}")
-                # Log mais detalhado do erro para debugging
-                print(f"Traceback completo: {traceback.format_exc()}")
-                email_sent = False
+            # Criar entrada PreUser imediatamente (o email será enviado em background)
+            pre_user_reset = PreUser()
+            pre_user_reset._email = email  # Set directly to avoid validation during construction
+            pre_user_reset.code = reset_code
+            pre_user_reset.reason = 'Recuperação de password'
+            pre_user_reset.email_job_id = job.get_id()  # Armazenar ID da tarefa para tracking
+            db.session.add(pre_user_reset)
+            db.session.commit()
 
-            if email_sent:
-                # Só criar entrada PreUser se o email foi enviado com sucesso
-                pre_user_reset = PreUser()
-                pre_user_reset._email = email  # Set directly to avoid validation during construction
-                pre_user_reset.code = reset_code
-                pre_user_reset.reason = 'Recuperação de password'
-                db.session.add(pre_user_reset)
-                db.session.commit()
-
-                flash('Instruções para recuperar a sua password foram enviadas por email. Use o link "Já tenho código de recuperação" para introduzir o código recebido.', 'success')
-                #return render_template('login.html', action='login')
-                return render_template('login.html', action='reset_password', email=email)
-            
-            else:
-                # Email falhou
-                flash('Erro ao enviar email de recuperação. Tente novamente mais tarde.', 'error')
-                return render_template('login.html', action='forgot_password')
+            flash('Pedido de recuperação processado. As instruções estão a ser enviadas por email em background. Use o link "Já tenho código de recuperação" para introduzir o código quando o receber.', 'info')
+            return render_template('login.html', action='reset_password', email=email, job_id=job.get_id())
                 
         elif action == 'reset_password':
             email = request.form.get('email', '').strip()
@@ -2674,7 +2681,7 @@ def settings_backup():
             professores_writer = csv.writer(professores_csv)
             professores_writer.writerow(['turma', 'professor', 'email'])
             
-            turmas = Turma.query.all()
+            turmas = Turma.query.order_by(Turma.id).all()
             for turma in turmas:
                 professores_writer.writerow([
                     turma.nome,
@@ -2806,34 +2813,37 @@ def user_management(user_id=None):
             db.session.commit()
             
             # Enviar email de notificação se solicitado
-            email_sent = True  # Assume sucesso por defeito
+            job_id = None
             
             if notify_user:
-                try:
-                    # Renderizar template HTML para o corpo do email
-                    html_body = render_template('template_email_account_updated.html', user_name=user.name)
-                    
-                    msg = Message(
-                        subject='Conta Atualizada - Class Photo Booth',
-                        sender=app.config.get('MAIL_DEFAULT_SENDER'),
-                        recipients=[user.email],
-                        html=html_body
-                    )
-                    
-                    # Tentar enviar email
-                    mail.send(msg)
-                    print(f"Email de notificação de conta atualizada enviado com sucesso para: {user.email}")
-                    email_sent = True
-                except Exception as e:
-                    print(f"Erro ao enviar email de notificação para {user.email}: {e}")
-                    print(f"Traceback completo: {traceback.format_exc()}")
-                    email_sent = False
+                # Enviar email de notificação de forma assíncrona
+                from tasks import send_account_updated_email
+                
+                # Preparar configurações do app para a tarefa
+                app_config = {
+                    'MAIL_SERVER': app.config['MAIL_SERVER'],
+                    'MAIL_PORT': app.config['MAIL_PORT'],
+                    'MAIL_USE_TLS': app.config['MAIL_USE_TLS'],
+                    'MAIL_USE_SSL': app.config['MAIL_USE_SSL'],
+                    'MAIL_USERNAME': app.config['MAIL_USERNAME'],
+                    'MAIL_PASSWORD': app.config['MAIL_PASSWORD'],
+                    'MAIL_DEFAULT_SENDER': app.config['MAIL_DEFAULT_SENDER'],
+                    'TEMPLATES_AUTO_RELOAD': True
+                }
+                
+                # Enqueue da tarefa
+                job = email_queue.enqueue(
+                    send_account_updated_email,
+                    app_config,
+                    user.email,
+                    user.name,
+                    job_timeout=300
+                )
+                job_id = job.get_id()
             
             # Mensagem de sucesso baseada no envio do email
-            if notify_user and email_sent:
-                flash(f'Utilizador {user.name} atualizado com sucesso. Email de notificação enviado.', 'success')
-            elif notify_user and not email_sent:
-                flash(f'Utilizador {user.name} atualizado com sucesso, mas não foi possível enviar o email de notificação.', 'warning')
+            if notify_user:
+                flash(f'Utilizador {user.name} atualizado com sucesso. Email de notificação está a ser enviado em background.', 'success')
             else:
                 flash(f'Utilizador {user.name} atualizado com sucesso.', 'success')
             
@@ -3371,6 +3381,79 @@ def cleanup_redis_sessions():
             "error": f"Erro na limpeza: {str(e)}"
         }), 500
 # End def cleanup_redis_sessions
+
+
+@app.route('/api/job_status/<job_id>')
+@required_login
+def job_status(job_id):
+    """
+    Endpoint para verificar o status de uma tarefa RQ
+    """
+    try:
+        job = Job.fetch(job_id, connection=redis_conn)
+        
+        # Obter informações do job
+        status = job.get_status()
+        meta = job.meta or {}
+        
+        response = {
+            'job_id': job_id,
+            'status': status,  # 'queued', 'started', 'finished', 'failed'
+            'progress': meta.get('progress', 0),
+            'message': meta.get('message', ''),
+            'error': meta.get('error', '')
+        }
+        
+        # Se a tarefa está concluída, incluir o resultado
+        if status == 'finished':
+            response['result'] = job.result
+        elif status == 'failed':
+            response['error'] = str(job.exc_info) if job.exc_info else 'Erro desconhecido'
+        
+        return jsonify(response)
+        
+    except Exception as e:
+        return jsonify({
+            'job_id': job_id,
+            'status': 'not_found',
+            'error': f'Tarefa não encontrada: {str(e)}'
+        }), 404
+
+
+@app.route('/api/email_jobs')
+@required_login
+def email_jobs():
+    """
+    Endpoint para listar todas as tarefas de email na queue
+    """
+    try:
+        # Obter jobs da queue
+        jobs = email_queue.get_jobs()
+        
+        job_list = []
+        for job in jobs:
+            meta = job.meta or {}
+            job_info = {
+                'job_id': job.get_id(),
+                'status': job.get_status(),
+                'progress': meta.get('progress', 0),
+                'message': meta.get('message', ''),
+                'error': meta.get('error', ''),
+                'created_at': job.created_at.isoformat() if job.created_at else None,
+                'started_at': job.started_at.isoformat() if job.started_at else None,
+                'ended_at': job.ended_at.isoformat() if job.ended_at else None
+            }
+            job_list.append(job_info)
+        
+        return jsonify({
+            'queue_length': len(email_queue),
+            'jobs': job_list
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'error': f'Erro ao obter tarefas: {str(e)}'
+        }), 500
 
 
 create_directories_with_permissions()

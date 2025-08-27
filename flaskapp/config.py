@@ -53,6 +53,10 @@ class BaseConfig():
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD', '1234')
     MAIL_DEFAULT_SENDER = os.getenv('MAIL_SENDER', f'Class Photo Booth <{os.getenv("MAIL_USERNAME", "email@email.com")}>')
     MAIL_DEBUG = os.getenv('MAIL_DEBUG', 'False').lower() in ['true', '1', 'yes']
+
+    # Configurações do Redis Queue (RQ)
+    RQ_REDIS_URL = os.getenv('RQ_REDIS_URL', 'redis://redis:6379/1')  # Usando database 1 para RQ
+    RQ_DEFAULT_TIMEOUT = int(os.getenv('RQ_DEFAULT_TIMEOUT', '300'))  # 5 minutos
 # End class BaseConfig
 
 
