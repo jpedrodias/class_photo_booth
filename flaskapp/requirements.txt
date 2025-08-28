@@ -12,3 +12,4 @@ opencv-python
 numpy
 psycopg2
 gunicorn
+requests
