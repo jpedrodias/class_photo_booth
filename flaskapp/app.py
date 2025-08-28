@@ -39,6 +39,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import generate_password_hash, check_password_hash, safe_join
 from werkzeug.utils import secure_filename
+from itsdangerous import URLSafeTimedSerializer
 
 
 
@@ -47,6 +48,9 @@ app.config.from_object('config.DevelopmentConfig')  # Use DevelopmentConfig by d
 
 # Inicializar extensão Flask-Session
 Session(app)
+
+# Inicializar serializer para tokens
+serializer = URLSafeTimedSerializer(app.secret_key)
 
 
 # Inicializar proteção CSRF
@@ -2128,6 +2132,66 @@ def get_photo(folder_name, processo):
     #print(f"Enviando foto: {photo_path}")
     return send_file(photo_path)
 # End def get_photo
+
+
+@app.route('/api/photos/get_token', methods=['POST'])
+@required_login
+@required_role('viewer')
+def api_get_photo_token():
+    data = request.get_json()
+    if not data or 'processo' not in data:
+        return jsonify({'error': 'Processo required'}), 400
+    
+    processo = data['processo']
+    
+    # Buscar aluno por processo
+    aluno = Aluno.query.filter_by(processo=processo).first()
+    if not aluno:
+        return jsonify({'error': 'Aluno not found'}), 404
+    
+    # Obter turma
+    turma = aluno.turma
+    if not turma:
+        return jsonify({'error': 'Turma not found'}), 404
+    
+    folder = turma.nome_seguro
+    
+    # Gerar token
+    token = serializer.dumps({'folder': folder, 'processo': processo}, salt='photo_token')
+    
+    return jsonify({'token': token})
+
+
+@app.route('/api/photos/', methods=['GET'])
+def api_get_photo():
+    token = request.args.get('token')
+    if not token:
+        return jsonify({'error': 'Token required'}), 400
+    
+    try:
+        data = serializer.loads(token, salt='photo_token', max_age=3600)
+    except Exception as e:
+        return jsonify({'error': 'Invalid or expired token'}), 400
+    
+    folder = data['folder']
+    processo = data['processo']
+    
+    # Determinar se é pedido de thumbnail ou foto original
+    size = request.args.get('size', 'thumb')
+    is_original = size == 'original'
+    
+    # Buscar a turma usando nome_seguro
+    turma_obj = Turma.query.filter_by(nome_seguro=folder).first()
+    if not turma_obj:
+        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+    
+    photo_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
+    photo_path = os.path.join(photo_dir, f'{processo}.jpg')
+    
+    if not os.path.exists(photo_path):
+        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+    
+    return send_file(photo_path)
 
 
 @app.route('/download/<ficheiro>')
