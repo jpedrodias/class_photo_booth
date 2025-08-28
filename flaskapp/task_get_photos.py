@@ -55,7 +55,8 @@ def test_photo_api():
     photo_params = {
         'token': token,
         'processo': '90004',  # Processo desejado
-        'size': 'thumb'  # ou 'original'
+        'size': 'thumb',  # ou 'original'
+        'noplaceholder': 'false'  # Se true, retorna JSON em vez de placeholder
     }
     
     # Obter foto
@@ -85,5 +86,72 @@ def test_photo_api():
         print(f"Resposta não é uma imagem: {content_type}")
         print(photo_response.text)
 
+
+def test_photo_api_with_noplaceholder():
+    """Teste da API com noplaceholder=true para ver erros em JSON"""
+    # Criar sessão para manter cookies de autenticação
+    session = requests.Session()
+    
+    print("1. Fazendo login...")
+    
+    # Dados para login via API
+    login_data = {
+        'username': USERNAME,
+        'password': PASSWORD,
+        'remember_me': True
+    }
+    
+    # Headers para JSON
+    headers = {
+        'Content-Type': 'application/json'
+    }
+    
+    # Fazer login via API
+    login_response = session.post(f'{BASE_URL}/api/login', json=login_data, headers=headers)
+    
+    if login_response.status_code != 200:
+        print(f"Erro no login: {login_response.status_code}")
+        print(login_response.text)
+        return
+    
+    login_result = login_response.json()
+    if not login_result.get('success'):
+        print(f"Login falhou: {login_result.get('error', 'Erro desconhecido')}")
+        return
+    
+    token = login_result.get('token')
+    if not token:
+        print("Token não encontrado na resposta do login")
+        return
+    
+    print(f"Login bem-sucedido! Bem-vindo, {login_result['user']['name']}!")
+
+    print("\n2. Testando com processo inexistente (noplaceholder=true)...")
+    
+    # Parâmetros para obter foto com processo inexistente
+    photo_params = {
+        'token': token,
+        'processo': '99999',  # Processo inexistente
+        'size': 'thumb',
+        'noplaceholder': 'true'  # Retorna JSON em vez de placeholder
+    }
+    
+    # Obter foto
+    photo_response = session.get(f'{BASE_URL}/api/photos/', params=photo_params)
+    
+    print(f"Status code: {photo_response.status_code}")
+    print(f"Resposta: {photo_response.text}")
+    
+    if photo_response.status_code == 404:
+        error_data = photo_response.json()
+        print(f"Erro detalhado: {error_data.get('error')}")
+        print(f"Processo: {error_data.get('processo')}")
+    else:
+        print("Resposta inesperada")
+
+
 if __name__ == '__main__':
+    print("=== Teste Normal ===")
     test_photo_api()
+    print("\n=== Teste com NoPlaceholder ===")
+    test_photo_api_with_noplaceholder()

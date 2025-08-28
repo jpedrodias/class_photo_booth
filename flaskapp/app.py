@@ -1313,98 +1313,6 @@ def login(action_url=None):
 # End def login
 
 
-@app.route('/api/login', methods=['POST'])
-@csrf.exempt
-def api_login():
-    # Obter IP address
-    ip_address = request.headers.get('Cf-Connecting-Ip', None)  # Cloudflare proxy
-    if not ip_address:
-        ip_address = request.access_route[-1] if request.access_route else request.remote_addr
-    
-    # Verificar se o IP está banido
-    DESATIVAR = False  # Mesmo que na rota normal
-    if BannedIPs.is_banned(ip_address) and not DESATIVAR:
-        return jsonify({'error': 'Your IP has been blocked due to excessive login attempts. Contact the administrator.'}), 403
-    
-    data = request.get_json()
-    if not data or 'username' not in data or 'password' not in data:
-        return jsonify({'error': 'Username and password required'}), 400
-    
-    email = data['username'].strip()
-    password = data['password']
-    remember_me = data.get('remember_me', False)
-    
-    if not email or not password:
-        return jsonify({'error': 'Email and password are required'}), 400
-    
-    # Validar formato do email
-    if not AddUserSecurityCheck.validate_email_format(email):
-        return jsonify({'error': 'Invalid email format'}), 400
-    
-    # Verificar utilizador
-    user = User.query.filter_by(_email=email).first()
-    
-    if not user:
-        # Log da tentativa mesmo sem utilizador para detectar ataques
-        LoginLog.log_attempt(None, ip_address, False)
-        
-        # Verificar se deve banir o IP
-        if LoginLog.check_failed_logins(ip_address):
-            return jsonify({'error': 'Too many failed attempts. Your IP has been blocked.'}), 429
-        else:
-            return jsonify({'error': 'Invalid credentials'}), 401
-    
-    # Verificar se a conta está verificada
-    if not user.is_verified:
-        return jsonify({'error': 'Account not verified'}), 401
-    
-    # Verificar se o utilizador tem password definida
-    if not user.password_hash:
-        return jsonify({'error': 'Password not set'}), 401
-    
-    if user.check_password(password):
-        # Login bem-sucedido
-        session['user_id'] = user.id
-        session['user_email'] = user.email
-        session['user_role'] = user.role
-        
-        # Configurar duração da sessão baseado no "remember me"
-        if remember_me:
-            session.permanent = True
-            session['expires_at'] = (datetime.now(timezone.utc) + app.config['PERMANENT_SESSION_LIFETIME']).timestamp()
-            session['sliding_expiry'] = False
-        else:
-            session.permanent = False
-            session['expires_at'] = (datetime.now(timezone.utc) + app.config['TEMPORARY_SESSION_LIFETIME']).timestamp()
-            session['sliding_expiry'] = True
-        
-        # Log da tentativa bem-sucedida
-        LoginLog.log_attempt(user.id, ip_address, True)
-        
-        # Gerar token de sessão válido por 1 hora
-        session_token = serializer.dumps({'user_id': user.id}, salt='session_token')
-        
-        return jsonify({
-            'success': True, 
-            'message': f'Welcome, {user.name}!',
-            'user': {
-                'id': user.id,
-                'name': user.name,
-                'role': user.role
-            },
-            'token': session_token
-        })
-    else:
-        # Password incorreta
-        LoginLog.log_attempt(user.id, ip_address, False)
-        
-        # Verificar se deve banir o IP
-        if LoginLog.check_failed_logins(ip_address):
-            return jsonify({'error': 'Too many failed attempts. Your IP has been blocked.'}), 429
-        else:
-            return jsonify({'error': 'Invalid credentials'}), 401
-
-
 @app.route('/logout')
 def logout():
     # Obter o ID da sessão antes de limpar
@@ -2226,21 +2134,108 @@ def get_photo(folder_name, processo):
 # End def get_photo
 
 
-@app.route('/api/photos/get_token', methods=['POST'])
+
+
+@app.route('/api/login', methods=['POST'])
 @csrf.exempt
-@required_login
-@required_role('viewer')
-def api_get_photo_token():
-    # Como agora o token vem do login, esta rota pode ser usada para renovar ou obter novo token
-    user = get_current_user()
-    token = serializer.dumps({'user_id': user.id}, salt='session_token')
-    return jsonify({'token': token})
+def api_login():
+    # Obter IP address
+    ip_address = request.headers.get('Cf-Connecting-Ip', None)  # Cloudflare proxy
+    if not ip_address:
+        ip_address = request.access_route[-1] if request.access_route else request.remote_addr
+    
+    # Verificar se o IP está banido
+    DESATIVAR = False  # Mesmo que na rota normal
+    if BannedIPs.is_banned(ip_address) and not DESATIVAR:
+        return jsonify({'error': 'Your IP has been blocked due to excessive login attempts. Contact the administrator.'}), 403
+    
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'error': 'Username and password required'}), 400
+    
+    email = data['username'].strip()
+    password = data['password']
+    remember_me = data.get('remember_me', False)
+    
+    if not email or not password:
+        return jsonify({'error': 'Email and password are required'}), 400
+    
+    # Validar formato do email
+    if not AddUserSecurityCheck.validate_email_format(email):
+        return jsonify({'error': 'Invalid email format'}), 400
+    
+    # Verificar utilizador
+    user = User.query.filter_by(_email=email).first()
+    
+    if not user:
+        # Log da tentativa mesmo sem utilizador para detectar ataques
+        LoginLog.log_attempt(None, ip_address, False)
+        
+        # Verificar se deve banir o IP
+        if LoginLog.check_failed_logins(ip_address):
+            return jsonify({'error': 'Too many failed attempts. Your IP has been blocked.'}), 429
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
+    
+    # Verificar se a conta está verificada
+    if not user.is_verified:
+        return jsonify({'error': 'Account not verified'}), 401
+    
+    # Verificar se o utilizador tem password definida
+    if not user.password_hash:
+        return jsonify({'error': 'Password not set'}), 401
+    
+    if user.check_password(password):
+        # Login bem-sucedido
+        session['user_id'] = user.id
+        session['user_email'] = user.email
+        session['user_role'] = user.role
+        
+        # Configurar duração da sessão baseado no "remember me"
+        if remember_me:
+            session.permanent = True
+            session['expires_at'] = (datetime.now(timezone.utc) + app.config['PERMANENT_SESSION_LIFETIME']).timestamp()
+            session['sliding_expiry'] = False
+        else:
+            session.permanent = False
+            session['expires_at'] = (datetime.now(timezone.utc) + app.config['TEMPORARY_SESSION_LIFETIME']).timestamp()
+            session['sliding_expiry'] = True
+        
+        # Log da tentativa bem-sucedida
+        LoginLog.log_attempt(user.id, ip_address, True)
+        
+        # Gerar token de sessão válido por 1 hora
+        session_token = serializer.dumps({'user_id': user.id}, salt='session_token')
+        
+        return jsonify({
+            'success': True, 
+            'message': f'Welcome, {user.name}!',
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'role': user.role
+            },
+            'token': session_token
+        })
+    else:
+        # Password incorreta
+        LoginLog.log_attempt(user.id, ip_address, False)
+        
+        # Verificar se deve banir o IP
+        if LoginLog.check_failed_logins(ip_address):
+            return jsonify({'error': 'Too many failed attempts. Your IP has been blocked.'}), 429
+        else:
+            return jsonify({'error': 'Invalid credentials'}), 401
 
 
 @app.route('/api/photos/', methods=['GET'])
 def api_get_photo():
     token = request.args.get('token')
     processo = request.args.get('processo')
+    noplaceholder = request.args.get('noplaceholder', 'false').lower() == 'true'
+    # Determinar se é pedido de thumbnail ou foto original
+    size = request.args.get('size', 'thumb')
+    is_original = size == 'original'
     
     if not token:
         return jsonify({'error': 'Token required'}), 400
@@ -2258,28 +2253,37 @@ def api_get_photo():
     # Buscar aluno por processo
     aluno = Aluno.query.filter_by(processo=processo).first()
     if not aluno:
+        if noplaceholder:
+            return jsonify({'error': 'Student not found', 'processo': processo}), 404
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
     # Obter turma e folder
     turma = aluno.turma
     if not turma:
+        if noplaceholder:
+            return jsonify({'error': 'Class not found for student', 'processo': processo}), 404
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
     folder = turma.nome_seguro
     
-    # Determinar se é pedido de thumbnail ou foto original
-    size = request.args.get('size', 'thumb')
-    is_original = size == 'original'
-    
     # Buscar a turma usando nome_seguro
     turma_obj = Turma.query.filter_by(nome_seguro=folder).first()
     if not turma_obj:
+        if noplaceholder:
+            return jsonify({'error': 'Class folder not found', 'processo': processo, 'folder': folder}), 404
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
     photo_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
     photo_path = os.path.join(photo_dir, f'{processo}.jpg')
     
     if not os.path.exists(photo_path):
+        if noplaceholder:
+            return jsonify({
+                'error': 'Photo not found', 
+                'processo': processo, 
+                'size': size,
+                'path': photo_path
+            }), 404
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
     return send_file(photo_path)
