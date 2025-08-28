@@ -1381,6 +1381,9 @@ def api_login():
         # Log da tentativa bem-sucedida
         LoginLog.log_attempt(user.id, ip_address, True)
         
+        # Gerar token de sessão válido por 1 hora
+        session_token = serializer.dumps({'user_id': user.id}, salt='session_token')
+        
         return jsonify({
             'success': True, 
             'message': f'Welcome, {user.name}!',
@@ -1388,7 +1391,8 @@ def api_login():
                 'id': user.id,
                 'name': user.name,
                 'role': user.role
-            }
+            },
+            'token': session_token
         })
     else:
         # Password incorreta
@@ -2227,39 +2231,28 @@ def get_photo(folder_name, processo):
 @required_login
 @required_role('viewer')
 def api_get_photo_token():
-    data = request.get_json()
-    if not data or 'processo' not in data:
-        return jsonify({'error': 'Processo required'}), 400
-    
-    processo = data['processo']
-    
-    # Buscar aluno por processo
-    aluno = Aluno.query.filter_by(processo=processo).first()
-    if not aluno:
-        return jsonify({'error': 'Aluno not found'}), 404
-    
-    # Obter user atual
+    # Como agora o token vem do login, esta rota pode ser usada para renovar ou obter novo token
     user = get_current_user()
-    user_id = user.id
-    
-    # Gerar token com processo e user_id
-    token = serializer.dumps({'processo': processo, 'user_id': user_id}, salt='photo_token')
-    
+    token = serializer.dumps({'user_id': user.id}, salt='session_token')
     return jsonify({'token': token})
 
 
 @app.route('/api/photos/', methods=['GET'])
 def api_get_photo():
     token = request.args.get('token')
+    processo = request.args.get('processo')
+    
     if not token:
         return jsonify({'error': 'Token required'}), 400
     
+    if not processo:
+        return jsonify({'error': 'Processo required'}), 400
+    
     try:
-        data = serializer.loads(token, salt='photo_token', max_age=3600)
+        data = serializer.loads(token, salt='session_token', max_age=3600)
     except Exception as e:
         return jsonify({'error': 'Invalid or expired token'}), 400
     
-    processo = data['processo']
     user_id = data['user_id']
     
     # Buscar aluno por processo

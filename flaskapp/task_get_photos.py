@@ -41,43 +41,20 @@ def test_photo_api():
         print(f"Login falhou: {login_result.get('error', 'Erro desconhecido')}")
         return
     
-    print(f"Login bem-sucedido! Bem-vindo, {login_result['user']['name']}!")
-    
-    print("\n2. Obtendo token para processo 90004...")
-    
-    # Dados para obter token
-    token_data = {
-        'processo': '00000'
-    }
-    
-    # Headers para JSON
-    headers = {
-        'Content-Type': 'application/json'
-    }
-    
-    # Obter token
-    token_response = session.post(f'{BASE_URL}/api/photos/get_token', 
-                                json=token_data, headers=headers)
-    
-    if token_response.status_code != 200:
-        print(f"Erro ao obter token: {token_response.status_code}")
-        print(token_response.text)
-        return
-    
-    token_data = token_response.json()
-    token = token_data.get('token')
-    
+    token = login_result.get('token')
     if not token:
-        print("Token não encontrado na resposta")
+        print("Token não encontrado na resposta do login")
         return
     
+    print(f"Login bem-sucedido! Bem-vindo, {login_result['user']['name']}!")
     print(f"Token obtido: {token[:50]}...")
     
-    print("\n3. Obtendo foto com o token...")
+    print("\n2. Obtendo foto com o token...")
     
     # Parâmetros para obter foto
     photo_params = {
         'token': token,
+        'processo': '90004',  # Processo desejado
         'size': 'thumb'  # ou 'original'
     }
     
