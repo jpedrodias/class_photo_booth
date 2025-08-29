@@ -130,6 +130,7 @@ class AddUserSecurityCheck():
 
 class PreUser(db.Model, AddUserSecurityCheck):
     __tablename__ = 'pre_users' 
+    
     id = db.Column(db.Integer, primary_key=True)
     # Remember: to QUERY use "_email" and not "email"; to Instantiate use "email" and not "_email"
     _email = db.Column('email', db.String(120), unique=True, nullable=False)
@@ -167,6 +168,7 @@ class PreUser(db.Model, AddUserSecurityCheck):
 
 class User(db.Model, AddUserSecurityCheck):
     __tablename__ = 'users'
+    
     id = db.Column(db.Integer, primary_key=True)
     _email = db.Column('username', db.String(120), unique=True, nullable=False)
     password_hash = db.Column('password', db.String(180), unique=False, nullable=False)
@@ -1336,13 +1338,6 @@ def logout():
 # End def logout
 
 
-@app.route('/close')
-def close_app():
-    """Página para fechar a PWA adequadamente"""
-    return render_template('close.html')
-# End def close_app
-
-
 @app.route('/turmas/')
 @required_login
 @required_role('viewer')
@@ -2147,8 +2142,6 @@ def get_photo(folder_name, processo):
 # End def get_photo
 
 
-
-
 @app.route('/api/login', methods=['POST'])
 @csrf.exempt
 def api_login():
@@ -2239,6 +2232,7 @@ def api_login():
             return jsonify({'error': 'Too many failed attempts. Your IP has been blocked.'}), 429
         else:
             return jsonify({'error': 'Invalid credentials'}), 401
+# End function api_login
 
 
 @app.route('/api/photos/', methods=['GET'])
@@ -2300,6 +2294,7 @@ def api_get_photo():
         return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
     
     return send_file(photo_path)
+# End function api_get_photo
 
 
 @app.route('/download/<ficheiro>')
@@ -3591,6 +3586,7 @@ def job_status(job_id):
             'status': 'not_found',
             'error': f'Tarefa não encontrada: {str(e)}'
         }), 404
+# End function job_status
 
 
 @app.route('/api/email_jobs')
@@ -3627,6 +3623,7 @@ def email_jobs():
         return jsonify({
             'error': f'Erro ao obter tarefas: {str(e)}'
         }), 500
+# End function email_jobs
 
 
 create_directories_with_permissions()
