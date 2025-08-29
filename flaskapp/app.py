@@ -1621,7 +1621,7 @@ def turma_crud():
 @app.route('/student/', methods=['POST'])
 @required_login
 @required_role('editor')
-def student():
+def student_crud():
     action = request.form.get('action', '').strip()
     turma = request.form.get('turma', '').strip()
     

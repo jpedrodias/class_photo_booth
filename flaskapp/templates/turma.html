@@ -291,7 +291,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="addStudentForm">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="addStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -378,7 +378,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="editStudentForm">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="editStudentForm">
                     <div class="modal-body d-flex flex-column h-100">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -472,7 +472,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="deleteStudentForm">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="deleteStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -520,7 +520,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="transferStudentForm">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="transferStudentForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -578,7 +578,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="removePhotoForm">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="removePhotoForm">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -670,7 +670,7 @@
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="{{ url_for('student') }}" id="manualUploadPhotoStudentForm" enctype="multipart/form-data">
+                <form method="POST" action="{{ url_for('student_crud') }}" id="manualUploadPhotoStudentForm" enctype="multipart/form-data">
                     <div class="modal-body">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
@@ -1727,7 +1727,7 @@
             submitButton.disabled = true;
             
             // Enviar requisição AJAX
-            fetch("{{ url_for('student') }}", {
+            fetch("{{ url_for('student_crud') }}", {
                 method: 'POST',
                 body: formData
             })
