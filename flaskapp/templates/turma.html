@@ -369,8 +369,8 @@
 
     <!-- Modal para editar aluno -->
     <div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content h-100">
                 <div class="modal-header">
                     <h5 class="modal-title" id="editStudentModalLabel">
                         <i class="bi bi-pencil-fill me-2"></i>
@@ -379,12 +379,15 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="POST" action="{{ url_for('student') }}" id="editStudentForm">
-                    <div class="modal-body">
+                    <div class="modal-body d-flex flex-column h-100">
                         <!-- Inputs hidden -->
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <input type="hidden" name="action" value="crud_student_edit">
                         <input type="hidden" name="turma" value="{{ turma }}">
                         <input type="hidden" name="aluno_id" id="editAlunoId">
+
+                        <!-- Form content with scroll -->
+                        <div class="flex-grow-1 overflow-auto p-3">
                         
                         <div class="mb-3">
                             <label for="editStudentName" class="form-label">Nome Completo</label>
@@ -437,8 +440,9 @@
                                 • O número do processo deve ser único na escola
                             </div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
+                        </div> <!-- Fecha div flex-grow-1 -->
+                    </div> <!-- Fecha modal-body -->
+                    <div class="modal-footer flex-shrink-0">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                             <i class="bi bi-x-circle"></i> Cancelar
                         </button>
@@ -1214,6 +1218,66 @@
         
         .student-notes.fade-out {
             animation: fadeOut 0.3s ease-out;
+        }
+
+        /* Estilos para modal fullscreen de editar aluno */
+        #editStudentModal .modal-content {
+            border-radius: 0;
+        }
+
+        #editStudentModal .modal-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+            color: white;
+            border-bottom: none;
+        }
+
+        #editStudentModal .modal-header .btn-close {
+            filter: invert(1);
+        }
+
+        #editStudentModal .modal-body {
+            padding: 0;
+        }
+
+        #editStudentModal .modal-footer {
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* Melhorar layout dos campos no fullscreen */
+        #editStudentModal .overflow-auto {
+            max-height: calc(100vh - 140px);
+        }
+
+        #editStudentModal .mb-3 {
+            margin-bottom: 1.5rem !important;
+        }
+
+        #editStudentModal .form-label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        #editStudentModal .form-control {
+            border-radius: 0.5rem;
+            border: 2px solid #e9ecef;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        #editStudentModal .form-control:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+
+        /* Melhorar aparência dos botões de atalho */
+        #editStudentModal .notes-shortcut-btn {
+            transition: all 0.2s ease;
+        }
+
+        #editStudentModal .notes-shortcut-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
     </style>
 
