@@ -181,6 +181,16 @@
                         </button>
                         {% endif %}
                     {% endif %}
+                    
+                    <!-- Ícone de notas (canto inferior esquerdo da imagem) - só aparece se há notas -->
+                    {% if aluno.notes and aluno.notes.strip() %}
+                    <button class="btn btn-sm btn-info notes-toggle-btn notes-btn-on-image" 
+                            data-aluno-id="{{ aluno.id }}"
+                            title="Mostrar notas do aluno"
+                            onclick="event.stopPropagation(); toggleStudentNotes({{ aluno.id }});">
+                        <i class="bi bi-pencil-fill text-white notes-icon-xs"></i>
+                    </button>
+                    {% endif %}
                 </div>
                 <div class="student-info">
                     <div class="student-name">{{ aluno.nome }} </div>
@@ -190,6 +200,14 @@
                         {% else %}
                             Proc. {{ aluno.processo }}
                         {% endif %}
+                    </div>
+                    
+                    <!-- Área para mostrar notas (oculta por padrão) -->
+                    <div class="student-notes mt-1" id="notes-{{ aluno.id }}" style="display: none;">
+                        <small class="text-muted">
+                            <i class="bi bi-sticky-fill me-1"></i>
+                            <span class="notes-content">{{ aluno.notes }}</span>
+                        </small>
                     </div>
                 </div>
                 
@@ -226,6 +244,7 @@
                             data-processo="{{ aluno.processo }}" 
                             data-numero="{{ aluno.numero or '' }}"
                             data-email="{{ aluno.email or '' }}"
+                            data-notes="{{ aluno.notes or '' }}"
                             data-autorizacao="{{ 'true' if aluno.autorizacao else 'false' }}"
                             data-autorizacao-debug="{{ aluno.autorizacao }}"
                             data-bs-toggle="modal" 
@@ -305,6 +324,13 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="studentNotes" class="form-label">Notas</label>
+                            <textarea class="form-control input-base" id="studentNotes" name="notes" rows="3" 
+                                      placeholder="Digite notas sobre o aluno (opcional)" maxlength="1000"></textarea>
+                            <div class="form-text">Informações adicionais sobre o aluno (máximo 1000 caracteres)</div>
+                        </div>
+
+                        <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="studentAutorizacao" name="autorizacao" checked>
                                 <label class="form-check-label" for="studentAutorizacao">
@@ -318,11 +344,12 @@
                             <i class="bi bi-info-circle me-2 mt-1"></i>
                             <div>
                                 <strong>Informações importantes:</strong><br>
-                                • O número do processo deve ser único dentro da turma<br>
+                                • O número do processo deve ser único em todas as turmas<br>
                                 • O número na turma é opcional e pode repetir<br>
                                 • A listagem será ordenada pelo número na turma<br>
                                 • O nome pode ter até 200 caracteres<br>
-                                • O número do processo pode ter até 50 caracteres
+                                • O email pode ter até 255 caracteres<br>
+                                • As notas podem ter até 1000 caracteres
                             </div>
                         </div>
                     </div>
@@ -384,6 +411,13 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="editStudentNotes" class="form-label">Notas</label>
+                            <textarea class="form-control input-base" id="editStudentNotes" name="notes" rows="3" 
+                                      placeholder="Digite notas sobre o aluno (opcional)" maxlength="1000"></textarea>
+                            <div class="form-text">Informações adicionais sobre o aluno (máximo 1000 caracteres)</div>
+                        </div>
+
+                        <div class="mb-3">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="editStudentAutorizacao" name="autorizacao">
                                 <label class="form-check-label" for="editStudentAutorizacao">
@@ -398,7 +432,7 @@
                             <div>
                                 <strong>Atenção:</strong><br>
                                 • Alterar o número do processo pode afetar fotos já tiradas<br>
-                                • O número do processo deve ser único na turma
+                                • O número do processo deve ser único na escola
                             </div>
                         </div>
                     </div>
@@ -503,7 +537,7 @@
                                 <strong>Informações importantes:</strong><br>
                                 • O aluno será movido para a turma selecionada<br>
                                 • A foto do aluno será transferida junto<br>
-                                • O número do processo deve ser único na turma de destino<br>
+                                • O número do processo deve ser único na escola<br>
                                 • Esta operação não pode ser desfeita facilmente
                             </div>
                         </div>
@@ -1072,6 +1106,109 @@
                 padding-bottom: 170px !important; /* Espaço para controles + botão cancelar */
             }
         }
+        
+        /* Estilos para o sistema de notas */
+        .notes-toggle-btn {
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+            z-index: 3;
+        }
+        
+        .notes-toggle-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .notes-icon-xs {
+            font-size: 0.6rem;
+            line-height: 1;
+        }
+        
+        /* Animação pulsante para melhor visibilidade em telas pequenas */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @media (max-width: 768px) {
+            .notes-btn-on-image {
+                animation: pulse 2s infinite;
+            }
+            
+            .notes-btn-on-image:hover {
+                animation: none;
+                transform: scale(1.15);
+            }
+        }
+        
+        /* Posicionamento do botão de notas na imagem */
+        .student-photo {
+            position: relative;
+        }
+        
+        .notes-btn-on-image {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        
+        .notes-btn-on-image:hover {
+            transform: scale(1.1);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+        
+        /* Melhorar visibilidade em telas pequenas */
+        @media (max-width: 768px) {
+            .notes-btn-on-image {
+                width: 32px;
+                height: 32px;
+                bottom: 6px;
+                left: 6px;
+                border: 3px solid white;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+            }
+            
+            .notes-btn-on-image .notes-icon-xs {
+                font-size: 0.8rem;
+            }
+        }
+        
+        .student-notes {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 0.375rem;
+            padding: 0.25rem 0.5rem;
+            margin-top: 0.25rem;
+            border-left: 3px solid #0dcaf0;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        .student-notes .notes-content {
+            word-wrap: break-word;
+            line-height: 1.3;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-5px); }
+        }
+        
+        .student-notes.fade-out {
+            animation: fadeOut 0.3s ease-out;
+        }
     </style>
 
 
@@ -1159,8 +1296,9 @@
                 const id = this.dataset.id;
                 const nome = this.dataset.nome;
                 const processo = this.dataset.processo;
-                const numero = this.dataset.numero;
-                const email = this.dataset.email;
+                const numero = this.dataset.numero || '';
+                const email = this.dataset.email || '';
+                const notes = this.dataset.notes || '';
                 const autorizacao = this.dataset.autorizacao === 'true';
                 const autorizacaoDebug = this.dataset.autorizacaoDebug;
                 
@@ -1169,6 +1307,7 @@
                 document.getElementById('editStudentProcess').value = processo;
                 document.getElementById('editStudentNumber').value = numero;
                 document.getElementById('editStudentEmail').value = email;
+                document.getElementById('editStudentNotes').value = notes;
                 document.getElementById('editStudentAutorizacao').checked = autorizacao;
             });
         });
@@ -2213,6 +2352,63 @@
                 }
             }
         });
+
+        // Função para mostrar/ocultar notas dos alunos
+        function toggleStudentNotes(alunoId) {
+            const notesDiv = document.getElementById(`notes-${alunoId}`);
+            const toggleBtn = document.querySelector(`[data-aluno-id="${alunoId}"].notes-toggle-btn`);
+            
+            if (!notesDiv || !toggleBtn) return;
+            
+            // Se as notas estão visíveis, oculta elas
+            if (notesDiv.style.display !== 'none') {
+                hideStudentNotes(alunoId);
+                return;
+            }
+            
+            // Mostra as notas
+            notesDiv.style.display = 'block';
+            
+            // Muda o ícone para indicar que as notas estão visíveis
+            const icon = toggleBtn.querySelector('i');
+            if (icon) {
+                icon.className = 'bi bi-sticky-fill text-warning notes-icon-xs';
+                toggleBtn.title = 'Ocultar notas do aluno';
+                toggleBtn.classList.remove('btn-info');
+                toggleBtn.classList.add('btn-warning');
+            }
+            
+            // Configura o timer para ocultar automaticamente após 10 segundos
+            setTimeout(() => {
+                hideStudentNotes(alunoId);
+            }, 10000); // 10 segundos
+        }
+        
+        // Função para ocultar notas
+        function hideStudentNotes(alunoId) {
+            const notesDiv = document.getElementById(`notes-${alunoId}`);
+            const toggleBtn = document.querySelector(`[data-aluno-id="${alunoId}"].notes-toggle-btn`);
+            
+            if (!notesDiv || !toggleBtn) return;
+            
+            // Adiciona classe de fade out
+            notesDiv.classList.add('fade-out');
+            
+            // Após a animação, oculta completamente
+            setTimeout(() => {
+                notesDiv.style.display = 'none';
+                notesDiv.classList.remove('fade-out');
+                
+                // Restaura o ícone original
+                const icon = toggleBtn.querySelector('i');
+                if (icon) {
+                    icon.className = 'bi bi-pencil-fill text-white notes-icon-xs';
+                    toggleBtn.title = 'Mostrar notas do aluno';
+                    toggleBtn.classList.remove('btn-warning');
+                    toggleBtn.classList.add('btn-info');
+                }
+            }, 300); // Tempo da animação
+        }
 
     </script>
 </body>

@@ -382,6 +382,7 @@ class Aluno(db.Model):
     numero = db.Column(db.Integer, nullable=True)  # Número na turma (pode repetir)
     email = db.Column(db.String(255), nullable=False, default='')  # Email do aluno
     autorizacao = db.Column(db.Boolean, default=True, nullable=False)  # Autorização para redes sociais
+    notes = db.Column(db.Text, nullable=True)  # Notas sobre o aluno
     foto_existe = db.Column(db.Boolean, default=False, nullable=False)  # Nova propriedade
     foto_tirada = db.Column(db.Boolean, default=False, nullable=False)
     turma_id = db.Column(db.Integer, db.ForeignKey('turmas.id'), nullable=False)
@@ -1488,7 +1489,8 @@ def turma(nome_seguro):
             'processo': aluno.processo,
             'nome': aluno.nome,
             'numero': aluno.numero,
-            'email': aluno.email,
+            'email': aluno.email or '',
+            'notes': aluno.notes or '',
             'autorizacao': aluno.autorizacao,
             'turma': turma_obj.nome,
             'foto_tirada': aluno.foto_tirada,
@@ -1626,6 +1628,7 @@ def student():
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
         email = request.form.get('email', '').strip()
+        notes = request.form.get('notes', '').strip()
         autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox (default True se não marcado)
         
         if not nome:
@@ -1665,6 +1668,7 @@ def student():
             processo=processo_validado,
             numero=numero_int,
             email=email,
+            notes=notes,
             autorizacao=autorizacao,
             turma_id=turma_obj.id,
             foto_tirada=False
@@ -1686,6 +1690,7 @@ def student():
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
         email = request.form.get('email', '').strip()
+        notes = request.form.get('notes', '').strip()
         autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox
 
         if not aluno_id or not nome:
@@ -1767,6 +1772,7 @@ def student():
             aluno.processo = processo_validado
             aluno.numero = numero_int
             aluno.email = email
+            aluno.notes = notes
             aluno.autorizacao = autorizacao
             
             # Se o processo mudou e há foto, atualizar timestamp da turma

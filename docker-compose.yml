@@ -14,6 +14,7 @@ services:
         echo \"RQ worker iniciado com PID: \$$WORKER_PID\";
         echo \"Running App: ${FLASKAPP_FILE}\";
         gunicorn -w 10 -b :5000 app:app;
+        #python ${FLASKAPP_FILE};
       else
         echo 'Falha na verificação do Redis. Saindo...';
         exit 1;
