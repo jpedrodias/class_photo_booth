@@ -1147,6 +1147,7 @@
   debugLog(`Expected path: {{ url_for('turmas') }}`, 'info');
   debugLog(`Current URL: ${window.location.href}`, 'info');
   debugLog(`History length: ${history.length}`, 'info');
+  debugLog(`Initial history state: ${JSON.stringify(history.state)}`, 'info');
 
   if (location.pathname !== '{{ url_for('turmas') }}') {
     debugLog(`location.pathname !== '/turmas': ${location.pathname} !== '{{ url_for('turmas') }}'`, 'warning');
@@ -1156,7 +1157,14 @@
   debugLog('Setting up back button trap for /turmas', 'info');
 
   // Coloca um estado “sentinela” para apanhar o back
-  try { history.pushState({ __trap: 'turmas' }, document.title, location.href); } catch {}
+  try { 
+    const sentinelState = { __trap: 'turmas' };
+    history.pushState(sentinelState, document.title, location.href);
+    debugLog(`Sentinel state pushed: ${JSON.stringify(sentinelState)}`, 'success');
+    debugLog(`History state after push: ${JSON.stringify(history.state)}`, 'info');
+  } catch (e) {
+    debugLog(`Error pushing sentinel state: ${e.message}`, 'error');
+  }
 
   window.addEventListener('popstate', function onPop(e) {
     debugLog('POPSTATE EVENT TRIGGERED!', 'warning');
@@ -1164,6 +1172,9 @@
 
     if (!e.state || e.state.__trap !== 'turmas') {
       debugLog('No sentinel state found, allowing normal back navigation', 'warning');
+      debugLog(`State details: ${e.state}`, 'info');
+      debugLog(`State type: ${typeof e.state}`, 'info');
+      debugLog(`Has __trap property: ${e.state ? '__trap' in e.state : 'N/A'}`, 'info');
       return;
     }
 
@@ -1183,8 +1194,10 @@
 
     // Se ainda estivermos aqui (nenhuma saída ocorreu), re-armar a sentinela
     try {
-      history.pushState({ __trap: 'turmas' }, document.title, location.href);
-      debugLog('Re-armed sentinel state after popstate', 'success');
+      const newSentinelState = { __trap: 'turmas' };
+      history.pushState(newSentinelState, document.title, location.href);
+      debugLog(`Re-armed sentinel state: ${JSON.stringify(newSentinelState)}`, 'success');
+      debugLog(`History state after re-arm: ${JSON.stringify(history.state)}`, 'info');
     } catch (e) {
       debugLog(`Failed to re-arm sentinel: ${e.message}`, 'error');
     }
