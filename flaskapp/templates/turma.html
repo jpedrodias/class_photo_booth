@@ -328,6 +328,7 @@
                             <textarea class="form-control input-base" id="studentNotes" name="notes" rows="3" 
                                       placeholder="Digite notas sobre o aluno (opcional)" maxlength="1000"></textarea>
                             <div class="form-text">Informações adicionais sobre o aluno (máximo 1000 caracteres)</div>
+                            <div id="studentNotesContainer"></div>
                         </div>
 
                         <div class="mb-3">
@@ -415,6 +416,7 @@
                             <textarea class="form-control input-base" id="editStudentNotes" name="notes" rows="3" 
                                       placeholder="Digite notas sobre o aluno (opcional)" maxlength="1000"></textarea>
                             <div class="form-text">Informações adicionais sobre o aluno (máximo 1000 caracteres)</div>
+                            <div id="editStudentNotesContainer"></div>
                         </div>
 
                         <div class="mb-3">
@@ -2413,6 +2415,120 @@
                 }
             }, 300); // Tempo da animação
         }
+
+        // ========== FUNCIONALIDADE DE ATA LHOS PARA NOTAS ==========
+        // Textos de atalho para notas dos alunos
+        const notesShortcuts = {
+            'Crohn': 'Doença de Crohn',
+            'Lactose': 'Intolerância à Lactose',
+            'Leguminosas': 'Intolerância às Leguminosas',
+            'Ovos': 'Intolerância aos Ovos',
+            'Porco': 'Carne de Porco',
+            'Peixe': 'Intolerância ao Peixe',
+            'Marisco': 'Intolerância ao Marisco',
+            'Leite': 'Alergia à proteína do leite',
+            'Atum': 'Alergia ao Atum',
+            'Celíaco': 'Celíaco',
+            'Glúten': 'Intolerância ao Glúten',
+            'Salsicha': 'Intolerância Salsicha de Conserva',
+            'Halal': 'Comida Halal'
+        };
+
+        // Função para injetar texto na textarea
+        function injectNoteText(textareaId, text) {
+            const textarea = document.getElementById(textareaId);
+            if (!textarea) return;
+
+            const currentValue = textarea.value.trim();
+            const newText = text;
+
+            // Se já houver texto, adicionar uma vírgula e espaço
+            if (currentValue) {
+                textarea.value = currentValue + ', ' + newText;
+            } else {
+                textarea.value = newText;
+            }
+
+            // Focar na textarea e posicionar cursor no final
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+            // Trigger input event para validações
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        // Criar botões de atalho para uma textarea específica
+        function createNotesShortcutButtons(textareaId, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Criar scroll container
+            const scrollContainer = document.createElement('div');
+            scrollContainer.className = 'notes-shortcuts-container';
+            scrollContainer.style.cssText = `
+                display: flex;
+                gap: 0.5rem;
+                overflow-x: auto;
+                padding: 0.5rem 0;
+                margin-top: 0.5rem;
+                scrollbar-width: thin;
+                scrollbar-color: #6c757d #f8f9fa;
+            `;
+
+            // Adicionar scrollbar customizado para webkit
+            const style = document.createElement('style');
+            style.textContent = `
+                .notes-shortcuts-container::-webkit-scrollbar {
+                    height: 6px;
+                }
+                .notes-shortcuts-container::-webkit-scrollbar-track {
+                    background: #f8f9fa;
+                    border-radius: 3px;
+                }
+                .notes-shortcuts-container::-webkit-scrollbar-thumb {
+                    background: #6c757d;
+                    border-radius: 3px;
+                }
+                .notes-shortcuts-container::-webkit-scrollbar-thumb:hover {
+                    background: #5a6268;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Criar botões para cada atalho
+            Object.keys(notesShortcuts).forEach(shortcut => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-outline-secondary btn-sm notes-shortcut-btn';
+                button.textContent = shortcut;
+                button.title = `Inserir: ${notesShortcuts[shortcut]}`;
+                button.style.cssText = `
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    font-size: 0.75rem;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.375rem;
+                `;
+
+                // Adicionar evento de clique
+                button.addEventListener('click', () => {
+                    injectNoteText(textareaId, notesShortcuts[shortcut]);
+                });
+
+                scrollContainer.appendChild(button);
+            });
+
+            container.appendChild(scrollContainer);
+        }
+
+        // Inicializar botões de atalho quando o DOM estiver pronto
+        document.addEventListener('DOMContentLoaded', function() {
+            // Botões para modal de adicionar aluno
+            createNotesShortcutButtons('studentNotes', 'studentNotesContainer');
+
+            // Botões para modal de editar aluno
+            createNotesShortcutButtons('editStudentNotes', 'editStudentNotesContainer');
+        });
 
     </script>
 </body>
