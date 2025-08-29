@@ -1275,14 +1275,54 @@
     debugLog(`popstate event triggered. State: ${JSON.stringify(e.state)}`, 'info');
 
     if (!e.state || e.state.__trap !== 'turmas') {
-      debugLog('No sentinel state found, allowing normal back navigation', 'warning');
+      debugLog('Null state detected - user pressed back button, exiting PWA', 'success');
       debugLog(`State details: ${e.state}`, 'info');
       debugLog(`State type: ${typeof e.state}`, 'info');
       debugLog(`Has __trap property: ${e.state ? '__trap' in e.state : 'N/A'}`, 'info');
+
+      if (!e.state) {
+        debugLog(`isStandalone: ${isStandalone}`, 'info');
+
+        if (isStandalone) {
+          // Try to "close" the PWA app
+          try {
+            debugLog('Attempting window.close()', 'info');
+            window.close();
+          } catch (closeError) {
+            debugLog(`window.close() failed: ${closeError.message}`, 'warning');
+          }
+
+          // Universal fallback: navigate to about:blank (exit effect)
+          try {
+            debugLog('Navigating to about:blank', 'info');
+            location.href = 'about:blank';
+            return;
+          } catch (blankError) {
+            debugLog(`about:blank navigation failed: ${blankError.message}`, 'warning');
+          }
+
+          // Last resort: go back in history
+          try {
+            debugLog('Using history.go(-1) as last resort', 'info');
+            history.go(-1);
+          } catch (historyError) {
+            debugLog(`history.go(-1) failed: ${historyError.message}`, 'error');
+          }
+        } else {
+          // In normal browser (not installed), let back work normally
+          debugLog('Not standalone, allowing normal back navigation', 'info');
+          history.back();
+        }
+
+        return;
+      }
+
+      // If we have a non-null state but it's not our sentinel, allow normal navigation
+      debugLog('Non-sentinel state found, allowing normal back navigation', 'warning');
       return;
     }
 
-    debugLog(`isStandalone: ${isStandalone}`, 'info');
+    debugLog('Sentinel state detected - re-arming trap', 'info');
 
     if (isStandalone) {
       // Tenta “fechar” a app PWA
