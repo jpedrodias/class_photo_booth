@@ -883,7 +883,7 @@
 
 
 
-// Salvar scroll em vários eventos de saída
+       // Salvar scroll em vários eventos de saída
         window.addEventListener('beforeunload', saveScrollPosition);
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'hidden') {
@@ -986,6 +986,45 @@
             });
         });
     </script>
+
+
+<script>
+(function () {
+  const isStandalone =
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    (navigator && navigator.standalone === true);
+
+  if (location.pathname !== '/turmas') return;
+
+  // Coloca um estado “sentinela” para apanhar o back
+  try { history.pushState({ __trap: 'turmas' }, document.title, location.href); } catch {}
+
+  window.addEventListener('popstate', function onPop(e) {
+    if (!e.state || e.state.__trap !== 'turmas') return;
+
+    if (isStandalone) {
+      // Tenta “fechar” a app PWA
+      try { window.close(); } catch {}
+      // Fallback universal: navegar para about:blank (efeito de sair/encerrar)
+      try { location.href = 'about:blank'; return; } catch {}
+      // Último recurso: libertar histórico
+      try { history.go(-2); } catch {}
+    } else {
+      // Em browser normal (não instalada), deixa o back funcionar
+      history.back();
+    }
+
+    // Se ainda estivermos aqui (nenhuma saída ocorreu), re-armar a sentinela
+    try { history.pushState({ __trap: 'turmas' }, document.title, location.href); } catch {}
+  });
+})();
+</script>
+
+    
+
+
+
+
 
 </body>
 </html>
