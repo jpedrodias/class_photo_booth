@@ -1,21 +1,14 @@
 {
   "name": "Class Photo Booth",
   "short_name": "PhotoBooth",
+  "description": "Gestão de fotografias escolares",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2b2b2b",
-  "description": "Gestão de fotografias escolares",
+  "theme_color": "#0b5fff",
+  
   "icons": [
-    {
-      "src": "/static/student_icon.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/static/favicon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
-    }
+    {"src": "/static/student_icon.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/static/favicon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any"}
   ]
 }
