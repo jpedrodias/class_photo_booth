@@ -387,7 +387,9 @@
                         <input type="hidden" name="aluno_id" id="editAlunoId">
 
                         <!-- Form content with scroll -->
-                        <div class="flex-grow-1 overflow-auto p-3">
+                        <div class="flex-grow-1 overflow-auto p-3 d-flex flex-column justify-content-between">
+                        <div class="form-content">
+                        <div class="form-content">
                         
                         <div class="mb-3">
                             <label for="editStudentName" class="form-label">Nome Completo</label>
@@ -440,6 +442,12 @@
                                 • O número do processo deve ser único na escola
                             </div>
                         </div>
+                        
+                        </div> <!-- Fecha form-content -->
+                        
+                        <!-- Espaço flexível para empurrar o conteúdo para cima -->
+                        <div class="flex-grow-1"></div>
+                        
                         </div> <!-- Fecha div flex-grow-1 -->
                     </div> <!-- Fecha modal-body -->
                     <div class="modal-footer flex-shrink-0">
@@ -1249,6 +1257,10 @@
             max-height: calc(100vh - 140px);
         }
 
+        #editStudentModal .form-content {
+            min-height: fit-content;
+        }
+
         #editStudentModal .mb-3 {
             margin-bottom: 1.5rem !important;
         }
@@ -1278,6 +1290,11 @@
         #editStudentModal .notes-shortcut-btn:hover {
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* Garantir que o modal footer fique sempre no final */
+        #editStudentModal .modal-footer {
+            margin-top: auto;
         }
     </style>
 
