@@ -992,8 +992,9 @@
     <div id="debugConsole" class="debug-console">
         <div class="debug-header">
             <span>🐛 Debug Console</span>
-            <button onclick="clearDebugConsole()" class="btn btn-sm btn-outline-light ms-2">🗑️</button>
-            <button onclick="toggleDebugConsole()" class="btn btn-sm btn-outline-light ms-1">−</button>
+            <button onclick="copyDebugToClipboard()" class="btn btn-sm btn-outline-light ms-2" title="Copy to clipboard">📋</button>
+            <button onclick="clearDebugConsole()" class="btn btn-sm btn-outline-light ms-1" title="Clear logs">🗑️</button>
+            <button onclick="toggleDebugConsole()" class="btn btn-sm btn-outline-light ms-1" title="Minimize">−</button>
         </div>
         <div id="debugContent" class="debug-content">
             <!-- Debug messages will appear here -->
@@ -1045,6 +1046,87 @@
         function clearDebugConsole() {
             debugMessages = [];
             updateDebugDisplay();
+        }
+
+        function copyDebugToClipboard() {
+            if (debugMessages.length === 0) {
+                debugLog('No debug messages to copy', 'warning');
+                return;
+            }
+
+            // Create formatted text from debug messages
+            const formattedLogs = debugMessages.map(entry => {
+                return `[${entry.timestamp}] ${entry.message}`;
+            }).join('\n');
+
+            // Add header with device info
+            const header = `=== DEBUG LOGS - ${new Date().toLocaleString()} ===\n`;
+            const deviceInfo = `Device: ${navigator.userAgent}\nScreen: ${window.innerWidth}x${window.innerHeight}\nURL: ${window.location.href}\n\n`;
+            const fullContent = header + deviceInfo + formattedLogs;
+
+            // Copy to clipboard using modern API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(fullContent).then(() => {
+                    debugLog('Debug logs copied to clipboard successfully!', 'success');
+                    showCopyFeedback('Copied!');
+                }).catch(err => {
+                    debugLog(`Failed to copy to clipboard: ${err}`, 'error');
+                    fallbackCopyTextToClipboard(fullContent);
+                });
+            } else {
+                // Fallback for older browsers or non-secure contexts
+                fallbackCopyTextToClipboard(fullContent);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // Avoid scrolling to bottom
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            textArea.style.opacity = "0";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    debugLog('Debug logs copied to clipboard (fallback method)!', 'success');
+                    showCopyFeedback('Copied!');
+                } else {
+                    debugLog('Failed to copy debug logs to clipboard', 'error');
+                }
+            } catch (err) {
+                debugLog(`Fallback copy failed: ${err}`, 'error');
+            }
+
+            document.body.removeChild(textArea);
+        }
+
+        function showCopyFeedback(message) {
+            // Create or update feedback element
+            let feedback = document.getElementById('copyFeedback');
+            if (!feedback) {
+                feedback = document.createElement('div');
+                feedback.id = 'copyFeedback';
+                feedback.className = 'copy-feedback';
+                document.body.appendChild(feedback);
+            }
+
+            feedback.textContent = message;
+            feedback.classList.add('show');
+
+            // Hide after 2 seconds
+            setTimeout(() => {
+                if (feedback) {
+                    feedback.classList.remove('show');
+                }
+            }, 2000);
         }
 
         function toggleDebugConsole() {
@@ -1131,6 +1213,28 @@
             .debug-console {
                 display: none !important;
             }
+        }
+
+        /* Copy feedback styles */
+        .copy-feedback {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 10000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            border: 2px solid #28a745;
+        }
+
+        .copy-feedback.show {
+            opacity: 1;
         }
     </style>
 
