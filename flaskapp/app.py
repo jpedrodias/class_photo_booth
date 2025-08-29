@@ -1336,6 +1336,13 @@ def logout():
 # End def logout
 
 
+@app.route('/close')
+def close_app():
+    """Página para fechar a PWA adequadamente"""
+    return render_template('close.html')
+# End def close_app
+
+
 @app.route('/turmas/')
 @required_login
 @required_role('viewer')

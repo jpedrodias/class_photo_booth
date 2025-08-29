@@ -1292,13 +1292,13 @@
             debugLog(`window.close() failed: ${closeError.message}`, 'warning');
           }
 
-          // Universal fallback: navigate to about:blank (exit effect)
+          // Navigate to dedicated close page that will handle PWA closure
           try {
-            debugLog('Navigating to about:blank', 'info');
-            location.href = 'about:blank';
+            debugLog('Navigating to dedicated close page', 'info');
+            location.href = '{{ url_for("close_app") }}';
             return;
-          } catch (blankError) {
-            debugLog(`about:blank navigation failed: ${blankError.message}`, 'warning');
+          } catch (closePageError) {
+            debugLog(`Close page navigation failed: ${closePageError.message}`, 'warning');
           }
 
           // Last resort: go back in history
@@ -1323,8 +1323,6 @@
     }
 
     debugLog('Sentinel state detected - re-arming trap', 'info');
-
-    if (isStandalone) {
       // Tenta “fechar” a app PWA
       try { window.close(); } catch {}
       // Fallback universal: navegar para about:blank (efeito de sair/encerrar)
