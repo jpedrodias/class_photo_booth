@@ -216,3 +216,81 @@ def send_account_updated_email(app_config, email, user_name):
             'error': error_msg,
             'email': email
         }
+
+def send_notification_teacher_email(app_config, email, subject, body, turma_nome, professor_nome):
+    """
+    Envia email de notificação para o professor responsável pela turma
+    """
+    job = get_current_job()
+    job_id = job.get_id() if job else None
+    
+    try:
+        # Configurar Flask Mail
+        from flask import Flask
+        import os
+        app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
+        app.config.update(app_config)
+        
+        mail = Mail(app)
+        
+        # Renderizar template do email e criar mensagem
+        with app.app_context():
+            from datetime import datetime
+            html_body = render_template(
+                'template_email_send_notification_teacher.html',
+                subject=subject,
+                body=body,
+                turma_nome=turma_nome,
+                professor_nome=professor_nome,
+                current_date=datetime.now().strftime('%d/%m/%Y %H:%M')
+            )
+            
+            # Criar mensagem dentro do contexto da aplicação
+            msg = Message(
+                subject=subject,
+                recipients=[email],
+                html=html_body
+            )
+            
+            # Atualizar status da tarefa
+            if job:
+                job.meta['status'] = 'sending'
+                job.meta['progress'] = 50
+                job.save_meta()
+            
+            # Enviar email dentro do contexto
+            mail.send(msg)
+        
+        print(f"Email de notificação enviado com sucesso para: {email}")
+        
+        # Atualizar status da tarefa como sucesso
+        if job:
+            job.meta['status'] = 'completed'
+            job.meta['progress'] = 100
+            job.meta['message'] = f'Email de notificação enviado com sucesso para {email}'
+            job.save_meta()
+        
+        return {
+            'success': True,
+            'email': email,
+            'turma': turma_nome,
+            'professor': professor_nome
+        }
+        
+    except Exception as e:
+        error_msg = f"Erro ao enviar email de notificação para {email}: {str(e)}"
+        print(error_msg)
+        print(f"Traceback completo: {traceback.format_exc()}")
+        
+        # Atualizar status da tarefa como erro
+        if job:
+            job.meta['status'] = 'failed'
+            job.meta['progress'] = 100
+            job.meta['error'] = error_msg
+            job.save_meta()
+        
+        return {
+            'success': False,
+            'error': error_msg,
+            'email': email
+        }

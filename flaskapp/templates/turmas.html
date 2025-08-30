@@ -12,7 +12,7 @@
     <!-- PWA Manifest & Meta -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta name="theme-color" content="#2b2b2b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Class Photo Booth">
     <link rel="apple-touch-icon" sizes="192x192" href="{{ url_for('static', filename='student_icon.jpg') }}">
@@ -256,34 +256,6 @@
         </div>
     </div>
     {% endif %}
-    
-    <!-- Mobile action buttons -->
-    <!--
-    <div class="d-lg-none fixed-bottom bg-light border-top p-3">
-        <div class="container">
-            <div class="row g-2">
-                <div class="col-4">
-                    <button onclick="addTurma()" class="btn btn-primary w-100 mobile-btn-inline">
-                        <i class="bi bi-plus-circle"></i>
-                        <small>Turma</small>
-                    </button>
-                </div>
-                <div class="col-4">
-                    <a href="/settings" class="btn btn-secondary w-100 mobile-btn-inline">
-                        <i class="bi bi-gear"></i>
-                        <small>Config.</small>
-                    </a>
-                </div>
-                <div class="col-4">
-                    <button onclick="confirmLogout()" class="btn btn-outline-secondary w-100 mobile-btn-inline">
-                        <i class="bi bi-box-arrow-right"></i>
-                        <small>Sair</small>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    -->
 
     <!-- Modal para adicionar turma -->
     <div class="modal fade" id="addTurmaModal" tabindex="-1" aria-labelledby="addTurmaModalLabel" aria-hidden="true">
@@ -418,6 +390,21 @@
             initialized: false
         };
         
+        // Toggle mostrar/ocultar todas as turmas
+        function toggleAllTurmas() {
+            turmaFilterState.showAll = !turmaFilterState.showAll;
+            applyFilters();
+            saveTurmaFilters();
+        }
+        
+        // Toggle menu de filtros
+        function toggleFilterMenu() {
+            const filterMenu = document.getElementById('filterMenu');
+            const bsCollapse = new bootstrap.Collapse(filterMenu, {
+                toggle: true
+            });
+        }
+        
         // Carrega filtros - tenta do servidor primeiro, depois localStorage
         async function loadTurmaFilters() {
             try {
@@ -431,9 +418,7 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    // console.log('Filtros carregados do servidor:', data);
                     
-                    // Converter Array para Set
                     turmaFilterState = {
                         showAll: data.showAll !== undefined ? data.showAll : true,
                         visibleTurmas: new Set(data.visibleTurmas || []),
@@ -457,15 +442,14 @@
                     // Verificar se os filtros não são muito antigos (7 dias)
                     const daysSinceLastSave = (Date.now() - (data.timestamp || 0)) / (1000 * 60 * 60 * 24);
                     if (daysSinceLastSave > 7) {
-                        // console.log('Filtros salvos são muito antigos, inicializando padrão');
+                        // Filtros salvos são muito antigos, inicializando padrão
                         localStorage.removeItem('turmaFilters');
                         initializeDefaultFilters();
                         return;
                     }
                     
-                    // console.log('Filtros carregados do localStorage:', data);
+                    // Filtros carregados do localStorage
                     
-                    // Converter Array para Set
                     turmaFilterState = {
                         showAll: data.showAll !== undefined ? data.showAll : true,
                         visibleTurmas: new Set(data.visibleTurmas || []),
@@ -474,7 +458,7 @@
                     
                     validateAndApplyFilters();
                 } else {
-                    // console.log('Nenhum filtro salvo encontrado, inicializando padrão');
+                    // Nenhum filtro salvo encontrado, inicializando padrão
                     initializeDefaultFilters();
                 }
             } catch (error) {
@@ -502,12 +486,11 @@
             
             // Se não há turmas visíveis e showAll é false, inicializar com padrão
             if (!turmaFilterState.showAll && turmaFilterState.visibleTurmas.size === 0) {
-                // console.log('Estado inválido detectado, inicializando padrão');
+                // Estado inválido detectado, inicializando padrão
                 initializeDefaultFilters();
                 return;
             }
             
-            // console.log('Aplicando filtros carregados:', turmaFilterState);
             applyFilters();
         }
         
@@ -533,7 +516,7 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    // console.log('Filtros salvos no servidor:', result);
+                    // Filtros salvos no servidor
                     
                     // Também salvar no localStorage como backup
                     localStorage.setItem('turmaFilters', JSON.stringify(dataToSave));
@@ -548,13 +531,13 @@
             // Fallback para localStorage
             try {
                 localStorage.setItem('turmaFilters', JSON.stringify(dataToSave));
-                // console.log('Filtros salvos no localStorage');
                 showFilterSavedFeedback('Filtros salvos localmente');
             } catch (error) {
                 console.error('Erro ao salvar filtros:', error);
             }
         }
         
+        // Mostra feedback visual quando filtros são salvos
         // Mostra feedback visual quando filtros são salvos
         function showFilterSavedFeedback(message = 'Filtros salvos automaticamente') {
             // Criar elemento de feedback se não existir
@@ -566,16 +549,16 @@
                 feedback.style.zIndex = '9999';
                 document.body.appendChild(feedback);
             }
-            
+
             // Atualizar conteúdo
             feedback.innerHTML = `
                 <i class="bi bi-check-circle-fill me-2"></i>
                 ${message}
             `;
-            
+
             // Mostrar feedback
             feedback.classList.add('show');
-            
+
             // Esconder após 2 segundos
             setTimeout(() => {
                 if (feedback) {
@@ -593,7 +576,6 @@
             });
             turmaFilterState.showAll = true;
             turmaFilterState.initialized = true;
-            // console.log('Filtros inicializados com padrão:', turmaFilterState);
             applyFilters(); // Aplicar filtros após inicializar
         }
         
@@ -717,26 +699,11 @@
             }
         }
         
-        // Toggle mostrar/ocultar todas as turmas
-        function toggleAllTurmas() {
-            turmaFilterState.showAll = !turmaFilterState.showAll;
-            applyFilters();
-            saveTurmaFilters();
-        }
-        
-        // Toggle menu de filtros
-        function toggleFilterMenu() {
-            const filterMenu = document.getElementById('filterMenu');
-            const bsCollapse = new bootstrap.Collapse(filterMenu, {
-                toggle: true
-            });
-        }
-        
         // Toggle visibilidade de uma turma específica
         function toggleTurmaVisibility(turmaId) {
             const chip = document.querySelector(`label[for="turma-${turmaId}"]`);
             const icon = chip.querySelector('.chip-icon i');
-            
+
             if (turmaFilterState.visibleTurmas.has(turmaId)) {
                 turmaFilterState.visibleTurmas.delete(turmaId);
                 // Atualizar visual do chip
@@ -748,7 +715,7 @@
                 chip.classList.add('selected');
                 icon.className = 'bi bi-check-circle-fill';
             }
-            
+
             // Se todas estão selecionadas, ativar showAll
             const totalTurmas = document.querySelectorAll('.turma-item').length;
             if (turmaFilterState.visibleTurmas.size === totalTurmas) {
@@ -756,7 +723,7 @@
             } else {
                 turmaFilterState.showAll = false;
             }
-            
+
             applyFilters();
             saveTurmaFilters();
         }
@@ -801,22 +768,18 @@
             saveTurmaFilters();
         }
         
-        // === RESTO DO CÓDIGO EXISTENTE ===
         function confirmLogout() {
             if (confirm('Tem certeza que deseja sair?')) {
                 window.location.href = '/logout';
             }
         }
         
-        // Função para adicionar nova turma
         function addTurma() {
             const modal = new bootstrap.Modal(document.getElementById('addTurmaModal'));
             document.getElementById('addTurmaNome').value = '';
             modal.show();
         }
         
-        // Função para editar turma
-        // Event listeners para botões de editar turma
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.edit-turma-btn').forEach(button => {
                 button.addEventListener('click', function() {
@@ -840,7 +803,6 @@
             modal.show();
         }
         
-        // Função para confirmar eliminação de turma
         function deleteTurma(turmaId, turmaNome, totalAlunos) {
             document.getElementById('deleteTurmaId').value = turmaId;
             document.getElementById('deleteTurmaNome').textContent = turmaNome;
@@ -861,7 +823,6 @@
         
 
         // === SCROLL PRESERVATION ===
-        // const turmaName = "";
         const scrollStorageKey = "turmasScrollPosition";        
         // Restaurar posição de scroll ao carregar a página
         function restoreScrollPosition() {
@@ -909,9 +870,6 @@
             saveScrollPosition();
         });
         
-        // Restaurar posição ao carregar
-        document.addEventListener('DOMContentLoaded', restoreScrollPosition);
-        
         // Limpar posição salva após 1 hora (para evitar acumulação)
         setTimeout(() => {
             localStorage.removeItem(scrollStorageKey);
@@ -941,30 +899,26 @@
             }
         }
 
-        // Converter todas as datas UTC para timezone local quando a página carrega
+        // === INICIALIZAÇÃO ===
         document.addEventListener('DOMContentLoaded', function() {
+            // Carregar filtros salvos
+            loadTurmaFilters();
+            
+            // Converter todas as datas UTC para timezone local
             const lastUpdatedElements = document.querySelectorAll('.last-updated-utc');
             lastUpdatedElements.forEach(element => {
                 const utcDate = element.dataset.utcDate;
                 element.textContent = formatLocalDateTime(utcDate);
             });
-        });
-
-        
-        // === INICIALIZAÇÃO ===
-        document.addEventListener('DOMContentLoaded', function() {
-            //console.log('DOM carregado, inicializando filtros...');
             
-            // Carregar filtros salvos
-            loadTurmaFilters();
+            // Restaurar posição de scroll
+            restoreScrollPosition();
             
             // Fallback: aplicar filtros após pequeno delay para garantir que funcionem
             setTimeout(() => {
                 if (!turmaFilterState.initialized) {
-                    // console.log('Filtros não foram inicializados, forçando inicialização padrão...');
                     initializeDefaultFilters();
                 } else {
-                    // console.log('Reaplicando filtros como fallback...');
                     applyFilters();
                 }
             }, 500);
@@ -993,4 +947,5 @@
     </script>
 
 </body>
+<!-- Arquivo atualizado em 30/08/2025 -->
 </html>

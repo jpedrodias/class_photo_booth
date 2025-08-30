@@ -895,3 +895,76 @@ body {
 .stats-card .card-body {
     padding: 1.5rem;
 }
+
+/* === MODAL FIXES === */
+/* Garantir que os modais apareçam acima da navbar */
+.modal {
+    z-index: 1070 !important;
+    position: fixed !important;
+}
+
+.modal-backdrop {
+    z-index: 1060 !important;
+}
+
+.modal-dialog {
+    z-index: 1075 !important;
+}
+
+/* Modal específico para captura de foto */
+#capturePhotoModal {
+    z-index: 1070 !important;
+}
+
+#capturePhotoModal .modal-backdrop {
+    z-index: 1060 !important;
+}
+
+#capturePhotoModal .modal-dialog {
+    z-index: 1075 !important;
+}
+
+/* Garantir que o modal apareça acima da navbar em todos os casos */
+.modal.show {
+    z-index: 1070 !important;
+}
+
+.modal.show .modal-dialog {
+    z-index: 1075 !important;
+}
+
+/* Fix específico para modal de captura de foto */
+#capturePhotoModal.show {
+    z-index: 1070 !important;
+}
+
+#capturePhotoModal.show .modal-dialog {
+    z-index: 1075 !important;
+}
+
+#capturePhotoModal .modal-content {
+    z-index: 1080 !important;
+}
+
+/* Aplicar fix para todos os modais da página */
+#editStudentModal,
+#deleteStudentModal,
+#transferStudentModal,
+#removePhotoModal,
+#previewPhotoModal,
+#manualUploadPhotoStudentModal,
+#notificationModal,
+#addStudentModal {
+    z-index: 1070 !important;
+}
+
+#editStudentModal .modal-dialog,
+#deleteStudentModal .modal-dialog,
+#transferStudentModal .modal-dialog,
+#removePhotoModal .modal-dialog,
+#previewPhotoModal .modal-dialog,
+#manualUploadPhotoStudentModal .modal-dialog,
+#notificationModal .modal-dialog,
+#addStudentModal .modal-dialog {
+    z-index: 1075 !important;
+}

@@ -20,6 +20,7 @@ import msgpack
 # Redis Queue imports
 from rq import Queue
 from rq.job import Job
+#from rq.job import Job
 
 # OpenCV and numpy for image processing
 import cv2
@@ -1345,6 +1346,17 @@ def turmas():
     # Verificar se é uma chamada API
     is_api = request.args.get('api') == 'true'
     
+    # Verificar se há mensagem de filtro salvo
+    filter_saved = request.args.get('filter_saved')
+    filter_message = request.args.get('filter_message')
+    
+    if filter_saved and filter_message:
+        try:
+            decoded_message = filter_message  # Já vem decodificado do JavaScript
+            flash(decoded_message, 'success')
+        except:
+            flash('Filtros salvos com sucesso!', 'success')
+    
     # Obter todas as turmas da base de dados ordenadas por ID
     turmas_query = Turma.query.order_by(Turma.id).all()
     
@@ -1503,11 +1515,10 @@ def turma(nome_seguro):
             fotos_existentes += 1
     
     return render_template('turma.html', 
-                         turma=turma_obj.nome, 
-                         nome_seguro=turma_obj.nome_seguro, 
                          alunos=alunos, 
                          fotos_existentes=fotos_existentes,
-                         current_user=current_user)
+                         current_user=current_user,
+                         current_turma=turma_obj)
 # End def turma
 
 
@@ -3626,11 +3637,137 @@ def email_jobs():
 # End function email_jobs
 
 
-create_directories_with_permissions()
-# Inicializar base de dados quando o script é executado diretamente
-with app.app_context():
-    db.create_all()
-    print("Base de dados inicializada.")
+@app.route('/api/send_notification_email', methods=['POST'])
+@csrf.exempt  # API endpoint que recebe JSON
+@required_login
+@required_role('editor')
+def send_notification_email():
+    """
+    API endpoint para enviar email de notificação ao professor responsável
+    """
+    try:
+        # Verificar se é uma chamada AJAX (JSON) ou submissão de formulário
+        is_ajax = request.is_json or request.headers.get('Content-Type') == 'application/json'
+        
+        if is_ajax:
+            data = request.get_json()
+        else:
+            # Se não for AJAX, obter dados do formulário
+            data = {
+                'email': request.form.get('email', '').strip(),
+                'subject': request.form.get('subject', '').strip(),
+                'body': request.form.get('body', '').strip(),
+                'turma_nome': request.form.get('turma_nome', '').strip(),
+                'turma_nome_seguro': request.form.get('turma_nome_seguro', '').strip()
+            }
+        
+        # Validar dados obrigatórios
+        required_fields = ['email', 'subject', 'body', 'turma_nome', 'turma_nome_seguro']
+        for field in required_fields:
+            if field not in data or not data[field]:
+                error_msg = f'Campo obrigatório ausente: {field}'
+                if is_ajax:
+                    return jsonify({'success': False, 'error': error_msg}), 400
+                else:
+                    flash(error_msg, 'error')
+                    return redirect(request.referrer or url_for('turma', nome_seguro=data.get('turma_nome_seguro', '')))
+        
+        email = data['email'].strip()
+        subject = data['subject'].strip()
+        body = data['body'].strip()
+        turma_nome = data['turma_nome'].strip()
+        turma_nome_seguro = data['turma_nome_seguro'].strip()
+        
+        # Validar formato do email
+        if not AddUserSecurityCheck.validate_email_format(email):
+            error_msg = 'Formato de email inválido'
+            if is_ajax:
+                return jsonify({'success': False, 'error': error_msg}), 400
+            else:
+                flash(error_msg, 'error')
+                return redirect(request.referrer or url_for('turma', nome_seguro=turma_nome_seguro))
+        
+        # Verificar se a turma existe e obter informações
+        turma_obj = Turma.query.filter_by(nome_seguro=turma_nome_seguro).first()
+        if not turma_obj:
+            error_msg = 'Turma não encontrada'
+            if is_ajax:
+                return jsonify({'success': False, 'error': error_msg}), 404
+            else:
+                flash(error_msg, 'error')
+                return redirect(request.referrer or url_for('turmas'))
+        
+        # Verificar se o email do professor está configurado
+        if not turma_obj.email_professor or turma_obj.email_professor != email:
+            error_msg = 'Email do professor não está configurado para esta turma'
+            if is_ajax:
+                return jsonify({'success': False, 'error': error_msg}), 400
+            else:
+                flash(error_msg, 'error')
+                return redirect(url_for('turma', nome_seguro=turma_nome_seguro))
+        
+        # Preparar configurações do app para a tarefa
+        app_config = {
+            'MAIL_SERVER': app.config['MAIL_SERVER'],
+            'MAIL_PORT': app.config['MAIL_PORT'],
+            'MAIL_USE_TLS': app.config['MAIL_USE_TLS'],
+            'MAIL_USE_SSL': app.config['MAIL_USE_SSL'],
+            'MAIL_USERNAME': app.config['MAIL_USERNAME'],
+            'MAIL_PASSWORD': app.config['MAIL_PASSWORD'],
+            'MAIL_DEFAULT_SENDER': app.config['MAIL_DEFAULT_SENDER'],
+            'TEMPLATES_AUTO_RELOAD': True
+        }
+        
+        # Importar e executar tarefa de envio
+        from tasks import send_notification_teacher_email
+        
+        # Enqueue da tarefa
+        job = email_queue.enqueue(
+            send_notification_teacher_email,
+            app_config,
+            email,
+            subject,
+            body,
+            turma_nome,
+            turma_obj.nome_professor or 'Professor',
+            job_timeout=300
+        )
+        
+        print(f"Tarefa de notificação criada: {job.get_id()}")
+        
+        success_msg = 'Email de notificação enviado com sucesso! O processamento será feito em segundo plano.'
+        
+        if is_ajax:
+            return jsonify({
+                'success': True,
+                'message': success_msg,
+                'job_id': job.get_id(),
+                'email': email
+            })
+        else:
+            flash(success_msg, 'success')
+            return redirect(url_for('turma', nome_seguro=turma_nome_seguro))
+        
+    except Exception as e:
+        print(f"Erro ao processar notificação: {str(e)}")
+        error_msg = f'Erro interno do servidor: {str(e)}'
+        if request.is_json or request.headers.get('Content-Type') == 'application/json':
+            return jsonify({'success': False, 'error': error_msg}), 500
+        else:
+            flash('Erro ao enviar email. Tente novamente.', 'error')
+            return redirect(request.referrer or url_for('turmas'))
+# End function send_notification_email
+
+
+
 
 if __name__ == '__main__':
-    app.run(debug=DEBUG, host='0.0.0.0', port=5000)
+    
+    create_directories_with_permissions()
+    # Inicializar base de dados quando o script é executado diretamente
+    with app.app_context():
+        db.create_all()
+        print("Base de dados inicializada.")
+        
+    #app.run(debug=DEBUG, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

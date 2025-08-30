@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ subject }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2c3e50;">{{ subject }}</h2>
+
+        <p>Olá <strong>{{ professor_nome }}</strong>,</p>
+
+        <div style="background-color: #f8f9fa; padding: 15px; border-left: 4px solid #007bff; margin: 20px 0;">
+            {% for paragraph in body.split('\n\n') %}
+                {% if paragraph.strip() %}
+                    <p style="margin-bottom: 10px;">{{ paragraph.strip() | safe }}</p>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <p style="margin-top: 30px;">
+            <strong>Turma:</strong> {{ turma_nome }}<br>
+            <strong>Data da notificação:</strong> {{ current_date }}
+        </p>
+
+        <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+        <p style="color: #666; font-size: 12px;">
+            Esta é uma mensagem automática do sistema de Fotografia de Turma.<br>
+            Por favor, não responda a este email.
+        </p>
+    </div>
+</body>
+</html>
