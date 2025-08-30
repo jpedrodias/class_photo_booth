@@ -1,9 +1,11 @@
 # Local development environment setup script for Windows PowerShell
-.env_private
+# Environment variables for local development
+.env_private 
 
-setup_local_dev_env.ps1
-setup_local_private.ps1
+# Script to set up the local private environment
 setup_local_private_env.ps1
+
+# CSV file with student data
 alunos.csv
 
 # Python cache
