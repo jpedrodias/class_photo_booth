@@ -3759,8 +3759,6 @@ def send_notification_email():
 # End function send_notification_email
 
 
-
-
 if __name__ == '__main__':
     
     create_directories_with_permissions()
