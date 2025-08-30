@@ -750,7 +750,7 @@
                         <div class="mb-3">
                             <label for="notificationBody" class="form-label">Mensagem</label>
                             <textarea class="form-control input-base" id="notificationBody" name="body" rows="6" required>
-Caro Professor {{ current_turma.nome_professor or 'Professor' }},
+Caro(a) Professor(a) {{ current_turma.nome_professor or 'Professor' }},
 
 Esta é uma notificação automática do sistema Class Photo Booth.
 
@@ -759,6 +759,7 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
 Por favor, aceda ao sistema para verificar as atualizações mais recentes.
 
 Atenciosamente,
+
 Sistema Class Photo Booth
                             </textarea>
                             <div class="form-text">Corpo da mensagem de notificação</div>
