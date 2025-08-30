@@ -19,7 +19,7 @@
 </head>
 <body class="turma-page">
     <!-- Navbar -->
-    <nav class="navbar navbar-dark navbar-custom navbar-expand-lg py-3">
+    <nav class="navbar navbar-dark navbar-custom navbar-expand-lg py-3 fixed-top">
         <div class="container">
             <div class="navbar-brand d-flex align-items-center">
                 <span class="display-6 me-2">🎓</span>
@@ -59,6 +59,9 @@
             </div>
         </div>
     </nav>
+    
+    <!-- Espaço para compensar navbar fixo -->
+    <div class="navbar-spacer"></div>
 
     <!-- Mensagens flash -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -705,7 +708,9 @@
     </div>
 
 
+    
     <!-- Mobile bottom buttons -->
+    <!--
     <div class="d-lg-none fixed-bottom bg-light border-top p-3">
         <div class="container">
             <div class="row g-2">
@@ -743,6 +748,7 @@
             </div>
         </div>
     </div>
+    -->
 
     <!-- Modal de Captura de Foto -->
     <div class="modal fade" id="capturePhotoModal" tabindex="-1" aria-labelledby="capturePhotoModalLabel" aria-hidden="true">

@@ -23,7 +23,17 @@ body {
     z-index: auto;
 }
 
-/* === COMPONENTES ESPECÍFICOS === */
+/* Espaçador para navbar fixo */
+.navbar-spacer {
+    height: 80px;
+}
+
+/* Responsividade para dispositivos móveis */
+@media (max-width: 767.98px) {
+    .navbar-spacer {
+        height: 70px;
+    }
+}
 
 /* Navbar moderna melhorada */
 .navbar-custom {
@@ -33,6 +43,17 @@ body {
     border-bottom: 1px solid rgba(255,255,255,0.1);
     position: relative;
     z-index: 1040;
+}
+
+/* Navbar fixo no topo */
+.navbar-custom.fixed-top {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1060 !important;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(74, 94, 170, 0.3);
 }
 
 .navbar-custom .navbar-brand {
