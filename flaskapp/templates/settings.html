@@ -681,7 +681,64 @@
             </div>
             {% endif %}
 
-            <!-- Card 4: Fazer rescan aos ficheiros que já existam -->
+            <!-- Card 4: Bulk Upload de Fotos -->
+            {% if has_data and can_upload_csv %}
+            <div class="col-lg-4">
+                <div class="card h-100 border-0 shadow bulk-upload-card"
+                     ondragover="handleBulkUploadDragOver(event)"
+                     ondragleave="handleBulkUploadDragLeave(event)"
+                     ondrop="handleBulkUploadDrop(event)">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 text-success mb-3">📦</div>
+                        <h5 class="card-title fw-bold">Bulk Upload</h5>
+                        <p class="card-text text-muted">
+                            Enviar <strong>várias fotos</strong> ou <strong>ficheiros ZIP</strong> em lote.
+                            Os nomes dos ficheiros serão usados como números de processo.
+                        </p>
+
+                        <div id="bulk-upload-status" class="mb-3" style="display: none;">
+                            <div class="alert alert-info">
+                                <div class="d-flex align-items-center">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                                        <span class="visually-hidden">Processando...</span>
+                                    </div>
+                                    <span id="bulk-upload-progress-text">Processando arquivos...</span>
+                                </div>
+                                <div class="progress mt-2" style="height: 6px;">
+                                    <div id="bulk-upload-progress" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                         role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="bulk-upload-drop-zone" class="mb-3 p-4 border-2 border-dashed border-secondary rounded bg-light">
+                            <div class="text-center">
+                                <i class="bi bi-cloud-upload display-4 text-secondary mb-3"></i>
+                                <p class="mb-2 fw-semibold">Arraste e solte os arquivos aqui</p>
+                                <p class="text-muted small mb-0">ou clique para selecionar</p>
+                                <div id="bulk-upload-file-list" class="mt-3 text-start small"></div>
+                            </div>
+                        </div>
+
+                        <form action="/settings/bulk_upload/" method="post" enctype="multipart/form-data" id="bulkUploadForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                            <div class="mb-3">
+                                <input type="file" name="files" id="bulkUploadFiles" accept=".jpg,.jpeg,.png,.gif,.bmp,.webp,.zip" multiple class="form-control d-none" required>
+                                <div class="form-text">
+                                    <small class="text-muted">Selecione vários ficheiros de imagem ou ZIP</small>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100" id="bulkUploadBtn" disabled>
+                                <i class="bi bi-upload me-2"></i>
+                                Enviar Arquivos
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Card 5: Fazer rescan aos ficheiros que já existam -->
             {% if has_data and can_upload_csv %}
             <div class="col-lg-4">
                 <div class="card h-100 border-0 shadow">
@@ -1241,6 +1298,91 @@
             });
         }
 
+        // Bulk Upload functionality
+        const bulkUploadFiles = document.getElementById('bulkUploadFiles');
+        if (bulkUploadFiles) {
+            bulkUploadFiles.addEventListener('change', function() {
+                const bulkUploadBtn = document.getElementById('bulkUploadBtn');
+                if (bulkUploadBtn) {
+                    bulkUploadBtn.disabled = !this.files.length;
+                }
+            });
+        }
+
+        // Check for bulk upload job status on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            checkBulkUploadStatus();
+        });
+
+        // Function to check bulk upload job status
+        function checkBulkUploadStatus() {
+            fetch('{{ url_for("settings_bulk_upload_status") }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_job) {
+                        showBulkUploadStatus(data);
+                        // Check again in 5 seconds
+                        setTimeout(checkBulkUploadStatus, 5000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking bulk upload status:', error);
+                });
+        }
+
+        // Function to show bulk upload status
+        function showBulkUploadStatus(data) {
+            const statusDiv = document.getElementById('bulkUploadStatus');
+            const messageSpan = document.getElementById('bulkUploadMessage');
+            const form = document.getElementById('bulkUploadForm');
+            const btn = document.getElementById('bulkUploadBtn');
+
+            if (statusDiv && messageSpan) {
+                statusDiv.style.display = 'block';
+
+                if (data.status === 'completed') {
+                    statusDiv.className = 'mb-3';
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                    // Re-enable form after completion
+                    if (form && btn) {
+                        form.style.display = 'block';
+                        btn.disabled = false;
+                    }
+                } else if (data.status === 'failed') {
+                    statusDiv.className = 'mb-3';
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                    // Re-enable form after failure
+                    if (form && btn) {
+                        form.style.display = 'block';
+                        btn.disabled = false;
+                    }
+                } else {
+                    // In progress
+                    statusDiv.className = 'mb-3';
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-hourglass-split me-2"></i>
+                            ${data.message}
+                        </div>
+                    `;
+                    // Hide form while processing
+                    if (form) {
+                        form.style.display = 'none';
+                    }
+                }
+            }
+        }
+
         // Confirmação para limpeza completa
         function confirmNuke() {
             return confirm(
@@ -1250,6 +1392,335 @@
                 'Tem certeza que pretende continuar?'
             );
         }
+
+        // === JAVASCRIPT PARA BULK UPLOAD ===
+        let bulkUploadStatusInterval;
+
+        function startBulkUploadStatusCheck() {
+            // Verificar status a cada 2 segundos
+            bulkUploadStatusInterval = setInterval(checkBulkUploadStatus, 2000);
+        }
+
+        function stopBulkUploadStatusCheck() {
+            if (bulkUploadStatusInterval) {
+                clearInterval(bulkUploadStatusInterval);
+                bulkUploadStatusInterval = null;
+            }
+        }
+
+        function checkBulkUploadStatus() {
+            fetch('/settings/bulk_upload/status_job')
+                .then(response => response.json())
+                .then(data => {
+                    const statusDiv = document.getElementById('bulk-upload-status');
+                    const progressBar = document.getElementById('bulk-upload-progress');
+                    const progressText = document.getElementById('bulk-upload-progress-text');
+
+                    if (!data.has_job) {
+                        // Não há tarefa ativa
+                        statusDiv.style.display = 'none';
+                        stopBulkUploadStatusCheck();
+
+                        // Reabilitar botão
+                        const submitBtn = document.getElementById('bulkUploadBtn');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Enviar Arquivos';
+                        }
+                        return;
+                    }
+
+                    statusDiv.style.display = 'block';
+
+                    if (data.status === 'processing') {
+                        statusDiv.className = 'alert alert-info';
+                        progressBar.style.width = data.progress + '%';
+                        progressText.textContent = data.message || 'Processando...';
+                    } else if (data.status === 'completed') {
+                        statusDiv.className = 'alert alert-success';
+                        progressBar.style.width = '100%';
+                        progressText.textContent = data.message || 'Concluído com sucesso!';
+                        stopBulkUploadStatusCheck();
+
+                        // Reabilitar botão
+                        const submitBtn = document.getElementById('bulkUploadBtn');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Enviar Arquivos';
+                        }
+
+                        // Mostrar detalhes se houver erros
+                        if (data.errors && data.errors.length > 0) {
+                            let errorHtml = '<br><strong>Erros encontrados:</strong><ul class="mb-0 mt-2">';
+                            data.errors.forEach(error => {
+                                errorHtml += `<li>${error}</li>`;
+                            });
+                            errorHtml += '</ul>';
+                            progressText.innerHTML += errorHtml;
+                        }
+
+                        // Recarregar página após alguns segundos para mostrar resultados
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 3000);
+                    } else if (data.status === 'failed') {
+                        statusDiv.className = 'alert alert-danger';
+                        progressBar.style.width = '100%';
+                        progressText.textContent = data.message || 'Erro na tarefa';
+                        stopBulkUploadStatusCheck();
+
+                        // Reabilitar botão
+                        const submitBtn = document.getElementById('bulkUploadBtn');
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Enviar Arquivos';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao verificar status:', error);
+                    stopBulkUploadStatusCheck();
+
+                    // Reabilitar botão em caso de erro
+                    const submitBtn = document.getElementById('bulkUploadBtn');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Enviar Arquivos';
+                    }
+                });
+        }
+
+        function validateBulkUploadForm() {
+            const filesInput = document.getElementById('bulkUploadFiles');
+            const files = filesInput.files;
+
+            if (!files || files.length === 0) {
+                alert('Por favor, selecione pelo menos um arquivo.');
+                return false;
+            }
+
+            // Verificar tipos de arquivo
+            const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.zip'];
+            let hasValidFile = false;
+            let hasInvalidFile = false;
+
+            for (let file of files) {
+                const fileName = file.name.toLowerCase();
+                const isValid = allowedExtensions.some(ext => fileName.endsWith(ext));
+
+                if (isValid) {
+                    hasValidFile = true;
+                } else {
+                    hasInvalidFile = true;
+                }
+            }
+
+            if (!hasValidFile) {
+                alert('Por favor, selecione apenas arquivos de imagem (JPG, PNG, GIF, BMP, WEBP) ou arquivos ZIP.');
+                return false;
+            }
+
+            if (hasInvalidFile) {
+                alert('Alguns arquivos selecionados não são suportados. Apenas imagens e arquivos ZIP são permitidos.');
+                return false;
+            }
+
+            // Verificar tamanho total (limite de 100MB)
+            const maxSize = 100 * 1024 * 1024; // 100MB
+            let totalSize = 0;
+            for (let file of files) {
+                totalSize += file.size;
+            }
+
+            if (totalSize > maxSize) {
+                alert('O tamanho total dos arquivos excede o limite de 100MB.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function submitBulkUploadForm() {
+            if (!validateBulkUploadForm()) {
+                return;
+            }
+
+            const form = document.getElementById('bulkUploadForm');
+            const formData = new FormData(form);
+
+            // Mostrar status
+            const statusDiv = document.getElementById('bulk-upload-status');
+            const progressBar = document.getElementById('bulk-upload-progress');
+            const progressText = document.getElementById('bulk-upload-progress-text');
+
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'alert alert-info';
+            progressBar.style.width = '0%';
+            progressText.textContent = 'Enviando arquivos...';
+
+            // Desabilitar botão
+            const submitBtn = document.getElementById('bulkUploadBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Enviando...';
+
+            fetch('/settings/bulk_upload/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Iniciar verificação de status
+                    startBulkUploadStatusCheck();
+                    progressText.textContent = 'Arquivos enviados. Aguardando processamento...';
+                } else {
+                    return response.text().then(text => {
+                        throw new Error(text || 'Erro no envio');
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                statusDiv.className = 'alert alert-danger';
+                progressText.textContent = 'Erro: ' + error.message;
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Enviar Arquivos';
+                stopBulkUploadStatusCheck();
+            });
+        }
+
+        // === DRAG AND DROP FUNCTIONS FOR BULK UPLOAD ===
+        function handleBulkUploadDragOver(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('dragover');
+            const dropZone = document.getElementById('bulk-upload-drop-zone');
+            if (dropZone) {
+                dropZone.classList.add('dragover');
+            }
+        }
+
+        function handleBulkUploadDragLeave(event) {
+            event.preventDefault();
+            // Só remover se estiver saindo do elemento principal (não de um filho)
+            if (!event.currentTarget.contains(event.relatedTarget)) {
+                event.currentTarget.classList.remove('dragover');
+                const dropZone = document.getElementById('bulk-upload-drop-zone');
+                if (dropZone) {
+                    dropZone.classList.remove('dragover');
+                }
+            }
+        }
+
+        function handleBulkUploadDrop(event) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('dragover');
+            const dropZone = document.getElementById('bulk-upload-drop-zone');
+            if (dropZone) {
+                dropZone.classList.remove('dragover');
+            }
+
+            const files = event.dataTransfer.files;
+            if (!files || files.length === 0) return;
+
+            // Validar tipos de arquivo
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'application/zip'];
+            const validFiles = [];
+            const invalidFiles = [];
+
+            for (let file of files) {
+                if (allowedTypes.includes(file.type) || file.name.toLowerCase().endsWith('.zip')) {
+                    validFiles.push(file);
+                } else {
+                    invalidFiles.push(file);
+                }
+            }
+
+            // Mostrar aviso para arquivos inválidos
+            if (invalidFiles.length > 0) {
+                const invalidNames = invalidFiles.map(f => f.name).join(', ');
+                alert(`Os seguintes arquivos não são suportados: ${invalidNames}\n\nApenas imagens (JPG, PNG, GIF, BMP, WebP) e arquivos ZIP são permitidos.`);
+            }
+
+            // Se não há arquivos válidos, sair
+            if (validFiles.length === 0) return;
+
+            // Preencher o input file com os arquivos válidos
+            const input = document.getElementById('bulkUploadFiles');
+            const dt = new DataTransfer();
+            validFiles.forEach(file => dt.items.add(file));
+            input.files = dt.files;
+
+            // Atualizar a lista de arquivos na interface
+            updateBulkUploadFileList(validFiles);
+
+            // Habilitar o botão de upload
+            const submitBtn = document.getElementById('bulkUploadBtn');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function updateBulkUploadFileList(files) {
+            const fileListDiv = document.getElementById('bulk-upload-file-list');
+            if (!fileListDiv) return;
+
+            if (files.length === 0) {
+                fileListDiv.innerHTML = '';
+                return;
+            }
+
+            let html = '<strong>Arquivos selecionados:</strong><ul class="mb-0 mt-2">';
+            files.forEach(file => {
+                const icon = file.name.toLowerCase().endsWith('.zip') ? '📦' : '🖼️';
+                const size = (file.size / 1024 / 1024).toFixed(2);
+                html += `<li class="text-truncate">${icon} ${file.name} (${size} MB)</li>`;
+            });
+            html += '</ul>';
+            fileListDiv.innerHTML = html;
+        }
+
+        // Adicionar event listener para o drop zone (clique para abrir seletor)
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('bulk-upload-drop-zone');
+            const fileInput = document.getElementById('bulkUploadFiles');
+
+            if (dropZone && fileInput) {
+                dropZone.addEventListener('click', function() {
+                    fileInput.click();
+                });
+
+                // Atualizar lista quando arquivos são selecionados via clique
+                fileInput.addEventListener('change', function() {
+                    updateBulkUploadFileList(Array.from(this.files));
+                });
+            }
+        });
+
+        // Inicializar verificação de status quando a página carrega
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar se há uma tarefa em andamento
+            checkBulkUploadStatus();
+
+            // Configurar event listeners para o bulk upload
+            const filesInput = document.getElementById('bulkUploadFiles');
+            const submitBtn = document.getElementById('bulkUploadBtn');
+            const form = document.getElementById('bulkUploadForm');
+
+            if (filesInput && submitBtn && form) {
+                // Estado inicial do botão (desabilitado se não houver arquivos)
+                submitBtn.disabled = filesInput.files.length === 0;
+
+                // Habilitar/desabilitar botão baseado na seleção de arquivos
+                filesInput.addEventListener('change', function() {
+                    submitBtn.disabled = this.files.length === 0;
+                });
+
+                // Interceptar submissão do formulário
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    submitBulkUploadForm();
+                });
+            }
+        });
     </script>
 </body>
 </html>

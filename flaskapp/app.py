@@ -8,6 +8,7 @@ import traceback
 import zipfile
 import time
 import pickle, json
+import uuid
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from io import BytesIO, StringIO
@@ -2349,7 +2350,13 @@ def download(ficheiro=None):
         turma_dir = turma_obj.get_thumb_directory() if is_thumb else turma_obj.get_foto_directory()
         
         # Cria e envia o ZIP com as imagens
-        files = [file for root, dirs, files in os.walk(turma_dir) for file in files]
+        # Usar apenas arquivos do diretório raiz, ignorando subdiretórios
+        files = []
+        for root, dirs, files_in_dir in os.walk(turma_dir):
+            # Se não for o diretório raiz, pular
+            if root != turma_dir:
+                continue
+            files.extend(files_in_dir)
 
         if not files:
             return "Nenhuma imagem disponível para download.", 400
@@ -2357,7 +2364,10 @@ def download(ficheiro=None):
         memory_file = BytesIO()
         with zipfile.ZipFile(memory_file, 'w') as zipf:
             for file in files:
-                zipf.write(os.path.join(turma_dir, file), arcname=file)
+                file_path = os.path.join(turma_dir, file)
+                # Verificar se é realmente um arquivo (não um diretório)
+                if os.path.isfile(file_path):
+                    zipf.write(file_path, arcname=file)
         memory_file.seek(0)
         return send_file(memory_file, as_attachment=True, download_name=download_filename)
     
@@ -2890,6 +2900,187 @@ def settings_backup():
         flash(f'Erro ao criar backup da base de dados: {str(e)}', 'error')
         return redirect(url_for('settings'))
 # End def settings_backup
+
+
+# === BULK UPLOAD DE FOTOS ===
+@app.route('/settings/bulk_upload/', methods=['POST'])
+@required_login
+@required_role('editor')
+def settings_bulk_upload():
+    """Processa upload em lote de fotos"""
+    try:
+        # Verificar se há arquivos
+        if 'files' not in request.files:
+            flash('Nenhum arquivo foi enviado!', 'error')
+            return redirect(url_for('settings'))
+
+        files = request.files.getlist('files')
+        if not files or all(file.filename == '' for file in files):
+            flash('Nenhum arquivo foi selecionado!', 'error')
+            return redirect(url_for('settings'))
+
+        # Preparar arquivos para processamento
+        uploaded_files = []
+        temp_dir = None
+
+        try:
+            import os
+            import uuid
+            import zipfile
+            from werkzeug.utils import secure_filename
+
+            # Criar diretório temporário
+            temp_dir = os.path.join(app.config['BASE_DIR'], 'temp', str(uuid.uuid4()))
+            os.makedirs(temp_dir, exist_ok=True)
+
+            for file in files:
+                if file.filename == '':
+                    continue
+
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(temp_dir, filename)
+                file.save(file_path)
+
+                # Se for ZIP, extrair arquivos
+                if filename.lower().endswith('.zip'):
+                    with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                        for zip_info in zip_ref.filelist:
+                            if not zip_info.is_dir():
+                                # Extrair apenas arquivos de imagem
+                                if any(zip_info.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']):
+                                    extracted_path = zip_ref.extract(zip_info, temp_dir)
+                                    # Usar apenas o nome do arquivo, ignorar caminho
+                                    base_filename = os.path.basename(zip_info.filename)
+                                    new_path = os.path.join(temp_dir, base_filename)
+                                    if extracted_path != new_path:
+                                        os.rename(extracted_path, new_path)
+                                    uploaded_files.append({
+                                        'path': new_path,
+                                        'original_filename': base_filename
+                                    })
+                    # Remover arquivo ZIP após extração
+                    os.remove(file_path)
+                else:
+                    # Arquivo de imagem individual
+                    uploaded_files.append({
+                        'path': file_path,
+                        'original_filename': filename
+                    })
+
+            if not uploaded_files:
+                flash('Nenhum arquivo de imagem válido foi encontrado!', 'error')
+                return redirect(url_for('settings'))
+
+            # Enfileirar tarefa
+            from tasks import process_bulk_upload
+            from rq import Queue
+            import redis
+
+            redis_conn = redis.from_url(app.config['RQ_REDIS_URL'])
+            bulk_queue = Queue('bulk_upload', connection=redis_conn, default_timeout=3600)  # 1 hora timeout
+
+            # Preparar configuração serializável para a tarefa
+            config_dict = {
+                'RQ_REDIS_URL': app.config['RQ_REDIS_URL'],
+                'SQLALCHEMY_DATABASE_URI': app.config['SQLALCHEMY_DATABASE_URI'],
+                'PHOTOS_DIR': app.config['PHOTOS_DIR'],
+                'THUMBS_DIR': app.config['THUMBS_DIR'],
+                'BASE_DIR': app.config['BASE_DIR']
+            }
+
+            job = bulk_queue.enqueue(
+                process_bulk_upload,
+                config_dict,
+                uploaded_files,
+                temp_dir,
+                job_timeout=3600
+            )
+
+            # Armazenar ID da tarefa na sessão para acompanhamento
+            session['bulk_upload_job_id'] = job.get_id()
+
+            flash(f'Upload em lote iniciado! Processando {len(uploaded_files)} arquivos...', 'success')
+            return redirect(url_for('settings'))
+
+        except Exception as e:
+            # Limpar arquivos temporários em caso de erro
+            if temp_dir and os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+
+            print(f"Erro no bulk upload: {str(e)}")
+            flash('Erro ao processar arquivos. Tente novamente.', 'error')
+            return redirect(url_for('settings'))
+
+    except Exception as e:
+        print(f"Erro geral no bulk upload: {str(e)}")
+        flash('Erro inesperado. Tente novamente.', 'error')
+        return redirect(url_for('settings'))
+
+
+@app.route('/settings/bulk_upload/status_job', methods=['GET'])
+@required_login
+@required_role('editor')
+def settings_bulk_upload_status():
+    """Retorna o status da tarefa de bulk upload"""
+    try:
+        from rq import Queue
+        import redis
+
+        job_id = session.get('bulk_upload_job_id')
+        if not job_id:
+            return jsonify({'has_job': False})
+
+        redis_conn = redis.from_url(app.config['RQ_REDIS_URL'])
+        bulk_queue = Queue('bulk_upload', connection=redis_conn)
+
+        job = bulk_queue.fetch_job(job_id)
+        if not job:
+            return jsonify({'has_job': False})
+
+        # Verificar se a tarefa terminou
+        if job.is_finished:
+            # Limpar job_id da sessão
+            session.pop('bulk_upload_job_id', None)
+
+            result = job.result
+            if result and result.get('success'):
+                return jsonify({
+                    'has_job': True,
+                    'status': 'completed',
+                    'message': result.get('message', 'Concluído com sucesso'),
+                    'successful_uploads': result.get('successful_uploads', 0),
+                    'errors': result.get('errors', [])
+                })
+            else:
+                return jsonify({
+                    'has_job': True,
+                    'status': 'failed',
+                    'message': result.get('error', 'Erro desconhecido') if result else 'Erro na tarefa'
+                })
+
+        elif job.is_failed:
+            # Limpar job_id da sessão
+            session.pop('bulk_upload_job_id', None)
+            return jsonify({
+                'has_job': True,
+                'status': 'failed',
+                'message': 'Tarefa falhou'
+            })
+
+        else:
+            # Tarefa em andamento
+            meta = job.meta
+            return jsonify({
+                'has_job': True,
+                'status': 'processing',
+                'message': meta.get('message', 'Processando...'),
+                'progress': meta.get('progress', 0)
+            })
+
+    except Exception as e:
+        print(f"Erro ao verificar status do bulk upload: {str(e)}")
+        return jsonify({'has_job': False, 'error': str(e)})
 
 
 # Rotas para gestão de utilizadores integradas em /settings
