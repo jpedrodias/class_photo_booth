@@ -1,9 +1,15 @@
 # Class-Photo-Booth
 O objetivo da aplicação **Class Photo Booth** é permitir a captura de fotografias de alunos por turma. A aplicação facilita a gestão, visualização e exportação das fotografias de forma organizada.
 
-## 📋 Funcionalidades
+## � Estatísticas do Projeto
+- **Linhas de Código**: 13.693 linhas
+- **Arquivos**: 27 arquivos de código
+- **Tecnologias**: Python Flask, HTML/CSS/JavaScript, Docker, Redis, PostgreSQL
+- **Versão**: 1.2 (atualizado em 31/08/2025)
+
+## �📋 Funcionalidades
 ```
-📸 CLASS PHOTO BOOTH v1.1
+📸 CLASS PHOTO BOOTH v1.2
 Sistema Completo de Gestão de Fotografias Escolares
 
   🔐 SISTEMA DE AUTENTICAÇÃO COMPLETO
@@ -44,10 +50,33 @@ Sistema Completo de Gestão de Fotografias Escolares
   ├─ 🖼️ Geração de miniaturas
   ├─ 📁 Armazenamento organizado por turma
   ├─ 🔄 Processamento em lote
+  ├─ 📤 Upload em lote via drag-and-drop
   └─ 📊 Estatísticas das fotografias
 
   📤 EXPORTAÇÃO E DOWNLOAD
   ├─ 📦 Download ZIP (originais/miniaturas)
+  ├─ 📄 Geração de DOCX com layout profissional
+  ├─ 📊 Estatísticas de exportação
+  └─ 🔄 Opções de exportação automatizadas
+
+  ⚙️ PAINEL ADMINISTRATIVO AVANÇADO
+  ├─ 👤 Gestão completa de utilizadores
+  ├─ 🏠 Gestão de turmas e alunos
+  ├─ 📊 Estatísticas detalhadas do sistema
+  ├─ 🔧 Configurações avançadas
+  ├─ 📋 Registos de auditoria e logs
+  ├─ 🗑️ Limpeza automática de sessões Redis
+  ├─ 🧹 Limpeza manual de registros obsoletos
+  └─ 🛠️ Manutenção completa do sistema
+
+  🔧 MONITORAMENTO E MANUTENÇÃO
+  ├─ 📊 Monitor Redis Server (memória, conexões, latência)
+  ├─ 👥 Monitor de sessões ativas
+  ├─ 🗑️ Limpeza automática de sessões expiradas
+  ├─ 🧹 Botões de limpeza manual para Redis
+  ├─ 📈 Estatísticas de performance
+  └─ 🔍 Logs detalhados do sistema
+```
   ├─ 📄 Geração de DOCX com layout profissional
   ├─ 📊 Estatísticas de exportação
   └─ 🔄 Opções de exportação automatizadas
@@ -74,7 +103,7 @@ cd class_photo_booth
 # 3. Construir e executar
 docker-compose up -d
 
-# 4. Adicionar o primeiro utilizador
+# 4. Adicionar o primeiro utilizador (opcional)
 docker exec -it flaskapp /bin/bash -c "python ./init_database.py"
 
 # 5. Aceder à aplicação
@@ -89,7 +118,8 @@ PS: O passo 4 é opcional e neste caso, o primeiro utilizador a criar conta ser�
 3. Alterar a palavra-passe do utilizador administrador
 4. Configurar email de verificação
 5. Importar dados via CSV (opcional)
-6. Começar a usar!
+6. Explorar as novas funcionalidades de limpeza do Redis
+7. Começar a usar!
 
 ## 📚 Documentação Completa
 
@@ -99,6 +129,15 @@ Para documentação técnica detalhada, consulte o arquivo [`SPECIFICATIONS.md`]
 - Fluxos de utilizador
 - Considerações de segurança
 - Guias de implementação
+- Monitoramento e manutenção
+
+## 🆕 **Novidades da Versão 1.2**
+- **Limpeza Automática do Redis**: Sistema automático de limpeza de sessões expiradas
+- **Botões de Limpeza Manual**: Interface para limpeza manual de registros obsoletos
+- **Monitoramento Redis**: Painéis de monitoramento em tempo real
+- **Drag-and-Drop Upload**: Upload de fotos via arrastar e soltar
+- **Melhorias de Performance**: Otimizações no processamento de imagens
+- **Interface Aprimorada**: Melhor experiência do usuário
 
 ## 🤝 Contribuições
 
@@ -123,5 +162,5 @@ Para dúvidas, sugestões ou problemas:
 
 ---
 
-**Class Photo Booth v1.1** - Desenvolvido com ❤️ para facilitar a gestão de fotografias escolares
+**Class Photo Booth v1.2** - Desenvolvido com ❤️ para facilitar a gestão de fotografias escolares
 ```

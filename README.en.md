@@ -1,9 +1,15 @@
 # Class-Photo-Booth
 The objective of the **Class Photo Booth** application is to allow the capture of student photographs by class. The application facilitates the management, viewing, and export of photographs in an organized manner.
 
-## 📋 Features
+## � Project Statistics
+- **Lines of Code**: 13,693 lines
+- **Files**: 27 code files
+- **Technologies**: Python Flask, HTML/CSS/JavaScript, Docker, Redis, PostgreSQL
+- **Version**: 1.2 (updated on 08/31/2025)
+
+## �📋 Features
 ```
-📸 CLASS PHOTO BOOTH v1.1
+📸 CLASS PHOTO BOOTH v1.2
 Complete School Photograph Management System
 
   🔐 COMPLETE AUTHENTICATION SYSTEM
@@ -44,6 +50,7 @@ Complete School Photograph Management System
   ├─ 🖼️ Thumbnail generation
   ├─ 📁 Organized storage by class
   ├─ 🔄 Batch processing
+  ├─ 📤 Drag-and-drop batch upload
   └─ 📊 Photo statistics
 
   📤 EXPORT AND DOWNLOAD
@@ -59,6 +66,14 @@ Complete School Photograph Management System
   ├─ 🔧 Configuration settings
   ├─ 📋 Audit logs
   └─ 🛠️ System maintenance
+
+  🔧 MONITORING AND MAINTENANCE
+  ├─ 📊 Redis Server monitoring (memory, connections, latency)
+  ├─ 👥 Active sessions monitoring
+  ├─ 🗑️ Automatic cleanup of expired sessions
+  ├─ 🧹 Manual cleanup buttons for Redis
+  ├─ 📈 Performance statistics
+  └─ 🔍 Detailed system logs
 ```
 
 ### 🐳 **Docker Installation**
@@ -74,7 +89,7 @@ cd class_photo_booth
 # 3. Build and run
 docker-compose up -d
 
-# 4. Add the first user
+# 4. Add the first user (optional)
 docker exec -it flaskapp /bin/bash -c "python ./init_database.py"
 
 # 5. Access the application
@@ -89,7 +104,8 @@ PS: Step 4 is optional, and in this case, the first user to create an account wi
 3. Change the administrator user password
 4. Configure verification email
 5. Import data via CSV (optional)
-6. Start using!
+6. Explore the new Redis cleanup functionalities
+7. Start using!
 
 ## 📚 Complete Documentation
 
@@ -99,6 +115,15 @@ For detailed technical documentation, consult the [`SPECIFICATIONS.md`](SPECIFIC
 - User flows
 - Security considerations
 - Deployment guides
+- Monitoring and maintenance
+
+## 🆕 **Version 1.2 New Features**
+- **Automatic Redis Cleanup**: Automatic system for cleaning expired sessions
+- **Manual Cleanup Buttons**: Interface for manual cleanup of obsolete records
+- **Redis Monitoring**: Real-time monitoring panels
+- **Drag-and-Drop Upload**: Photo upload via drag and drop
+- **Performance Improvements**: Image processing optimizations
+- **Enhanced Interface**: Better user experience
 
 ## 🤝 Contributions
 
@@ -123,4 +148,4 @@ For questions, suggestions, or issues:
 
 ---
 
-**Class Photo Booth v1.1** - Developed with ❤️ to facilitate school photograph management
+**Class Photo Booth v1.2** - Developed with ❤️ to facilitate school photograph management
