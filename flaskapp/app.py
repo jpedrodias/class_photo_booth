@@ -3753,6 +3753,269 @@ def cleanup_redis_sessions():
 # End def cleanup_redis_sessions
 
 
+@app.route('/settings/redis/server/clean_all', methods=['POST'])
+@csrf.exempt
+@required_login
+@required_role('admin')
+def clean_redis_server():
+    """Limpeza de registros obsoletos no Redis Server"""
+    try:
+        client = app.config['SESSION_REDIS']
+        
+        # Estatísticas antes da limpeza
+        info_before = client.info()
+        keys_before = sum(
+            dbinfo.get('keys', 0)
+            for name, dbinfo in info_before.items()
+            if isinstance(dbinfo, dict) and name.startswith('db')
+        )
+        memory_before = info_before.get('used_memory_human', '0')
+        
+        cleaned_keys = 0
+        total_keys = 0
+        
+        # Limpar todas as bases de dados
+        for db_num in range(16):  # Redis normalmente tem 16 bases de dados por padrão
+            try:
+                client.execute_command('SELECT', db_num)
+                db_keys = client.keys('*')
+                total_keys += len(db_keys)
+                
+                for key in db_keys:
+                    try:
+                        # Verificar TTL da chave
+                        ttl = client.ttl(key)
+                        
+                        # Remover chaves expiradas ou sem TTL válido
+                        if ttl == -2 or ttl == -1:  # Expirada ou sem TTL
+                            client.delete(key)
+                            cleaned_keys += 1
+                        elif ttl > 0:  # Chave com TTL válido, verificar se está próxima da expiração
+                            # Opcional: remover chaves que expiram em menos de 1 hora
+                            if ttl < 3600:  # 1 hora
+                                client.delete(key)
+                                cleaned_keys += 1
+                    except Exception as e:
+                        # Se não conseguir verificar TTL, tentar remover
+                        try:
+                            client.delete(key)
+                            cleaned_keys += 1
+                        except:
+                            pass
+                            
+            except Exception:
+                # Se não conseguir selecionar a base de dados, continuar
+                continue
+        
+        # Voltar para a base de dados padrão
+        client.execute_command('SELECT', 0)
+        
+        # Estatísticas após limpeza
+        info_after = client.info()
+        keys_after = sum(
+            dbinfo.get('keys', 0)
+            for name, dbinfo in info_after.items()
+            if isinstance(dbinfo, dict) and name.startswith('db')
+        )
+        memory_after = info_after.get('used_memory_human', '0')
+        
+        return jsonify({
+            "success": True,
+            "message": f"Limpeza do Redis Server concluída: {cleaned_keys} chaves removidas de {total_keys} analisadas. Memória: {memory_before} → {memory_after}",
+            "cleaned_keys": cleaned_keys,
+            "total_keys_analyzed": total_keys,
+            "memory_before": memory_before,
+            "memory_after": memory_after
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Erro na limpeza do Redis Server: {str(e)}"
+        }), 500
+
+
+@app.route('/settings/redis/sessions/clean_all', methods=['POST'])
+@csrf.exempt
+@required_login
+@required_role('admin')
+def clean_redis_sessions():
+    """Limpeza de sessões Redis expiradas ou inválidas, exceto a sessão atual do usuário"""
+    try:
+        client = app.config['SESSION_REDIS']
+        prefix = app.config.get('SESSION_KEY_PREFIX', 'session:')
+        pattern = f"{prefix}*"
+        
+        # Função auxiliar para carregar dados da sessão
+        def load_session_bytes(b):
+            if b is None:
+                return {}
+            
+            # Flask-Session pode usar diferentes formatos dependendo da configuração
+            try:
+                # Tentar MessagePack primeiro (usado pelo Flask-Session por vezes)
+                return msgpack.unpackb(b, raw=False, strict_map_key=False)
+            except (ImportError, Exception):
+                pass
+            
+            try:
+                # Tentar pickle padrão
+                return pickle.loads(b)
+            except Exception as e1:
+                try:
+                    # Tentar pickle com protocolo específico
+                    return pickle.loads(b, encoding='latin1')
+                except Exception:
+                    pass
+                
+                try:
+                    # Tentar JSON
+                    if isinstance(b, bytes):
+                        return json.loads(b.decode('utf-8', errors='ignore'))
+                    else:
+                        return json.loads(str(b))
+                except Exception as e2:
+                    # Se tudo falhar, tentar extrair dados manualmente do raw
+                    try:
+                        raw_str = str(b)
+                        # Procurar por padrões conhecidos nos dados brutos
+                        extracted_data = {}
+                        
+                        # Procurar user_id no raw data
+                        user_id_match = re.search(r'user_id.*?(\d+)', raw_str)
+                        if user_id_match:
+                            extracted_data['user_id'] = int(user_id_match.group(1))
+                        
+                        # Procurar csrf_token
+                        csrf_match = re.search(r'csrf_token.*?([a-f0-9]{40})', raw_str)
+                        if csrf_match:
+                            extracted_data['csrf_token'] = csrf_match.group(1)
+                        
+                        # Procurar user_email
+                        email_match = re.search(r'user_email.*?([a-zA-Z0-9@._-]+)', raw_str)
+                        if email_match:
+                            extracted_data['user_email'] = email_match.group(1)
+                        
+                        if extracted_data:
+                            return extracted_data
+                        
+                    except Exception:
+                        pass
+                    
+                    # Debug: retornar info sobre o erro
+                    return {
+                        "_raw_sample": repr(b)[:200] if b else "None",
+                        "_pickle_error": str(e1),
+                        "_json_error": str(e2),
+                        "_type": str(type(b)),
+                        "_length": len(b) if b else 0
+                    }
+
+        # Obter informações da sessão atual para não removê-la
+        current_user_id = session.get('user_id')
+        current_session_key = None
+        
+        # Tentar encontrar a chave da sessão atual comparando dados
+        if current_user_id:
+            for key in client.scan_iter(match=pattern, count=1000):
+                try:
+                    key_str = key.decode() if isinstance(key, bytes) else str(key)
+                    raw_data = client.get(key)
+                    if raw_data:
+                        session_data = load_session_bytes(raw_data)
+                        # Verificar se esta sessão pertence ao usuário atual
+                        session_user_id = None
+                        for field in ['user_id', '_user_id', 'current_user_id']:
+                            if field in session_data and session_data[field] is not None:
+                                session_user_id = str(session_data[field])
+                                break
+                        
+                        # Também verificar objetos user
+                        if session_user_id is None and 'user' in session_data and isinstance(session_data['user'], dict):
+                            if 'id' in session_data['user']:
+                                session_user_id = str(session_data['user']['id'])
+                        
+                        if session_user_id == str(current_user_id):
+                            current_session_key = key_str
+                            break
+                except Exception:
+                    continue
+        
+        cleaned_sessions = 0
+        total_sessions = 0
+        expired_sessions = 0
+        invalid_sessions = 0
+        skipped_current_session = 0
+        
+        for key in client.scan_iter(match=pattern, count=1000):
+            total_sessions += 1
+            key_str = key.decode() if isinstance(key, bytes) else str(key)
+            
+            # Pular a sessão atual do usuário
+            if current_session_key and key_str == current_session_key:
+                skipped_current_session = 1
+                continue
+            
+            # Verificar TTL
+            ttl = client.ttl(key)
+            if ttl == -2:  # Chave já expirou
+                expired_sessions += 1
+                cleaned_sessions += 1
+                continue
+            
+            if ttl == -1:  # Sessão sem TTL (problemática)
+                client.delete(key)
+                invalid_sessions += 1
+                cleaned_sessions += 1
+                continue
+            
+            # Verificar se sessão tem dados válidos
+            try:
+                raw_data = client.get(key)
+                if not raw_data:
+                    client.delete(key)
+                    invalid_sessions += 1
+                    cleaned_sessions += 1
+                    continue
+                    
+                # Tentar deserializar para verificar se é válida
+                try:
+                    # Tentar pickle
+                    pickle.loads(raw_data)
+                except:
+                    try:
+                        # Tentar JSON
+                        import json
+                        json.loads(raw_data.decode('utf-8', errors='ignore'))
+                    except:
+                        # Se não conseguir deserializar, remover
+                        client.delete(key)
+                        invalid_sessions += 1
+                        cleaned_sessions += 1
+                        
+            except Exception:
+                # Se não conseguir ler, remover
+                client.delete(key)
+                invalid_sessions += 1
+                cleaned_sessions += 1
+        
+        return jsonify({
+            "success": True,
+            "message": f"Limpeza de sessões concluída: {cleaned_sessions} sessões removidas de {total_sessions} analisadas ({expired_sessions} expiradas, {invalid_sessions} inválidas). Sessão atual preservada.",
+            "cleaned_sessions": cleaned_sessions,
+            "total_sessions_analyzed": total_sessions,
+            "expired_sessions": expired_sessions,
+            "invalid_sessions": invalid_sessions,
+            "current_session_preserved": skipped_current_session > 0
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Erro na limpeza de sessões: {str(e)}"
+        }), 500
+
+
 @app.route('/api/job_status/<job_id>')
 @required_login
 def job_status(job_id):

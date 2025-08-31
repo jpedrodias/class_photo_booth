@@ -856,6 +856,7 @@
                         Tudo
                     </label>
                     <button id="redis-server-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
+                    <button id="redis-server-clean" type="button" class="btn btn-warning btn-sm me-2" title="Limpar registros obsoletos">Limpar</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -881,6 +882,7 @@
                         Todas
                     </label>
                     <button id="redis-sessions-refresh" type="button" class="btn btn-secondary btn-sm">Atualizar</button>
+                    <button id="redis-sessions-clean" type="button" class="btn btn-warning btn-sm" title="Limpar sessões expiradas">Limpar</button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -1127,6 +1129,7 @@
             this.config = config;
             this.container = document.getElementById(`${config.id}-table-container`);
             this.btn = document.getElementById(`${config.id}-refresh`);
+            this.cleanBtn = document.getElementById(`${config.id}-clean`);
             this.auto = document.getElementById(`${config.id}-autorefresh`);
             this.showAll = document.getElementById(`${config.id}-showall`);
             this.errorBox = document.getElementById(`${config.id}-error`);
@@ -1142,6 +1145,51 @@
             if (this.showAll && this.showAll.checked) params.set('data', 'all');
             const qs = params.toString();
             return qs ? `${this.config.endpoint}?${qs}` : this.config.endpoint;
+            }
+
+            async cleanObsolete() {
+            if (this.loading) return;
+            try {
+                this.loading = true;
+                this.cleanBtn && (this.cleanBtn.disabled = true);
+                this.errorBox.hidden = true; 
+                this.errorBox.textContent = '';
+
+                const endpoint = this.config.id === 'redis-server' 
+                    ? '/settings/redis/server/clean_all' 
+                    : '/settings/redis/sessions/clean_all';
+
+                const r = await fetch(endpoint, { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                    cache: 'no-store' 
+                });
+                
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                const data = await r.json();
+
+                if (data.success) {
+                    // Mostrar mensagem de sucesso
+                    this.errorBox.hidden = false;
+                    this.errorBox.className = 'text-success mb-2';
+                    this.errorBox.textContent = data.message;
+                    
+                    // Atualizar os dados após limpeza
+                    setTimeout(() => this.fetchAndRender(), 1000);
+                } else {
+                    throw new Error(data.error || 'Erro na limpeza');
+                }
+            } catch (e) {
+                this.errorBox.hidden = false;
+                this.errorBox.className = 'text-danger mb-2';
+                this.errorBox.textContent = e.message || `Erro ao limpar ${this.config.title}.`;
+            } finally {
+                this.loading = false;
+                this.cleanBtn && (this.cleanBtn.disabled = false);
+            }
             }
 
             async fetchAndRender() {
@@ -1192,6 +1240,11 @@
             init() {
             // Event listeners
             this.btn && this.btn.addEventListener('click', () => this.fetchAndRender());
+            this.cleanBtn && this.cleanBtn.addEventListener('click', () => {
+                if (confirm(`Tem certeza que deseja limpar todos os registros obsoletos do ${this.config.title}?`)) {
+                    this.cleanObsolete();
+                }
+            });
             this.auto && this.auto.addEventListener('change', () => 
                 this.auto.checked ? this.startAuto() : this.stopAuto()
             );
