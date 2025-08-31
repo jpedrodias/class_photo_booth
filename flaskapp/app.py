@@ -4221,5 +4221,5 @@ if __name__ == '__main__':
         db.create_all()
         print("Base de dados inicializada.")
         
-    #app.run(debug=DEBUG, host='0.0.0.0', port=5000)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=DEBUG, host='0.0.0.0', port=5000)
+    #app.run(debug=True, host='0.0.0.0', port=5000)
