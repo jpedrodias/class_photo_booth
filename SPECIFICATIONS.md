@@ -4,7 +4,27 @@
 
 O **Class Photo Booth** é uma aplicação web moderna e completa desenvolvida para facilitar a captura, gestão e organização de fotografias de alunos por turma. A aplicação utiliza uma arquitetura avançada com sistema de autenticação robusto, gestão de utilizadores com roles e permissões hierárquicas, sistema de email assíncrono com Redis Queue, base de dados relacional, proteção CSRF completa, sistema de autorização granular para fotografias e oferece uma interface responsiva otimizada para dispositivos móveis e desktop com funcionalidades avançadas de CRUD, processamento de imagens e geração de documentos.
 
-## 🎯 Objetivos da Aplicação
+#### 10.2 Dependências Python
+```txt
+Flask                     # Framework web principal
+Flask-SQLAlchemy          # ORM para base de dados
+Flask-Mail                # Sistema de email
+Flask-Session             # Backend de sessões (Redis)
+redis                     # Cliente Redis para monitorização e limpeza
+msgpack                   # Serialização eficiente de sessões
+opencv-python             # Processamento de imagens
+python-docx               # Geração de documentos Word
+Pillow                    # Manipulação avançada de imagens
+rq                        # Redis Queue para processamento assíncrono
+python-dotenv             # Gestão de variáveis de ambiente
+Werkzeug                  # Utilitários web e segurança
+```
+
+### 10.3 Recursos de Sistema
+- **Memória RAM**: Mínimo 2GB, recomendado 4GB+
+- **Armazenamento**: 500MB para aplicação + espaço dinâmico para fotos
+- **Redis Server**: Container dedicado com persistência de dados
+- **Processamento**: CPU multi-core para processamento paralelo de imagens da Aplicação
 
 A aplicação foi desenvolvida para resolver os seguintes desafios:
 
@@ -677,6 +697,24 @@ templates/
 - **Tabelas responsivas**: Ajuste automático de colunas
 - **Headers e footers**: Suporte completo a cabeçalhos
 
+### 9.5 Monitorização e Gestão Redis
+- **Painéis de monitorização**: Visualização em tempo real do estado do Redis Server e Sessões
+- **Estatísticas detalhadas**: Contadores de chaves, memória utilizada, conexões ativas
+- **Limpeza inteligente**: Botões para limpeza de registos obsoletos
+- **Preservação de sessão**: Sessão atual do utilizador mantida durante limpeza
+- **Endpoints dedicados**: `/settings/redis/server/clean_all` e `/settings/redis/sessions/clean_all`
+- **Feedback visual**: Confirmação de operações com contadores antes/depois
+- **Logging detalhado**: Registo de todas as operações de limpeza para auditoria
+
+### 9.6 Drag & Drop para Upload em Massa
+- **Zona de arrastar**: Área visual dedicada no cartão de upload em massa
+- **Feedback visual**: Destaque da zona durante arrastar com CSS transitions
+- **Validação de tipos**: Apenas ficheiros de imagem e ZIP aceites
+- **Processamento automático**: Integração completa com sistema de upload existente
+- **Suporte a subpastas**: Extração inteligente de ZIP com estrutura de pastas
+- **Correção de duplicação**: Lógica otimizada para evitar ficheiros duplicados em downloads
+- **JavaScript avançado**: Event handlers para dragover, dragleave, drop com validação
+
 ## 10. Requisitos Técnicos
 
 ### 10.1 Sistema Base
@@ -721,6 +759,12 @@ REDIS_DB=0                                   # DB Redis
 SESSION_TYPE=redis                           # Backend de sessões
 SESSION_KEY_PREFIX=session:                  # Prefixo das sessões
 SESSION_SERIALIZATION_FORMAT=msgpack         # Formato de serialização
+
+# Configurações RQ (Redis Queue)
+RQ_REDIS_HOST=redis                          # Host para RQ
+RQ_REDIS_PORT=6379                           # Porta para RQ
+RQ_REDIS_DB=0                                # DB para RQ
+RQ_QUEUES=default,email                      # Filas disponíveis
 
 # Configurações Docker
 TZ=Europe/Lisbon                             # Timezone
@@ -786,6 +830,20 @@ GID=1000                                     # Group ID (auto-configurado)
 3. **Email recebido** → "Já tenho código de recuperação"
 4. **Inserir código e nova password** → Password alterada com sucesso
 
+### 11.8 Monitorização Redis (Admin)
+1. **Aceder a `/settings`** → Painéis Redis Server e Redis Sessions
+2. **Visualizar estatísticas** → Contadores em tempo real de chaves e memória
+3. **Limpeza de servidor** → Botão "Limpar Registos Obsoletos" → Confirmação
+4. **Limpeza de sessões** → Botão "Limpar Sessões Obsoletas" → Preserva sessão atual
+5. **Feedback visual** → Contadores antes/depois da operação
+
+### 11.9 Upload com Drag & Drop (Editor+)
+1. **Aceder ao cartão de upload em massa** → Zona de arrastar destacada
+2. **Arrastar ficheiros** → Destaque visual da zona de drop
+3. **Soltar ficheiros** → Validação automática de tipos
+4. **Processamento** → Integração com sistema de upload existente
+5. **Feedback** → Confirmação de upload bem-sucedido
+
 ## 12. Considerações de Segurança
 
 ### 12.1 Autenticação Multi-Camada
@@ -837,13 +895,23 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Queries otimizadas**: Uso de filtros e joins eficientes
 - **Cleanup automático**: Limpeza de registos expirados (PreUser, códigos)
 
-### 13.2 Sistema de Email
+### 13.2 Sistema de Email com Redis Queue
 - **Envio assíncrono**: Processamento em background para não bloquear UI
 - **Templates reutilizáveis**: HTML templates para consistência e performance
 - **Fallback handling**: Gestão de erros de envio com feedback apropriado
 - **Configuração flexível**: Suporte para diferentes provedores SMTP
+- **Monitorização em tempo real**: Estado das tarefas via RQ dashboard
+- **Retry automático**: Sistema robusto de tentativas com backoff exponencial
 
-### 13.3 Processamento de Imagens
+### 13.3 Gestão Redis Avançada
+- **Monitorização contínua**: Painéis em tempo real para servidor e sessões
+- **Limpeza inteligente**: Algoritmos para identificação de registos obsoletos
+- **Preservação de sessão**: Manutenção da sessão ativa durante limpeza
+- **Serialização eficiente**: msgpack para performance otimizada
+- **Gestão de memória**: Controlo automático de utilização de recursos
+- **Auditoria completa**: Logging detalhado de todas as operações
+
+### 13.4 Processamento de Imagens
 - **Thumbnails inteligentes**: Geração sob demanda com cache em filesystem
 - **Compressão otimizada**: Qualidades diferentes para originais vs thumbnails
 - **Processamento PIL/OpenCV**: Algoritmos otimizados para redimensionamento
@@ -870,6 +938,9 @@ GID=1000                                     # Group ID (auto-configurado)
 - **Backup seletivo**: Exportação de dados por turma
 - **Importação flexível**: CSV com merge ou substituição
 - **Logs detalhados**: Rastreamento de todas as operações
+- **Limpeza Redis**: Interface web para limpeza de servidor e sessões obsoletas
+- **Monitorização contínua**: Painéis em tempo real para estado do sistema
+- **Gestão de sessões**: Preservação inteligente durante operações de limpeza
 
 ### 14.3 Deployment e Updates
 - **Docker volumes**: Persistência de dados entre atualizações
@@ -879,9 +950,10 @@ GID=1000                                     # Group ID (auto-configurado)
 
 ---
 
-**Versão do Documento**: 1.1  
-**Data de Atualização**: Agosto 2025  
-**Estado da Implementação**: ✅ 100% Completo
+**Versão do Documento**: 1.2  
+**Data de Atualização**: Outubro 2025  
+**Estado da Implementação**: ✅ 100% Completo  
+**Linhas de Código**: 13,693
 
 Esta especificação reflete fielmente a aplicação **Class Photo Booth** implementada, incluindo todas as funcionalidades avançadas: sistema completo de autenticação com roles e permissões, gestão de utilizadores, sistema de email com templates HTML, proteção anti-brute force, base de dados SQLAlchemy com modelos relacionais, CRUD completo para todas as entidades, geração de documentos DOCX, processamento avançado de imagens com PIL/OpenCV, gestão de placeholders, interface completamente responsiva com operações modais, sistema de autorização de fotografias com visual status badges, e controlo de acesso granular baseado em roles.
 
@@ -916,6 +988,12 @@ Esta especificação reflete fielmente a aplicação **Class Photo Booth** imple
 ✅ **Deployment simplificado** com docker-compose
 ✅ **Manutenção automatizada** com limpeza de dados
 ✅ **Escalabilidade** com Gunicorn e múltiplos workers  
+✅ **Monitorização Redis** com painéis em tempo real e limpeza inteligente
+✅ **Gestão de sessões Redis** com preservação da sessão ativa
+✅ **Correção de bugs** em downloads ZIP (eliminação de duplicação)
+✅ **Suporte a subpastas** em uploads ZIP com extração inteligente
+✅ **Sessões SQLAlchemy independentes** para tarefas em background
+✅ **Interface moderna** com feedback visual aprimorado
 
 ### Modelos de Base de Dados:
 - **User**: Autenticação e autorização
