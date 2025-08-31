@@ -2000,7 +2000,7 @@ Sistema Class Photo Booth
                 radio.addEventListener('change', function() {
                     if (this.checked) {
                         localStorage.setItem(QUALITY_STORAGE_KEY, this.value);
-                        console.error('Qualidade alterada para:', QUALITY_SETTINGS[this.value].label);
+                        console.log('Qualidade alterada para:', QUALITY_SETTINGS[this.value].label);
                         
                         // Reiniciar câmera com nova qualidade se estiver ativa
                         if (modalStream) {
@@ -2131,7 +2131,7 @@ Sistema Class Photo Booth
                     }
                 };
                 
-                console.error('Iniciando câmera com qualidade:', qualitySettings.label);
+                console.log('Iniciando câmera com qualidade:', qualitySettings.label);
                 modalStream = await navigator.mediaDevices.getUserMedia(constraints);
                 modalVideo.srcObject = modalStream;
                 
@@ -2187,7 +2187,7 @@ Sistema Class Photo Booth
             const selectedQuality = document.querySelector('input[name="photoQuality"]:checked')?.value || 'med';
             const jpegQuality = QUALITY_SETTINGS[selectedQuality].jpeg;
             
-            console.error('Capturando foto com qualidade JPEG:', jpegQuality);
+            console.log('Capturando foto com qualidade JPEG:', jpegQuality);
             const photoData = canvas.toDataURL('image/jpeg', jpegQuality);
             
             // Mostrar feedback visual

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Worker script para processar tarefas de email em background usando Redis Queue (RQ)
+Worker script para processar tarefas de email usando Redis Queue (RQ)
 Modos de execução:
 - python worker.py --verify: Verifica conexão Redis e sai
 - python worker.py --forever: Executa em loop infinito com reinício automático
@@ -44,15 +44,16 @@ def run_worker_once(redis_url):
         redis_conn = redis.from_url(redis_url)
         redis_conn.ping()  # Testar conexão
         
-        # Criar queue
+        # Criar queues
         email_queue = Queue('email', connection=redis_conn)
+        bulk_upload_queue = Queue('bulk_upload', connection=redis_conn)
         
         print(f"Worker RQ iniciado. Conectado ao Redis: {redis_url}")
-        print(f"Processando queue: {email_queue.name}")
+        print(f"Processando queues: {email_queue.name}, {bulk_upload_queue.name}")
         print("Worker rodando uma vez...")
         
-        # Iniciar worker (burst=True para executar uma vez)
-        worker = Worker([email_queue], connection=redis_conn)
+        # Iniciar worker com múltiplas queues (burst=True para executar uma vez)
+        worker = Worker([email_queue, bulk_upload_queue], connection=redis_conn)
         worker.work(burst=True, logging_level='INFO')
         
         print("Worker finalizado.")
@@ -74,15 +75,16 @@ def run_worker_forever(redis_url):
             redis_conn = redis.from_url(redis_url)
             redis_conn.ping()  # Testar conexão
             
-            # Criar queue
+            # Criar queues
             email_queue = Queue('email', connection=redis_conn)
+            bulk_upload_queue = Queue('bulk_upload', connection=redis_conn)
             
             print(f"Worker RQ iniciado. Conectado ao Redis: {redis_url}")
-            print(f"Processando queue: {email_queue.name}")
+            print(f"Processando queues: {email_queue.name}, {bulk_upload_queue.name}")
             print("Worker rodando para sempre...")
             
-            # Iniciar worker
-            worker = Worker([email_queue], connection=redis_conn)
+            # Iniciar worker com múltiplas queues
+            worker = Worker([email_queue, bulk_upload_queue], connection=redis_conn)
             worker.work(burst=False, logging_level='INFO')
             
         except KeyboardInterrupt:
