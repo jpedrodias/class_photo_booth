@@ -22,7 +22,8 @@ def send_verification_email(app_config, email, code, request_url_root):
     try:
         # Configurar Flask Mail
         from flask import Flask
-        app = Flask(__name__)
+        import os
+        app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
         app.config.update(app_config)
         
         mail = Mail(app)
@@ -30,7 +31,7 @@ def send_verification_email(app_config, email, code, request_url_root):
         # Renderizar template HTML
         with app.app_context():
             verify_link = f"{request_url_root.rstrip('/')}/login/verify?email={email}&code={code}"
-            html_body = render_template('template_email_send_verificacao.html', code=code, verify_link=verify_link)
+            html_body = render_template('template_email_send_verification.html', code=code, verify_link=verify_link)
             
             msg = Message(
                 subject='Verificação de Email - Class Photo Booth',
@@ -92,7 +93,8 @@ def send_password_reset_email(app_config, email, reset_code, request_url_root):
     try:
         # Configurar Flask Mail
         from flask import Flask
-        app = Flask(__name__)
+        import os
+        app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
         app.config.update(app_config)
         
         mail = Mail(app)
@@ -162,7 +164,8 @@ def send_account_updated_email(app_config, email, user_name):
     try:
         # Configurar Flask Mail
         from flask import Flask
-        app = Flask(__name__)
+        import os
+        app = Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
         app.config.update(app_config)
         
         mail = Mail(app)
