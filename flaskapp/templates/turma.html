@@ -743,36 +743,18 @@
                         <div class="mb-3">
                             <label for="notificationSubject" class="form-label">Assunto</label>
                             <input type="text" class="form-control input-base" id="notificationSubject"
-                                   name="subject" value="Notificação: A sua turma {{ current_turma.nome }} foi atualizada" required>
+                                   name="subject" value="Informação: A sua turma {{ current_turma.nome }} foi atualizada" required>
                             <div class="form-text">Assunto do email de notificação</div>
                         </div>
 
                         <div class="mb-3">
                             <label for="notificationBody" class="form-label">Mensagem</label>
-                            <textarea class="form-control input-base" id="notificationBody" name="body" rows="6" required>
+                            <textarea class="form-control input-base" id="notificationBody" name="body" rows="4" required>
 Caro(a) Professor(a) {{ current_turma.nome_professor or 'Professor' }},
 
-Esta é uma notificação automática do sistema Class Photo Booth.
-
 A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas informações ou fotos dos alunos.
-
-Por favor, aceda ao sistema para verificar as atualizações mais recentes.
-
-Atenciosamente,
-
-Sistema Class Photo Booth
                             </textarea>
                             <div class="form-text">Corpo da mensagem de notificação</div>
-                        </div>
-
-                        <div class="alert alert-info d-flex align-items-start">
-                            <i class="bi bi-info-circle me-2 mt-1"></i>
-                            <div>
-                                <strong>Informações importantes:</strong><br>
-                                • O email será enviado para o professor responsável<br>
-                                • Você pode personalizar o assunto e a mensagem<br>
-                                • O envio será processado em segundo plano
-                            </div>
                         </div>
                     </div>
                     <div class="modal-footer">

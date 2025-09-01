@@ -4185,6 +4185,7 @@ def send_notification_email():
             body,
             turma_nome,
             turma_obj.nome_professor or 'Professor',
+            request.url_root,
             job_timeout=300
         )
         

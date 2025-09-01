@@ -223,7 +223,7 @@ def send_account_updated_email(app_config, email, user_name, request_url_root):
             'email': email
         }
 
-def send_notification_teacher_email(app_config, email, subject, body, turma_nome, professor_nome):
+def send_notification_teacher_email(app_config, email, subject, body, turma_nome, professor_nome, request_url_root):
     """
     Envia email de notificação para o professor responsável pela turma
     """
@@ -248,7 +248,8 @@ def send_notification_teacher_email(app_config, email, subject, body, turma_nome
                 body=body,
                 turma_nome=turma_nome,
                 professor_nome=professor_nome,
-                current_date=datetime.now().strftime('%d/%m/%Y %H:%M')
+                current_date=datetime.now().strftime('%d/%m/%Y %H:%M'),
+                request_url_root=request_url_root
             )
             
             # Criar mensagem dentro do contexto da aplicação
