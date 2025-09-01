@@ -3207,6 +3207,7 @@ def user_management(user_id=None):
                     app_config,
                     user.email,
                     user.name,
+                    request.url_root,
                     job_timeout=300
                 )
                 job_id = job.get_id()

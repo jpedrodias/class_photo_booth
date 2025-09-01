@@ -154,7 +154,7 @@ def send_password_reset_email(app_config, email, reset_code, request_url_root):
         }
 
 
-def send_account_updated_email(app_config, email, user_name):
+def send_account_updated_email(app_config, email, user_name, request_url_root):
     """
     Tarefa assíncrona para envio de email de notificação de conta atualizada
     """
@@ -172,7 +172,7 @@ def send_account_updated_email(app_config, email, user_name):
         
         # Renderizar template HTML
         with app.app_context():
-            html_body = render_template('template_email_account_updated.html', user_name=user_name)
+            html_body = render_template('template_email_account_updated.html', user_name=user_name, request_url_root=request_url_root)
             
             msg = Message(
                 subject='Conta Atualizada - Class Photo Booth',

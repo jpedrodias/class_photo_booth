@@ -45,6 +45,22 @@
             margin-bottom: 20px;
             color: #2c3e50;
         }
+        .instructions {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+            font-size: 14px;
+        }
         .footer {
             margin-top: 40px;
             padding-top: 20px;
@@ -55,6 +71,10 @@
         }
         .footer strong {
             color: #2c3e50;
+        }
+        .highlight {
+            color: #3498db;
+            font-weight: bold;
         }
     </style>
 </head>
@@ -72,11 +92,19 @@
             
             <p>A sua conta no <strong>Class Photo Booth</strong> foi atualizada por um administrador.</p>
             
-            <p>As suas informações foram alteradas. Se não esperava esta alteração, por favor contacte o administrador do sistema.</p>
+            <div class="instructions">
+                <strong>O que fazer a seguir:</strong>
+                <p>Aceder à aplicação através do link abaixo:</p>
+                <p style="margin: 15px 0; text-align: center;">
+                    <a href="{{ request_url_root }}" style="background: #3498db; color: #fff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; display: inline-block;">Aceder à aplicação</a>
+                </p>
+            </div>
+            
+            <p>Se tem alguma dúvida, não hesite em contactar-nos.</p>
         </div>
         
         <div class="footer">
-            <p>Este email foi enviado automatically pelo sistema <strong>Class Photo Booth</strong>.</p>
+            <p>Este email foi enviado automaticamente pelo sistema <strong>Class Photo Booth</strong>.</p>
             <p>Por favor, não responda a este email.</p>
         </div>
     </div>
