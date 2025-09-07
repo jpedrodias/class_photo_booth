@@ -73,10 +73,18 @@
     {% endwith %}
     
     {% if turmas|length > 0 %}
-    <div class="container">
+    <div class="container">        
         <div class="stats-card">
             <div class="stats-number" id="visibleTurmasCount">{{ turmas|length }}</div>
-            <div class="stats-label">Turma{{ 's' if turmas|length != 1 else '' }} Disponív{{ 'eis' if turmas|length != 1 else 'el' }}</div>
+            <div class="stats-label">
+                {% if is_admin %}
+                    Turma{{ 's' if turmas|length != 1 else '' }} Disponív{{ 'eis' if turmas|length != 1 else 'el' }}
+                {% elif user_departamentos %}
+                    Turma{{ 's' if turmas|length != 1 else '' }} Disponív{{ 'eis' if turmas|length != 1 else 'el' }} ({{ user_departamentos|join(', ') }})
+                {% else %}
+                    Sem Turmas Disponíveis
+                {% endif %}
+            </div>
             
             <!-- Filtros -->
             <div class="row g-2 mt-3 mb-3">
@@ -163,11 +171,22 @@
                 
                 <a href="{{ url_for('turma', nome_seguro=turma.nome_seguro) }}" class="text-decoration-none text-dark">
                     <div class="turma-icon">🎓</div>
-                    <h5 class="fw-bold mb-3">
+                    <h5 class="fw-bold mb-1">
                         {{ turma.nome }} 
                         {% if turma.nome_professor %} - {{ turma.nome_professor }}
                         {% endif %}
                     </h5>
+                    
+                    <!-- Departamentos -->
+                    {% if turma.departamentos %}
+                    <div class="mb-2">
+                        {% for departamento in turma.departamentos %}
+                        <span class="badge bg-light text-dark me-1">
+                            <i class="bi bi-building me-1"></i>{{ departamento.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
 
                     <div class="d-flex justify-content-between text-muted small mb-2">
                         <span>{{ turma.total_alunos }} aluno{{ 's' if turma.total_alunos != 1 else '' }}</span>
@@ -228,11 +247,23 @@
     {% else %}
     <div class="container">
         <div class="text-center py-4 mb-4">
-            <div class="display-1 mb-3">�</div>
+            <div class="display-1 mb-3">📚</div>
+            {% if not is_admin and not user_departamentos %}
+            <h3 class="mb-3">Sem Departamentos Associados</h3>
+            <p class="text-muted">Não tem departamentos associados. Contacte o administrador para ter acesso às turmas.</p>
+            {% else %}
             <h3 class="mb-3">Nenhuma turma encontrada</h3>
-            <p class="text-muted">Comece por criar a sua primeira turma ou carregue dados via CSV.</p>
+            <p class="text-muted">
+                {% if is_admin %}
+                    Comece por criar a sua primeira turma ou carregue dados via CSV.
+                {% else %}
+                    Não há turmas disponíveis nos seus departamentos ({{ user_departamentos|join(', ') }}).
+                {% endif %}
+            </p>
+            {% endif %}
         </div>
         
+        {% if is_admin or user_departamentos %}
         <div class="row g-4 justify-content-center">
             <!-- Cartão para criar primeira turma -->
             <div class="col-6 col-md-4 col-lg-3">
@@ -256,6 +287,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
     {% endif %}
 

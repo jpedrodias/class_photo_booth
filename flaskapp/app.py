@@ -178,6 +178,9 @@ class User(db.Model, AddUserSecurityCheck):
     role = db.Column(db.String(20), nullable=False, default='none')  # none, viewer, editor, admin
     is_verified = db.Column(db.Boolean, nullable=False, default=True)  # Por defeito verificado
     logins = db.relationship('LoginLog', backref=db.backref('user', lazy='joined'))
+    
+    # Relacionamento many-to-many com departamentos
+    departamentos = db.relationship('Departamento', secondary='user_departamentos', back_populates='users')
 
     def __repr__(self):
         return f'<User {self.email}>'
@@ -224,6 +227,43 @@ class User(db.Model, AddUserSecurityCheck):
 #end class User
 
 
+class Departamento(db.Model):
+    __tablename__ = 'departamentos'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    fullname = db.Column(db.String(200), nullable=False)
+    
+    # Relacionamento many-to-many com users
+    users = db.relationship('User', secondary='user_departamentos', back_populates='departamentos')
+    
+    # Relacionamento many-to-many com turmas
+    turmas = db.relationship('Turma', secondary='turma_departamentos', back_populates='departamentos')
+    
+    def __repr__(self):
+        return f'<Departamento {self.name}>'
+
+
+class UserDepartamento(db.Model):
+    __tablename__ = 'user_departamentos'
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    departamento_id = db.Column(db.Integer, db.ForeignKey('departamentos.id'), primary_key=True)
+    
+    # Para tabelas de associação many-to-many, não precisamos de relacionamentos diretos
+    # Os relacionamentos são definidos nas classes User e Departamento usando 'secondary'
+
+
+class TurmaDepartamento(db.Model):
+    __tablename__ = 'turma_departamentos'
+    
+    turma_id = db.Column(db.Integer, db.ForeignKey('turmas.id'), primary_key=True)
+    departamento_id = db.Column(db.Integer, db.ForeignKey('departamentos.id'), primary_key=True)
+    
+    # Para tabelas de associação many-to-many, não precisamos de relacionamentos diretos
+    # Os relacionamentos são definidos nas classes Turma e Departamento usando 'secondary'
+
+
 class Turma(db.Model):
     __tablename__ = 'turmas'
     
@@ -233,6 +273,10 @@ class Turma(db.Model):
     nome_professor = db.Column(db.String(100), nullable=False, unique=False, default='')  # Nome do professor responsável
     email_professor = db.Column(db.String(255), nullable=False, default='')  # Email do professor responsável
     last_updated = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))  # Data da última atualização
+    
+    # Relacionamento many-to-many com departamentos
+    departamentos = db.relationship('Departamento', secondary='turma_departamentos', back_populates='turmas')
+    
     alunos = db.relationship('Aluno', backref='turma', lazy=True, cascade='all, delete-orphan')
     
     def __init__(self, nome, **kwargs):
@@ -479,7 +523,7 @@ class BannedIPs(db.Model):
         # converter IPv4-mapped (::ffff:1.2.3.4) para IPv4 “puro”
         if ip.version == 6 and getattr(ip, "ipv4_mapped", None):
             ip = ip.ipv4_mapped
-        return ip.compressed  # forma canónica (zeros comprimidos, minúsculas)
+        return ip.compressed  # forma canônica (zeros comprimidos, minúsculas)
 
     @classmethod
     def is_banned(cls, ip_address):
@@ -1215,7 +1259,7 @@ def login(action_url=None):
                 'MAIL_DEFAULT_SENDER': app.config['MAIL_DEFAULT_SENDER'],
                 'TEMPLATES_AUTO_RELOAD': True
             }
-            
+
             # Enqueue da tarefa
             job = email_queue.enqueue(
                 send_password_reset_email,
@@ -1340,6 +1384,31 @@ def logout():
 # End def logout
 
 
+# === FUNÇÕES AUXILIARES PARA CONTROLO DE ACESSO ===
+
+def user_has_access_to_turma(user, turma_obj):
+    """Verifica se o utilizador tem acesso a uma turma específica"""
+    if not turma_obj:
+        return False
+    
+    # Administradores têm acesso a todas as turmas
+    if user.role == 'admin':
+        return True
+    
+    # Outros utilizadores só têm acesso a turmas dos seus departamentos
+    departamentos_user = [dept.id for dept in user.departamentos]
+    
+    # Se não tem departamentos, não tem acesso
+    if not departamentos_user:
+        return False
+    
+    # Verificar se a turma pertence a um dos departamentos do utilizador
+    departamentos_turma = [dept.id for dept in turma_obj.departamentos]
+    return any(dept_id in departamentos_user for dept_id in departamentos_turma)
+
+
+# === ROTAS DE TURMAS ===
+
 @app.route('/turmas/')
 @required_login
 @required_role('viewer')
@@ -1358,8 +1427,26 @@ def turmas():
         except:
             flash('Filtros salvos com sucesso!', 'success')
     
-    # Obter todas as turmas da base de dados ordenadas por ID
-    turmas_query = Turma.query.order_by(Turma.id).all()
+    # Obter utilizador atual
+    current_user = get_current_user()
+    
+    # Filtrar turmas baseado no departamento do utilizador
+    if current_user.role == 'admin':
+        # Administradores veem todas as turmas
+        turmas_query = Turma.query.order_by(Turma.id).all()
+    else:
+        # Outros utilizadores veem apenas turmas dos seus departamentos
+        departamentos_user = [dept.id for dept in current_user.departamentos]
+        
+        if departamentos_user:
+            # Se o utilizador tem departamentos, mostrar turmas desses departamentos
+            # Usar join com a tabela de associação many-to-many
+            turmas_query = db.session.query(Turma).join(Turma.departamentos).filter(
+                Departamento.id.in_(departamentos_user)
+            ).distinct().order_by(Turma.id).all()
+        else:
+            # Se o utilizador não tem departamentos, não vê nenhuma turma
+            turmas_query = []
     
     # Se não há turmas e é chamada API, retornar lista vazia
     if len(turmas_query) == 0 and is_api:
@@ -1383,6 +1470,10 @@ def turmas():
         total_alunos_geral += total_alunos
         total_fotos_geral += alunos_com_foto
         
+        # Obter nomes dos departamentos (many-to-many)
+        departamentos_nomes = [dept.name for dept in turma.departamentos] if turma.departamentos else []
+        departamento_nome = ', '.join(departamentos_nomes) if departamentos_nomes else 'Sem Departamento'
+        
         turmas_data.append({
             'id': turma.id,
             'nome': turma.nome,
@@ -1391,13 +1482,17 @@ def turmas():
             'email_professor': turma.email_professor,
             'total_alunos': total_alunos,
             'alunos_com_foto': alunos_com_foto,
-            'last_updated': turma.last_updated
+            'last_updated': turma.last_updated,
+            'departamento': departamento_nome,
+            'departamentos': turma.departamentos  # Lista de objetos Departamento
         })
     
     return render_template('turmas.html', 
                          turmas=turmas_data, 
                          total_alunos_geral=total_alunos_geral,
-                         total_fotos_geral=total_fotos_geral)
+                         total_fotos_geral=total_fotos_geral,
+                         user_departamentos=[dept.fullname for dept in current_user.departamentos],
+                         is_admin=current_user.role == 'admin')
 # End def turmas
 
 # === ROTAS PARA FILTROS DE TURMAS === 
@@ -1483,10 +1578,16 @@ def turma(nome_seguro):
     # Buscar turma na base de dados usando nome_seguro
     turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
     if not turma_obj:
-        return redirect(url_for('settings'))
+        flash('Turma não encontrada.', 'error')
+        return redirect(url_for('turmas'))
     
     # Obter utilizador atual
     current_user = get_current_user()
+    
+    # Verificar se o utilizador tem acesso a esta turma
+    if not user_has_access_to_turma(current_user, turma_obj):
+        flash('Não tem permissão para aceder a esta turma.', 'error')
+        return redirect(url_for('turmas'))
     
     # Obter alunos da turma ordenados por número (nulls last) e depois por nome
     alunos = []
@@ -1749,32 +1850,32 @@ def student_crud():
             thumb_dir = aluno.turma.get_thumb_directory()
             
             # Caminhos dos arquivos antigos
-            old_photo_path = os.path.join(foto_dir, f'{processo_antigo}.jpg')
-            old_thumb_path = os.path.join(thumb_dir, f'{processo_antigo}.jpg')
+            old_photo_dir = os.path.join(foto_dir, f'{processo_antigo}.jpg')
+            old_thumb_dir = os.path.join(thumb_dir, f'{processo_antigo}.jpg')
             
             # Caminhos dos arquivos novos
-            new_photo_path = os.path.join(foto_dir, f'{processo_validado}.jpg')
-            new_thumb_path = os.path.join(thumb_dir, f'{processo_validado}.jpg')
+            new_photo_dir = os.path.join(foto_dir, f'{processo_validado}.jpg')
+            new_thumb_dir = os.path.join(thumb_dir, f'{processo_validado}.jpg')
             
             # Renomear foto original se existir
-            if os.path.exists(old_photo_path):
+            if os.path.exists(old_photo_dir):
                 try:
-                    os.rename(old_photo_path, new_photo_path)
+                    os.rename(old_photo_dir, new_photo_dir)
                 except Exception as e:
                     print(f"Erro ao renomear foto original de {processo_antigo} para {processo_validado}: {e}")
                     flash('Erro ao renomear foto original. Tente novamente.', 'error')
                     return redirect(url_for('turma', nome_seguro=Turma.get_nome_seguro_by_nome(turma)))
             
             # Renomear thumbnail se existir
-            if os.path.exists(old_thumb_path):
+            if os.path.exists(old_thumb_dir):
                 try:
-                    os.rename(old_thumb_path, new_thumb_path)
+                    os.rename(old_thumb_dir, new_thumb_dir)
                 except Exception as e:
                     print(f"Erro ao renomear thumbnail de {processo_antigo} para {processo_validado}: {e}")
                     # Se houve erro na thumbnail mas a foto original foi renomeada, tentar desfazer
-                    if os.path.exists(new_photo_path):
+                    if os.path.exists(new_photo_dir):
                         try:
-                            os.rename(new_photo_path, old_photo_path)
+                            os.rename(new_photo_dir, old_photo_dir)
                         except:
                             pass
                     flash('Erro ao renomear thumbnail. Tente novamente.', 'error')
@@ -2325,7 +2426,7 @@ def download(ficheiro=None):
         # Verificar se é download de thumbnails
         if turma.endswith('.thumbs'):
             # Remove '.thumbs' do nome da turma
-            turma_nome = turma[:-7]  # Remove '.thumbs'
+            turma_nome = turma[:-7]  # Removes '.thumbs'
             is_thumb = True
             download_filename = f'{turma_nome}.thumbs.zip'
         else:
@@ -2406,11 +2507,14 @@ def settings():
     # Verificar se existem dados na base de dados
     has_data = Turma.query.count() > 0
     
-    # Obter todos os utilizadores para gestão
-    users = User.query.all()
+    # Obter todos os utilizadores para gestão com departamentos
+    users = User.query.order_by(User.name).all()
     preusers = PreUser.query.all()
     login_logs = LoginLog.query.order_by(LoginLog.date.desc()).limit(100).all()
     banned_ips = BannedIPs.query.order_by(BannedIPs.date.desc()).all()
+    
+    # Obter todos os departamentos para o modal de edição e filtros
+    departamentos = Departamento.query.order_by(Departamento.name).all()
     
     return render_template(
         'settings.html', 
@@ -2420,12 +2524,169 @@ def settings():
         preusers=preusers,
         login_logs=login_logs,
         banned_ips=banned_ips,
+        departamentos=departamentos,
         current_user=user,
         can_upload_csv=True,
         can_system_nuke=True,
         can_manage_turmas=True
     )
 # End def settings
+
+
+# CRUD para Departamentos
+@app.route('/settings/departamentos', methods=['GET', 'POST'])
+@required_login
+@required_role('admin')
+def departamentos_crud():
+    """CRUD para gestão de departamentos"""
+    if request.method == 'POST':
+        action = request.form.get('action', '')
+        
+        try:
+            if action == 'departamento_add':
+                # Criar novo departamento
+                name = request.form.get('name', '').strip()
+                fullname = request.form.get('fullname', '').strip()
+                
+                if not name or not fullname:
+                    flash('Nome e nome completo são obrigatórios.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                # Verificar se já existe
+                existing = Departamento.query.filter_by(name=name).first()
+                if existing:
+                    flash(f'Departamento "{name}" já existe.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                # Criar departamento
+                departamento = Departamento(name=name, fullname=fullname)
+                db.session.add(departamento)
+                db.session.commit()
+                
+                flash(f'Departamento "{fullname}" criado com sucesso!', 'success')
+                
+            elif action == 'departamento_update':
+                # Atualizar departamento
+                dept_id = request.form.get('dept_id', type=int)
+                name = request.form.get('name', '').strip()
+                fullname = request.form.get('fullname', '').strip()
+                
+                if not dept_id or not name or not fullname:
+                    flash('Dados inválidos para atualização.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                departamento = Departamento.query.get_or_404(dept_id)
+                
+                # Verificar se o nome não está em uso por outro departamento
+                existing = Departamento.query.filter_by(name=name).filter(Departamento.id != dept_id).first()
+                if existing:
+                    flash(f'Nome "{name}" já está em uso por outro departamento.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                # Atualizar
+                departamento.name = name
+                departamento.fullname = fullname
+                db.session.commit()
+                
+                flash(f'Departamento "{fullname}" atualizado com sucesso!', 'success')
+                
+            elif action == 'departamento_delete':
+                # Eliminar departamento
+                dept_id = request.form.get('dept_id', type=int)
+                
+                if not dept_id:
+                    flash('ID do departamento é obrigatório.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                departamento = Departamento.query.get_or_404(dept_id)
+                
+                # Não permitir eliminar o departamento "todos"
+                if departamento.name == 'todos':
+                    flash('O departamento "todos" não pode ser eliminado.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                # Verificar se há utilizadores ou turmas associados
+                if departamento.users or departamento.turmas:
+                    flash(f'Não é possível eliminar "{departamento.fullname}" pois tem utilizadores ou turmas associados.', 'error')
+                    return redirect(url_for('departamentos_crud'))
+                
+                # Eliminar
+                db.session.delete(departamento)
+                db.session.commit()
+                
+                flash(f'Departamento "{departamento.fullname}" eliminado com sucesso!', 'success')
+                
+            else:
+                flash('Ação não reconhecida.', 'error')
+                
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao processar operação: {str(e)}', 'error')
+        
+        return redirect(url_for('departamentos_crud'))
+    
+    # GET - Mostrar lista de departamentos
+    departamentos = Departamento.query.order_by(Departamento.name).all()
+    turmas = Turma.query.order_by(Turma.nome).all()
+    
+    # Criar dicionário de turmas por departamento
+    turmas_por_departamento = {}
+    for turma in turmas:
+        # Com many-to-many, uma turma pode estar em vários departamentos
+        for departamento in turma.departamentos:
+            dept_id = departamento.id
+            if dept_id not in turmas_por_departamento:
+                turmas_por_departamento[dept_id] = []
+            turmas_por_departamento[dept_id].append(turma)
+        
+        # Se a turma não tem departamentos, coloca no "departamento 0" (sem departamento)
+        if not turma.departamentos:
+            if 0 not in turmas_por_departamento:
+                turmas_por_departamento[0] = []
+            turmas_por_departamento[0].append(turma)
+    
+    return render_template(
+        'departamentos.html',
+        departamentos=departamentos,
+        turmas=turmas,
+        turmas_por_departamento=turmas_por_departamento,
+        user=get_current_user()
+    )
+
+
+# Rota para associar turmas a departamentos
+@app.route('/settings/departamentos_turmas', methods=['POST'])
+@required_login
+@required_role('admin')
+def departamentos_turmas():
+    """Associar/desassociar turmas a departamentos"""
+    try:
+        dept_id = request.form.get('dept_id', type=int)
+        turma_ids = request.form.getlist('turma_ids[]', type=int)
+        
+        if not dept_id:
+            flash('ID do departamento é obrigatório.', 'error')
+            return redirect(url_for('departamentos_crud'))
+        
+        departamento = Departamento.query.get_or_404(dept_id)
+        
+        # Primeiro, remover todas as associações deste departamento com turmas
+        departamento.turmas.clear()
+        
+        # Depois, associar as turmas selecionadas
+        for turma_id in turma_ids:
+            turma = Turma.query.get(turma_id)
+            if turma:
+                departamento.turmas.append(turma)
+        
+        db.session.commit()
+        flash(f'Turmas do departamento "{departamento.fullname}" atualizadas com sucesso!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao associar turmas: {str(e)}', 'error')
+    
+    return redirect(url_for('departamentos_crud'))
 
 
 # Rota para rescan de fotos e atualização de flag foto_tirada
@@ -2459,7 +2720,7 @@ def settings_rescan_photos():
         if os.path.isdir(turma_path):
             for photo_file in os.listdir(turma_path):
                 if photo_file.endswith('.jpg'):
-                    processo = photo_file[:-4]  # Remove .jpg
+                    processo = photo_file[:-4]  # Removes .jpg
                     aluno = Aluno.query.filter_by(processo=processo).first()
                     if aluno:
                         aluno.foto_existe = True
@@ -2484,7 +2745,7 @@ def settings_rescan_photos():
         if os.path.isdir(turma_path):
             for thumb_file in os.listdir(turma_path):
                 if thumb_file.endswith('.jpg'):
-                    processo = thumb_file[:-4]  # Remove .jpg
+                    processo = thumb_file[:-4]  # Removes .jpg
                     aluno = Aluno.query.filter_by(processo=processo).first()
                     if not aluno:
                         # Thumbnail órfã - mover para pasta lost
@@ -2586,7 +2847,7 @@ def settings_csv():
             if turmas_nao_encontradas:
                 turmas_ignoradas = ', '.join(turmas_nao_encontradas[:5])  # Limitar a 5 nomes
                 if len(turmas_nao_encontradas) > 5:
-                    turmas_ignoradas += f' (e mais {len(turmas_nao_encontradas) - 5})'
+                    turmas_ignoradas += f' (e mais {len(turmas_nao_encontridas) - 5})'
                 messages.append(f'Turmas ignoradas (não encontradas): {turmas_ignoradas}.')
             
             flash(' '.join(messages), 'success' if turmas_atualizadas > 0 else 'info')
@@ -2617,7 +2878,7 @@ def settings_csv():
                 if os.path.isdir(turma_path):
                     for photo_file in os.listdir(turma_path):
                         if photo_file.endswith('.jpg'):
-                            processo = photo_file[:-4]  # Remove .jpg
+                            processo = photo_file[:-4]  # Removes .jpg
                             existing_photos[processo] = turma_dir
             
             # Mapear thumbnails existentes
@@ -2627,7 +2888,7 @@ def settings_csv():
                 if os.path.isdir(turma_path):
                     for thumb_file in os.listdir(turma_path):
                         if thumb_file.endswith('.jpg'):
-                            processo = thumb_file[:-4]  # Remove .jpg
+                            processo = thumb_file[:-4]  # Removes .jpg
                             existing_thumbs[processo] = turma_dir
             
             if replace_all:
@@ -2733,7 +2994,6 @@ def settings_csv():
                                 
                                 if os.path.exists(old_thumb_path):
                                     shutil.move(old_thumb_path, new_thumb_path)
-                        
                         except Exception as e:
                             print(f"Erro ao mover foto do processo {processo}: {e}")
                     else:
@@ -2811,8 +3071,7 @@ def settings_nuke():
         
     except Exception as e:
         db.session.rollback()
-        print(f"Erro na limpeza completa: {e}")
-        flash(f'Erro ao realizar limpeza completa: {str(e)}', 'error')
+        flash(f'Erro na limpeza completa: {e}', 'error')
     
     return redirect(url_for('settings'))
 # End def settings_nuke
@@ -2838,7 +3097,7 @@ def settings_backup():
             for user in users:
                 users_writer.writerow([
                     user.email,  # username
-                    user.password_hash,  # password hash
+                    user.password_hash,  # password
                     user.name,
                     user.role,
                     user.is_verified
@@ -2949,7 +3208,7 @@ def settings_bulk_upload():
                                 # Extrair apenas arquivos de imagem
                                 if any(zip_info.filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']):
                                     extracted_path = zip_ref.extract(zip_info, temp_dir)
-                                    # Usar apenas o nome do arquivo, ignorar caminho
+                                    # Usar apenas o nome do arquivo, ignorando caminho
                                     base_filename = os.path.basename(zip_info.filename)
                                     new_path = os.path.join(temp_dir, base_filename)
                                     if extracted_path != new_path:
@@ -3165,6 +3424,22 @@ def user_management(user_id=None):
             user.name = request.form.get('name', '').strip()
             user.email = request.form.get('email', '').strip()
             user.role = request.form.get('role', 'none')
+            
+            # Processar departamentos selecionados
+            departamentos_selecionados = request.form.getlist('departamentos')
+            
+            # Limpar departamentos atuais do utilizador
+            user.departamentos.clear()
+            
+            # Adicionar novos departamentos selecionados
+            if departamentos_selecionados:
+                for dept_id in departamentos_selecionados:
+                    try:
+                        departamento = Departamento.query.get(int(dept_id))
+                        if departamento:
+                            user.departamentos.append(departamento)
+                    except (ValueError, TypeError):
+                        continue  # Ignorar IDs inválidos
             
             # Verificar se deve notificar o utilizador
             notify_user = request.form.get('notify_user') == 'on' or request.form.get('notify_user') == 'true'
@@ -3672,6 +3947,7 @@ def list_redis_sessions():
                 "name": user_data["name"],
                 "sessions_count": len(user_sessions),
                 "last_seen": most_recent_last_seen or 'Never',
+
                 "expires_at": most_recent_expires_at or 'Never'
             })
             seen_users.add(uid)
@@ -3685,6 +3961,7 @@ def list_redis_sessions():
         "authenticated_users_total": len(active_users),
         "showing_all": show_all,
         "limit_applied": not show_all
+   
     }
     
     # Adicionar utilizadores com nomenclatura simplificada
@@ -3714,30 +3991,41 @@ def cleanup_redis_sessions():
         cleaned_sessions = 0
         total_sessions = 0
         
-        for key in client.scan_iter(match=pattern, count=1000):
-            total_sessions += 1
-            
-            # Verificar TTL
-            ttl = client.ttl(key)
-            if ttl == -1:  # Sessão sem TTL (problemática)
-                client.delete(key)
-                cleaned_sessions += 1
-                continue
-            
-            if ttl == -2:  # Chave já expirou
-                cleaned_sessions += 1
-                continue
-            
-            # Verificar se sessão tem dados válidos
+        # Limpar todas as bases de dados
+        for db_num in range(16):  # Redis normalmente tem 16 bases de dados por padrão
             try:
-                raw_data = client.get(key)
-                if not raw_data:
-                    client.delete(key)
-                    cleaned_sessions += 1
+                client.execute_command('SELECT', db_num)
+                db_keys = client.keys('*')
+                total_sessions += len(db_keys)
+                
+                for key in db_keys:
+                    try:
+                        # Verificar TTL da chave
+                        ttl = client.ttl(key)
+                        
+                        # Remover chaves expiradas ou sem TTL válido
+                        if ttl == -2 or ttl == -1:  # Expirada ou sem TTL
+                            client.delete(key)
+                            cleaned_sessions += 1
+                        elif ttl > 0:  # Chave com TTL válido, verificar se está próxima da expiração
+                            # Opcional: remover chaves que expiram em menos de 1 hora
+                            if ttl < 3600:  # 1 hora
+                                client.delete(key)
+                                cleaned_sessions += 1
+                    except Exception as e:
+                        # Se não conseguir verificar TTL, tentar remover
+                        try:
+                            client.delete(key)
+                            cleaned_sessions += 1
+                        except:
+                            pass
+                            
             except Exception:
-                # Se não conseguir ler, remove
-                client.delete(key)
-                cleaned_sessions += 1
+                # Se não conseguir selecionar a base de dados, continuar
+                continue
+        
+        # Voltar para a base de dados padrão
+        client.execute_command('SELECT', 0)
         
         return jsonify({
             "success": True,
@@ -3902,15 +4190,15 @@ def clean_redis_sessions():
                         
                     except Exception:
                         pass
-                    
-                    # Debug: retornar info sobre o erro
-                    return {
-                        "_raw_sample": repr(b)[:200] if b else "None",
-                        "_pickle_error": str(e1),
-                        "_json_error": str(e2),
-                        "_type": str(type(b)),
-                        "_length": len(b) if b else 0
-                    }
+                
+                # Debug: retornar info sobre o erro
+                return {
+                    "_raw_sample": repr(b)[:200] if b else "None",
+                    "_pickle_error": str(e1),
+                    "_json_error": str(e2),
+                    "_type": str(type(b)),
+                    "_length": len(b) if b else 0
+                }
 
         # Obter informações da sessão atual para não removê-la
         current_user_id = session.get('user_id')
