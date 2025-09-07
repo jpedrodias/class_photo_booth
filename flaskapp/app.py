@@ -3091,11 +3091,12 @@ def settings_backup():
             # 1. Backup dos utilizadores (users.csv)
             users_csv = StringIO()
             users_writer = csv.writer(users_csv)
-            users_writer.writerow(['username', 'password', 'name', 'role', 'is_verified'])
+            users_writer.writerow(['id', 'username', 'password', 'name', 'role', 'is_verified'])
             
             users = User.query.order_by(User.id).all()
             for user in users:
                 users_writer.writerow([
+                    user.id,
                     user.email,  # username
                     user.password_hash,  # password
                     user.name,
@@ -3105,46 +3106,151 @@ def settings_backup():
             
             zip_file.writestr('users.csv', users_csv.getvalue())
             
-            # 2. Backup dos alunos (alunos.csv)
+            # 2. Backup dos departamentos (departamentos.csv)
+            departamentos_csv = StringIO()
+            departamentos_writer = csv.writer(departamentos_csv)
+            departamentos_writer.writerow(['id', 'name', 'fullname'])
+            
+            departamentos = Departamento.query.order_by(Departamento.id).all()
+            for dept in departamentos:
+                departamentos_writer.writerow([
+                    dept.id,
+                    dept.name,
+                    dept.fullname
+                ])
+            
+            zip_file.writestr('departamentos.csv', departamentos_csv.getvalue())
+            
+            # 3. Backup das relações user-departamento (user_departamentos.csv)
+            user_dept_csv = StringIO()
+            user_dept_writer = csv.writer(user_dept_csv)
+            user_dept_writer.writerow(['user_id', 'departamento_id', 'user_email', 'departamento_name'])
+            
+            user_depts = db.session.query(UserDepartamento).all()
+            for ud in user_depts:
+                user = User.query.get(ud.user_id)
+                dept = Departamento.query.get(ud.departamento_id)
+                user_dept_writer.writerow([
+                    ud.user_id,
+                    ud.departamento_id,
+                    user.email if user else '',
+                    dept.name if dept else ''
+                ])
+            
+            zip_file.writestr('user_departamentos.csv', user_dept_csv.getvalue())
+            
+            # 4. Backup das turmas (turmas.csv)
+            turmas_csv = StringIO()
+            turmas_writer = csv.writer(turmas_csv)
+            turmas_writer.writerow(['id', 'nome', 'nome_seguro', 'nome_professor', 'email_professor', 'last_updated'])
+            
+            turmas = Turma.query.order_by(Turma.id).all()
+            for turma in turmas:
+                turmas_writer.writerow([
+                    turma.id,
+                    turma.nome,
+                    turma.nome_seguro,
+                    turma.nome_professor,
+                    turma.email_professor,
+                    turma.last_updated.isoformat() if turma.last_updated else ''
+                ])
+            
+            zip_file.writestr('turmas.csv', turmas_csv.getvalue())
+            
+            # 5. Backup das relações turma-departamento (turma_departamentos.csv)
+            turma_dept_csv = StringIO()
+            turma_dept_writer = csv.writer(turma_dept_csv)
+            turma_dept_writer.writerow(['turma_id', 'departamento_id', 'turma_nome', 'departamento_name'])
+            
+            turma_depts = db.session.query(TurmaDepartamento).all()
+            for td in turma_depts:
+                turma = Turma.query.get(td.turma_id)
+                dept = Departamento.query.get(td.departamento_id)
+                turma_dept_writer.writerow([
+                    td.turma_id,
+                    td.departamento_id,
+                    turma.nome if turma else '',
+                    dept.name if dept else ''
+                ])
+            
+            zip_file.writestr('turma_departamentos.csv', turma_dept_csv.getvalue())
+            
+            # 6. Backup dos alunos (alunos.csv)
             alunos_csv = StringIO()
             alunos_writer = csv.writer(alunos_csv)
-            alunos_writer.writerow(['processo', 'turma', 'numero', 'nome', 'email', 'autorizacao', 'notes'])
+            alunos_writer.writerow(['id', 'processo', 'turma_id', 'turma_nome', 'numero', 'nome', 'email', 'autorizacao', 'notes', 'foto_tirada', 'foto_existe'])
             
             alunos = Aluno.query.order_by(Aluno.id).all()
             for aluno in alunos:
                 alunos_writer.writerow([
+                    aluno.id,
                     aluno.processo,
-                    aluno.turma.nome,  # Nome da turma em vez do ID
+                    aluno.turma_id,
+                    aluno.turma.nome if aluno.turma else '',
                     aluno.numero if aluno.numero else '',
                     aluno.nome,
                     aluno.email,
                     aluno.autorizacao,
                     aluno.notes if aluno.notes else '',
+                    aluno.foto_tirada,
+                    aluno.foto_existe
                 ])
             
             zip_file.writestr('alunos.csv', alunos_csv.getvalue())
             
-            # 3. Backup dos professores (turmas_professores.csv)
-            professores_csv = StringIO()
-            professores_writer = csv.writer(professores_csv)
-            professores_writer.writerow(['turma', 'professor', 'email'])
+            # 7. Backup dos logs de login (login_logs.csv)
+            logs_csv = StringIO()
+            logs_writer = csv.writer(logs_csv)
+            logs_writer.writerow(['id', 'user_id', 'user_email', 'ip_address', 'date', 'success'])
             
-            turmas = Turma.query.order_by(Turma.id).all()
-            for turma in turmas:
-                professores_writer.writerow([
-                    turma.nome,
-                    turma.nome_professor,
-                    turma.email_professor
+            logs = LoginLog.query.order_by(LoginLog.date.desc()).limit(1000).all()  # Últimos 1000 logs
+            for log in logs:
+                logs_writer.writerow([
+                    log.id,
+                    log.user_id,
+                    log.user.email if log.user else '',
+                    log.remote_addr,  # Nome correto do campo
+                    log.date.isoformat() if log.date else '',  # Nome correto do campo
+                    log.success
                 ])
             
-            zip_file.writestr('turmas_professores.csv', professores_csv.getvalue())
+            zip_file.writestr('login_logs.csv', logs_csv.getvalue())
+            
+            # 8. Criar arquivo de metadados do backup
+            metadata_txt = StringIO()
+            metadata_txt.write(f"# Backup da Base de Dados - Class Photo Booth\n")
+            metadata_txt.write(f"Data/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            metadata_txt.write(f"Versão: Sistema com Departamentos Many-to-Many\n")
+            metadata_txt.write(f"\n## Conteúdo do Backup:\n")
+            metadata_txt.write(f"- users.csv: {len(users)} utilizadores\n")
+            metadata_txt.write(f"- departamentos.csv: {len(departamentos)} departamentos\n")
+            metadata_txt.write(f"- user_departamentos.csv: {len(user_depts)} relações utilizador-departamento\n")
+            metadata_txt.write(f"- turmas.csv: {len(turmas)} turmas\n")
+            metadata_txt.write(f"- turma_departamentos.csv: {len(turma_depts)} relações turma-departamento\n")
+            metadata_txt.write(f"- alunos.csv: {len(alunos)} alunos\n")
+            metadata_txt.write(f"- login_logs.csv: {len(logs)} logs de login (últimos 1000)\n")
+            metadata_txt.write(f"\n## Estrutura das Relações:\n")
+            metadata_txt.write(f"- Users ↔ Departamentos: Many-to-Many via user_departamentos\n")
+            metadata_txt.write(f"- Turmas ↔ Departamentos: Many-to-Many via turma_departamentos\n")
+            metadata_txt.write(f"- Turmas → Alunos: One-to-Many\n")
+            metadata_txt.write(f"- Users → LoginLogs: One-to-Many\n")
+            
+            zip_file.writestr('README.txt', metadata_txt.getvalue())
         
         zip_buffer.seek(0)
         
         # Criar nome do ficheiro com data/hora
-        from datetime import datetime
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'backup_database_{timestamp}.zip'
+        filename = f'backup_database_completo_{timestamp}.zip'
+        
+        # Log da operação
+        print(f"Backup criado com sucesso: {filename}")
+        print(f"- {len(users)} utilizadores")
+        print(f"- {len(departamentos)} departamentos")
+        print(f"- {len(turmas)} turmas")
+        print(f"- {len(alunos)} alunos")
+        
+        flash(f'Backup criado com sucesso! {len(users)} utilizadores, {len(departamentos)} departamentos, {len(turmas)} turmas, {len(alunos)} alunos', 'success')
         
         # Retornar o ficheiro ZIP como download
         return send_file(
