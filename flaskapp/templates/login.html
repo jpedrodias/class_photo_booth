@@ -920,10 +920,47 @@
                         parentAlert.className = 'alert alert-secondary mt-3';
                         statusText.innerHTML = '<i class="bi bi-question-circle me-2"></i>Estado do email não disponível.';
                         clearInterval(window.emailStatusInterval);
+                    } else if (data.status === 'invalid') {
+                        parentAlert.className = 'alert alert-danger mt-3';
+                        statusText.innerHTML = '<i class="bi bi-x-circle me-2"></i>ID da tarefa é inválido.';
+                        clearInterval(window.emailStatusInterval);
+                    } else if (data.status === 'error') {
+                        parentAlert.className = 'alert alert-danger mt-3';
+                        statusText.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Erro interno do servidor.';
+                        clearInterval(window.emailStatusInterval);
+                    } else {
+                        // Estado desconhecido
+                        parentAlert.className = 'alert alert-warning mt-3';
+                        statusText.innerHTML = `<i class="bi bi-question-circle me-2"></i>Estado desconhecido: ${data.status}`;
                     }
                 })
                 .catch(error => {
                     console.error('Erro ao verificar estado do email:', error);
+                    
+                    // Mostrar erro mesmo quando a requisição falha
+                    const statusElement = document.getElementById('email-status');
+                    if (statusElement) {
+                        const statusText = document.getElementById('status-text');
+                        statusElement.className = 'alert alert-danger mt-3';
+                        statusText.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i>Erro de conexão ao verificar estado do email.';
+                    } else {
+                        // Criar elemento de erro se não existir
+                        const alertDiv = document.createElement('div');
+                        alertDiv.id = 'email-status';
+                        alertDiv.className = 'alert alert-danger mt-3';
+                        alertDiv.innerHTML = '<i class="bi bi-exclamation-triangle me-2"></i><span id="status-text">Erro de conexão ao verificar estado do email.</span>';
+                        
+                        const flashContainer = document.querySelector('.card-body');
+                        const forms = document.querySelector('form');
+                        if (forms) {
+                            flashContainer.insertBefore(alertDiv, forms);
+                        } else {
+                            flashContainer.appendChild(alertDiv);
+                        }
+                    }
+                    
+                    // Parar o polling em caso de erro persistente
+                    clearInterval(window.emailStatusInterval);
                 });
         }
         

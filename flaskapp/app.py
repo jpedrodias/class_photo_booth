@@ -4476,13 +4476,31 @@ def clean_redis_sessions():
 
 
 @app.route('/api/job_status/<job_id>')
-@required_login
 def job_status(job_id):
     """
     Endpoint para verificar o status de uma tarefa RQ
+    Sempre retorna JSON válido mesmo em caso de erro
     """
     try:
-        job = Job.fetch(job_id, connection=redis_conn)
+        # Verificar se job_id é válido
+        if not job_id or len(job_id.strip()) == 0:
+            return jsonify({
+                'job_id': job_id,
+                'status': 'invalid',
+                'error': 'ID da tarefa é inválido',
+                'success': False
+            }), 400
+        
+        # Tentar buscar o job
+        try:
+            job = Job.fetch(job_id, connection=redis_conn)
+        except Exception as redis_error:
+            return jsonify({
+                'job_id': job_id,
+                'status': 'not_found',
+                'error': f'Não foi possível acessar a tarefa: {str(redis_error)}',
+                'success': False
+            }), 404
         
         # Obter informações do job
         status = job.get_status()
@@ -4493,23 +4511,30 @@ def job_status(job_id):
             'status': status,  # 'queued', 'started', 'finished', 'failed'
             'progress': meta.get('progress', 0),
             'message': meta.get('message', ''),
-            'error': meta.get('error', '')
+            'error': meta.get('error', ''),
+            'success': status in ['finished', 'started', 'queued']
         }
         
         # Se a tarefa está concluída, incluir o resultado
         if status == 'finished':
             response['result'] = job.result
+            response['success'] = True
         elif status == 'failed':
-            response['error'] = str(job.exc_info) if job.exc_info else 'Erro desconhecido'
+            response['error'] = str(job.exc_info) if job.exc_info else meta.get('error', 'Erro desconhecido na tarefa')
+            response['success'] = False
         
         return jsonify(response)
         
     except Exception as e:
+        # Garantir que sempre retorna JSON mesmo em erro crítico
         return jsonify({
             'job_id': job_id,
-            'status': 'not_found',
-            'error': f'Tarefa não encontrada: {str(e)}'
-        }), 404
+            'status': 'error',
+            'error': f'Erro interno do servidor: {str(e)}',
+            'success': False,
+            'progress': 0,
+            'message': ''
+        }), 500
 # End function job_status
 
 
