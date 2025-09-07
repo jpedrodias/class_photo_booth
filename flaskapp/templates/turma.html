@@ -816,388 +816,166 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
     -->
 
     <!-- Modal de Captura de Foto -->
-    <div class="modal fade" id="capturePhotoModal" tabindex="-1" aria-labelledby="capturePhotoModalLabel" aria-hidden="true" style="z-index: 1070;">
-        <div class="modal-dialog modal-lg modal-dialog-centered" style="z-index: 1075;">
+    <!-- Modal para capturar foto - Fullscreen -->
+    <div class="modal fade" id="capturePhotoModal" tabindex="-1" aria-labelledby="capturePhotoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-fullscreen">
             <div class="modal-content d-flex flex-column h-100">
+                <!-- Header fixo -->
                 <div class="modal-header bg-primary text-white flex-shrink-0">
                     <h5 class="modal-title" id="capturePhotoModalLabel">
                         <i class="bi bi-camera me-2"></i>Capturar Foto <span id="modalAlunoNome"></span>
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-0 flex-grow-1 d-flex flex-column">
-                    <!-- Layout responsivo baseado na orientação -->
-                    <div class="capture-layout flex-grow-1">
-                        <!-- Seção da câmara (2/3 do espaço) -->
-                        <div class="capture-video-section">
-                            <div class="p-3 h-100 d-flex flex-column">
-                                <div class="video-container flex-grow-1 d-flex align-items-center justify-content-center">
-                                    <video id="modalCameraVideo" autoplay class="border rounded shadow-sm"></video>
-                                </div>
-                            </div>
+
+                <!-- Body principal - layout flexível -->
+                <div class="modal-body p-0 flex-grow-1 d-flex">
+                    
+                    <!-- Layout Portrait (Mobile Vertical) -->
+                    <div class="d-flex d-md-none flex-column w-100 h-100">
+                        <!-- Vídeo ocupa maior parte da tela -->
+                        <div class="flex-grow-1 d-flex align-items-center justify-content-center bg-dark p-2">
+                            <video id="modalCameraVideo" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover;"></video>
                         </div>
                         
-        <!-- Seção dos controles (1/3 do espaço) -->
-                        <div class="capture-controls-section">
-                            <div class="p-2 h-100 d-flex flex-column">
-                                <div class="d-grid gap-2">
-                                    <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
-                                        <i class="bi bi-camera me-2"></i>Capturar Foto
-                                    </button>
-                                    
-                                    <div class="camera-section">
-                                        <label class="form-label fw-semibold mb-1">
-                                            <i class="bi bi-camera-video me-2"></i>Câmera:
-                                        </label>
-                                        <div id="modalCameraButtons" class="d-flex flex-wrap gap-1 justify-content-center"></div>
-                                    </div>
-                                    
-                                    <div class="quality-section">
-                                        <label class="form-label fw-semibold mb-1">
-                                            <i class="bi bi-gear me-2"></i>Qualidade:
-                                        </label>
-                                        <div class="btn-group w-100" role="group" aria-label="Qualidade da foto">
-                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityLow" value="low">
-                                            <label class="btn btn-outline-primary btn-sm" for="qualityLow">
-                                                <i class="bi bi-speedometer me-1"></i>LOW
-                                            </label>
-                                            
-                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityMed" value="med" checked>
-                                            <label class="btn btn-outline-primary btn-sm" for="qualityMed">
-                                                <i class="bi bi-speedometer2 me-1"></i>MED
-                                            </label>
-                                            
-                                            <input type="radio" class="btn-check" name="photoQuality" id="qualityHigh" value="high">
-                                            <label class="btn btn-outline-primary btn-sm" for="qualityHigh">
-                                                <i class="bi bi-lightning me-1"></i>HIGH
-                                            </label>
-                                        </div>
-                                        <small class="text-muted mt-1 d-block text-center">
-                                            LOW: 640x480 • MED: 1280x720 • HIGH: 1920x1080
-                                        </small>
-                                    </div>
-                                    
-                                    <div class="text-center">
-                                        <small class="text-muted">
-                                            <i class="bi bi-info-circle me-1"></i>
-                                            <kbd>Enter</kbd> capturar • <kbd>Esc</kbd> fechar
-                                        </small>
+                        <!-- Controles compactos na parte inferior -->
+                        <div class="bg-white border-top p-3" style="min-height: 180px;">
+                            <div class="d-grid gap-2">
+                                <!-- Botão principal -->
+                                <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-camera me-2"></i>Capturar Foto
+                                </button>
+                                
+                                <!-- Câmeras em linha -->
+                                <div class="text-center">
+                                    <small class="text-muted d-block mb-2"><i class="bi bi-camera-video me-1"></i>Câmera:</small>
+                                    <div id="modalCameraButtons" class="d-flex justify-content-center gap-1 flex-wrap"></div>
+                                </div>
+                                
+                                <!-- Qualidade compacta -->
+                                <div class="text-center">
+                                    <small class="text-muted d-block mb-2"><i class="bi bi-gear me-1"></i>Qualidade:</small>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <input type="radio" class="btn-check" name="photoQuality" id="qualityLow" value="low">
+                                        <label class="btn btn-outline-primary" for="qualityLow">LOW</label>
+                                        
+                                        <input type="radio" class="btn-check" name="photoQuality" id="qualityMed" value="med" checked>
+                                        <label class="btn btn-outline-primary" for="qualityMed">MED</label>
+                                        
+                                        <input type="radio" class="btn-check" name="photoQuality" id="qualityHigh" value="high">
+                                        <label class="btn btn-outline-primary" for="qualityHigh">HIGH</label>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer d-block d-md-none">
-                    <button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">
-                        <i class="bi bi-x-lg me-2"></i>Cancelar
-                    </button>
+
+                    <!-- Layout Landscape (Desktop/Tablet Horizontal) -->
+                    <div class="d-none d-md-flex w-100 h-100">
+                        <!-- Vídeo - 75% da largura -->
+                        <div class="flex-grow-1 d-flex align-items-center justify-content-center bg-dark p-3" style="flex-basis: 75%;">
+                            <video id="modalCameraVideoDesktop" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover; max-height: 90vh;"></video>
+                        </div>
+                        
+                        <!-- Controles laterais - 25% da largura -->
+                        <div class="bg-light border-start p-4 d-flex flex-column" style="flex-basis: 25%; min-width: 300px;">
+                            <div class="d-grid gap-3 h-100">
+                                <!-- Botão principal -->
+                                <button type="button" id="modalCaptureButtonDesktop" class="btn btn-primary btn-lg">
+                                    <i class="bi bi-camera me-2"></i>Capturar Foto
+                                </button>
+                                
+                                <!-- Seção Câmeras -->
+                                <div>
+                                    <label class="form-label fw-semibold">
+                                        <i class="bi bi-camera-video me-2"></i>Câmeras Disponíveis:
+                                    </label>
+                                    <div id="modalCameraButtonsDesktop" class="d-grid gap-2"></div>
+                                </div>
+                                
+                                <!-- Seção Qualidade -->
+                                <div>
+                                    <label class="form-label fw-semibold">
+                                        <i class="bi bi-gear me-2"></i>Qualidade da Foto:
+                                    </label>
+                                    <div class="btn-group-vertical w-100" role="group">
+                                        <input type="radio" class="btn-check" name="photoQualityDesktop" id="qualityLowDesktop" value="low">
+                                        <label class="btn btn-outline-primary" for="qualityLowDesktop">
+                                            <i class="bi bi-speedometer me-2"></i>LOW (640x480)
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="photoQualityDesktop" id="qualityMedDesktop" value="med" checked>
+                                        <label class="btn btn-outline-primary" for="qualityMedDesktop">
+                                            <i class="bi bi-speedometer2 me-2"></i>MED (1280x720)
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="photoQualityDesktop" id="qualityHighDesktop" value="high">
+                                        <label class="btn btn-outline-primary" for="qualityHighDesktop">
+                                            <i class="bi bi-lightning me-2"></i>HIGH (1920x1080)
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Info de atalhos -->
+                                <div class="mt-auto text-center">
+                                    <small class="text-muted">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        <kbd>Enter</kbd> capturar • <kbd>Esc</kbd> fechar
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <style>
-        /* Layout de captura responsivo */
-        .capture-layout {
+        /* CSS mínimo customizado - apenas o essencial que o Bootstrap não cobre */
+        
+        /* Botões de câmera compactos para mobile */
+        #modalCameraButtons .btn {
+            width: 60px;
+            height: 60px;
+            font-size: 0.7rem;
+            padding: 0.25rem;
             display: flex;
-            min-height: 100%;
-        }
-        
-        /* Portrait (vertical) - padrão para mobile */
-        @media (orientation: portrait), (max-width: 767px) {
-            .capture-layout {
-                flex-direction: column;
-                height: 100vh; /* Altura total da viewport */
-                width: 100vw; /* Largura total da viewport */
-                position: relative;
-            }
-            
-            .capture-video-section {
-                flex: 1; /* Cresce para ocupar espaço disponível */
-                min-height: 0;
-                height: calc(100vh - 140px); /* Muito mais espaço para a câmera - apenas 140px para controles */
-                width: 100%;
-                overflow: hidden;
-            }
-            
-            .capture-controls-section {
-                flex: 0 0 110px; /* Altura ajustada para acomodar todas as funcionalidades */
-                height: 110px;
-                min-height: 110px;
-                max-height: 110px;
-                width: 100vw; /* Largura total da viewport */
-                position: relative;
-                left: 0;
-                right: 0;
-                border-top: 1px solid #dee2e6;
-                overflow-y: auto; /* Scroll para conteúdo que não cabe */
-                display: flex !important;
-                visibility: visible !important;
-                background: white;
-                z-index: 5;
-            }
-            
-            #modalCameraVideo {
-                max-height: calc(100vh - 150px); /* Espaço para a câmera com funcionalidades */
-                max-width: 100%;
-                width: 100%;
-                object-fit: cover;
-            }
-            
-            /* Garantir que o botão de captura seja sempre visível */
-            #modalCaptureButton {
-                min-height: 36px !important; /* Altura ainda mais reduzida */
-                font-size: 0.8rem !important;
-                padding: 0.4rem 0.6rem !important;
-                margin-bottom: 0.1rem !important; /* Margem mínima */
-                display: block !important;
-                visibility: visible !important;
-                position: sticky !important; /* Manter visível no topo */
-                top: 0 !important;
-                z-index: 10 !important;
-                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
-                border: none !important;
-                color: white !important;
-                border-radius: 0.375rem !important;
-            }
-        }
-        
-        /* Landscape (horizontal) - tablets e desktop */
-        @media (orientation: landscape) and (min-width: 768px) {
-            .capture-layout {
-                flex-direction: row;
-                height: 100%;
-            }
-            
-            .capture-video-section {
-                flex: 2; /* 2/3 do espaço */
-                min-height: 0;
-                max-width: 66.66%; /* Garante que não excede 2/3 */
-            }
-            
-            .capture-controls-section {
-                flex: 1; /* 1/3 do espaço */
-                min-height: 0;
-                max-width: 33.33%; /* Garante que não excede 1/3 */
-                border-left: 1px solid #dee2e6;
-                overflow-y: auto; /* Scroll se necessário */
-            }
-            
-            #modalCameraVideo {
-                max-height: 70vh;
-                max-width: 100%;
-                object-fit: cover;
-            }
-        }
-        
-        /* Mobile landscape específico */
-        @media (orientation: landscape) and (max-height: 500px) {
-            .capture-video-section {
-                max-width: 60%; /* Menos espaço para dar mais aos controles */
-            }
-            
-            .capture-controls-section {
-                max-width: 40%; /* Mais espaço para os controles */
-            }
-            
-            #modalCameraVideo {
-                max-height: 60vh;
-            }
-            
-            .capture-controls-section .btn {
-                padding: 0.5rem 0.75rem; /* Botões maiores */
-                font-size: 0.9rem;
-            }
-            
-            .capture-controls-section .form-label {
-                font-size: 0.875rem;
-                margin-bottom: 0.25rem;
-            }
-            
-            /* Garantir visibilidade do botão principal */
-            #modalCaptureButton {
-                min-height: 40px !important;
-                font-size: 0.9rem !important;
-                padding: 0.5rem 1rem !important;
-            }
-        }
-        
-        /* Ajustes para o vídeo */
-        .video-container {
-            display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            justify-content: center;
+            line-height: 1.2;
         }
         
-        #modalCameraVideo {
-            border-radius: 0.5rem;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        /* Botões de câmera expandidos para desktop */
+        #modalCameraButtonsDesktop .btn {
+            min-height: 50px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
         }
         
-        /* Botões de câmera e controles - SEMPRE VISÍVEIS */
-        @media (max-width: 767px) {
-            /* Garantir que todos os controles sejam visíveis */
-            .capture-controls-section {
-                display: flex !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-                max-height: calc(100vh - 75vh) !important; /* Altura dinâmica para preencher espaço */
-                min-height: 110px !important;
-                height: auto !important; /* Altura automática */
-                width: 100vw !important; /* Largura total da viewport */
-                position: absolute !important; /* Posicionamento absoluto */
-                bottom: 60px !important; /* Deixa espaço para o botão cancelar */
-                left: 0 !important;
-                right: 0 !important;
-                overflow-y: auto !important; /* Scroll para conteúdo extra */
-                background: white !important;
-                border-top: 2px solid #dee2e6 !important;
-                z-index: 10 !important;
-            }
-            
-            .camera-section, .quality-section {
-                display: block !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            }
-            
-            #modalCameraButtons {
-                display: flex !important;
-                visibility: visible !important;
-                flex-wrap: wrap !important;
-                gap: 0.15rem !important; /* Gap reduzido */
-                justify-content: center !important;
-            }
-            
-            #modalCameraButtons .btn {
-                font-size: 0.6rem !important; /* Texto ainda menor */
-                padding: 0.15rem 0.25rem !important; /* Padding muito reduzido */
-                min-height: 24px !important; /* Altura muito menor */
-                display: inline-flex !important;
-                visibility: visible !important;
-            }
-            
-            /* Ajuste específico para orientação vertical */
-            .capture-controls-section .d-grid {
-                gap: 0.1rem !important; /* Gap mínimo */
-                display: grid !important;
-            }
-            
-            .capture-controls-section .btn-lg {
-                padding: 0.4rem 0.6rem !important; /* Padding muito reduzido */
-                font-size: 0.8rem !important; /* Fonte menor */
-                min-height: 36px !important; /* Altura muito reduzida */
-            }
-            
-            /* Priorizar o botão de captura - sempre no topo */
-            #modalCaptureButton {
-                order: -1 !important; /* Força o botão a aparecer primeiro */
-                margin-bottom: 0.1rem !important; /* Margem mínima */
-                background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%) !important;
-                border: none !important;
-                color: white !important;
-                font-weight: bold !important;
-                display: block !important;
-                visibility: visible !important;
-                position: sticky !important; /* Manter fixo no topo do scroll */
-                top: 0 !important;
-                z-index: 15 !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-                border-radius: 0.375rem !important;
-            }
-            
-            /* Compactar outros elementos */
-            .capture-controls-section .form-label {
-                font-size: 0.65rem !important; /* Fonte menor */
-                margin-bottom: 0.05rem !important; /* Margem mínima */
-                display: block !important;
-                visibility: visible !important;
-                line-height: 1.1 !important;
-            }
-            
-            .capture-controls-section .btn-group {
-                display: flex !important;
-                visibility: visible !important;
-            }
-            
-            .capture-controls-section .btn-group .btn {
-                font-size: 0.6rem !important; /* Fonte menor */
-                padding: 0.15rem 0.25rem !important; /* Padding mínimo */
-                min-height: 24px !important; /* Altura muito menor */
-                display: inline-flex !important;
-                visibility: visible !important;
-                flex: 1 !important;
-            }
-            
-            .capture-controls-section small {
-                font-size: 0.55rem !important; /* Fonte muito pequena mas visível */
-                display: block !important; /* Mostrar novamente */
-                visibility: visible !important;
-                line-height: 1.1 !important;
-                margin-top: 0.1rem !important;
-            }
-            
-            /* Forçar que o container dos controles seja visível e ocupe largura total */
-            .capture-controls-section .p-2 {
-                display: flex !important;
-                flex-direction: column !important;
-                visibility: visible !important;
-                min-height: 110px !important; /* Altura para funcionalidades */
-                max-height: 110px !important;
-                width: 100% !important;
-                overflow-y: auto !important;
-                padding: 0.15rem 0.4rem 0.15rem 0.4rem !important; /* Padding ajustado */
-                margin: 0 !important;
-            }
-            
-            /* Ajustar o modal body para o novo espaço dos controles */
-            .modal-body {
-                padding-bottom: 110px !important; /* Espaço para a secção de controles */
-            }
-            
-            /* Garantir que a câmera não seja coberta */
-            .capture-video-section {
-                margin-bottom: 110px !important; /* Margem ajustada */
-                height: calc(100vh - 190px) !important; /* Espaço para a câmera */
-            }
-            
-            /* Eliminar espaço entre controles e footer */
-            .modal-footer.d-block.d-md-none {
-                padding: 0 !important;
-                margin: 0 !important;
-                border-top: none !important;
-                background: white !important; /* Fundo branco para continuidade */
-                position: fixed !important;
-                bottom: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                z-index: 11 !important; /* Acima dos controles */
-                height: 60px !important; /* Altura fixa para o botão */
-            }
-            
-            .modal-footer.d-block.d-md-none .btn {
-                margin: 0 !important;
-                border-radius: 0 !important;
-                border-top: 1px solid #dee2e6 !important;
-                height: 60px !important; /* Altura do botão */
-                line-height: 1.2 !important;
-            }
-            
-            /* Garantir que o modal body não tenha padding inferior desnecessário */
-            .modal-body {
-                padding-bottom: 170px !important; /* Espaço para controles + botão cancelar */
+        /* Ensure video fills available space properly */
+        #modalCameraVideo, #modalCameraVideoDesktop {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        /* Mobile specific adjustments */
+        @media (max-width: 767.98px) {
+            #modalCameraVideo {
+                max-height: calc(100vh - 250px);
             }
         }
         
-        /* Estilos para o sistema de notas */
-        .notes-toggle-btn {
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: all 0.2s ease;
+        /* Desktop specific adjustments */
+        @media (min-width: 768px) {
+            #modalCameraVideoDesktop {
+                max-height: calc(100vh - 120px);
+            }
+        }
+    </style>
             z-index: 3;
         }
         
@@ -1236,12 +1014,20 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         
         .notes-btn-on-image {
             position: absolute;
-            bottom: 4px;
-            left: 4px;
+            bottom: 6px;
+            left: 6px;
             border-radius: 50%;
             border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             transition: all 0.2s ease;
+            z-index: 15;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            background-color: #0d6efd !important;
         }
         
         .notes-btn-on-image:hover {
@@ -1252,16 +1038,22 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         /* Melhorar visibilidade em telas pequenas */
         @media (max-width: 768px) {
             .notes-btn-on-image {
-                width: 32px;
-                height: 32px;
-                bottom: 6px;
-                left: 6px;
+                width: 34px;
+                height: 34px;
+                bottom: 8px;
+                left: 8px;
                 border: 3px solid white;
-                box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+                box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+                z-index: 15;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                background-color: #0d6efd !important;
             }
             
             .notes-btn-on-image .notes-icon-xs {
-                font-size: 0.8rem;
+                font-size: 0.85rem;
             }
         }
         
@@ -1997,8 +1789,14 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         }
         
         async function initModalCamera() {
-            const modalVideo = document.getElementById('modalCameraVideo');
-            const modalCameraButtons = document.getElementById('modalCameraButtons');
+            // Detectar se estamos em mobile ou desktop
+            const isMobile = window.innerWidth < 768;
+            const modalVideo = isMobile ? 
+                document.getElementById('modalCameraVideo') : 
+                document.getElementById('modalCameraVideoDesktop');
+            const modalCameraButtons = isMobile ? 
+                document.getElementById('modalCameraButtons') : 
+                document.getElementById('modalCameraButtonsDesktop');
             
             // Limpar botões anteriores
             modalCameraButtons.innerHTML = '';
@@ -2012,31 +1810,24 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                 videoDevices.forEach((device, index) => {
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'btn btn-secondary';
+                    button.className = 'btn btn-outline-secondary';
                     button.setAttribute('data-camera-id', device.deviceId);
-                    button.style.cssText = `
-                        width: 80px;
-                        height: 80px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 11px;
-                        line-height: 1.2;
-                        text-align: center;
-                        border-radius: 8px;
-                        padding: 8px 4px;
-                        white-space: normal;
-                        word-break: break-word;
-                    `;
                     
                     const cameraName = device.label || `Câmera ${index + 1}`;
-                    const shortName = cameraName.length > 12 ? cameraName.substring(0, 12) + '...' : cameraName;
                     
-                    button.innerHTML = `
-                        <i class="bi bi-camera mb-1 camera-btn-icon"></i>
-                        <span class="camera-btn-label">${shortName}</span>
-                    `;
+                    if (isMobile) {
+                        // Layout compacto para mobile
+                        const shortName = cameraName.length > 8 ? cameraName.substring(0, 8) + '...' : cameraName;
+                        button.innerHTML = `
+                            <i class="bi bi-camera mb-1"></i>
+                            <small>${shortName}</small>
+                        `;
+                    } else {
+                        // Layout expandido para desktop
+                        button.innerHTML = `
+                            <i class="bi bi-camera me-2"></i>${cameraName}
+                        `;
+                    }
                     
                     // Event listener para trocar de câmera
                     button.addEventListener('click', () => {
@@ -2076,14 +1867,19 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                 alert('Erro ao acessar câmeras. Verifique as permissões.');
             }
         }
-        
+
         async function selectModalCamera(deviceId, selectedButton) {
+            // Detectar se estamos em mobile ou desktop
+            const isMobile = window.innerWidth < 768;
+            const modalCameraButtons = isMobile ? 
+                document.getElementById('modalCameraButtons') : 
+                document.getElementById('modalCameraButtonsDesktop');
+            
             // Atualizar estilos dos botões - todas as câmeras ficam secondary
-            const modalCameraButtons = document.getElementById('modalCameraButtons');
             const allButtons = modalCameraButtons.querySelectorAll('button');
             
             allButtons.forEach(button => {
-                button.className = 'btn btn-secondary';
+                button.className = 'btn btn-outline-secondary';
             });
             
             // A câmera selecionada fica primary
@@ -2094,17 +1890,24 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
             // Iniciar a câmera selecionada
             await startModalCamera(deviceId);
         }
-        
+
         async function startModalCamera(deviceId) {
-            const modalVideo = document.getElementById('modalCameraVideo');
+            // Detectar se estamos em mobile ou desktop e selecionar o vídeo correto
+            const isMobile = window.innerWidth < 768;
+            const modalVideo = isMobile ? 
+                document.getElementById('modalCameraVideo') : 
+                document.getElementById('modalCameraVideoDesktop');
             
             if (modalStream) {
                 modalStream.getTracks().forEach(track => track.stop());
             }
             
             try {
-                // Obter qualidade selecionada
-                const selectedQuality = document.querySelector('input[name="photoQuality"]:checked')?.value || 'med';
+                // Obter qualidade selecionada (procurar em mobile e desktop)
+                const selectedQuality = 
+                    document.querySelector('input[name="photoQuality"]:checked')?.value ||
+                    document.querySelector('input[name="photoQualityDesktop"]:checked')?.value || 
+                    'med';
                 const qualitySettings = QUALITY_SETTINGS[selectedQuality];
                 
                 // Construir constraints com qualidade e câmera
@@ -2145,16 +1948,26 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         document.getElementById('capturePhotoModal').addEventListener('shown.bs.modal', function () {
             initPhotoQuality();
             initModalCamera();
+            
+            // Re-inicializar listeners de redimensionamento para detectar mudanças de orientação
+            window.addEventListener('resize', function() {
+                setTimeout(() => {
+                    initModalCamera(); // Re-inicializar câmera se necessário
+                }, 300);
+            });
         });
-        
+
         document.getElementById('capturePhotoModal').addEventListener('hidden.bs.modal', function () {
             stopModalCamera();
         });
-        
-        // Captura de foto no modal
-        document.getElementById('modalCaptureButton').addEventListener('click', function() {
-            const modalVideo = document.getElementById('modalCameraVideo');
-            const captureButton = this;
+
+        // Função para captura de foto que funciona tanto para mobile quanto desktop
+        function capturePhoto(captureButton) {
+            // Detectar qual vídeo está ativo (mobile ou desktop)
+            const isMobile = window.innerWidth < 768;
+            const modalVideo = isMobile ? 
+                document.getElementById('modalCameraVideo') : 
+                document.getElementById('modalCameraVideoDesktop');
             
             if (!window.currentProcesso) {
                 alert('Erro: processo não identificado.');
@@ -2167,8 +1980,11 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
             const context = canvas.getContext('2d');
             context.drawImage(modalVideo, 0, 0, canvas.width, canvas.height);
             
-            // Obter qualidade selecionada para compressão JPEG
-            const selectedQuality = document.querySelector('input[name="photoQuality"]:checked')?.value || 'med';
+            // Obter qualidade selecionada (mobile ou desktop)
+            const selectedQuality = 
+                document.querySelector('input[name="photoQuality"]:checked')?.value ||
+                document.querySelector('input[name="photoQualityDesktop"]:checked')?.value || 
+                'med';
             const jpegQuality = QUALITY_SETTINGS[selectedQuality].jpeg;
             
             console.log('Capturando foto com qualidade JPEG:', jpegQuality);
@@ -2198,22 +2014,28 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                     updateStudentPhotoAfterCapture(window.currentProcesso);
                     
                     // Criar mensagem de sucesso
-                    const alunoData = alunosData.find(a => a.processo === window.currentProcesso);
-                    if (alunoData) {
-                        createFlashMessage(`Foto de ${alunoData.nome} capturada com sucesso!`, 'success');
-                    }
+                    createFlashMessage(`Foto capturada com sucesso para ${window.currentProcesso}!`, 'success');
                 } else {
-                    alert('Erro ao capturar a foto.');
-                    captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
-                    captureButton.disabled = false;
+                    throw new Error('Erro no upload');
                 }
             })
             .catch(error => {
-                console.error('Erro ao capturar foto:', error);
-                alert('Erro ao capturar a foto.');
+                console.error('Erro ao fazer upload:', error);
+                alert('Erro ao salvar a foto. Tente novamente.');
+                
+                // Restaurar botão de captura
                 captureButton.innerHTML = '<i class="bi bi-camera me-2"></i>Capturar Foto';
                 captureButton.disabled = false;
             });
+        }
+
+        // Event listeners para ambos os botões de captura
+        document.getElementById('modalCaptureButton').addEventListener('click', function() {
+            capturePhoto(this);
+        });
+        
+        document.getElementById('modalCaptureButtonDesktop').addEventListener('click', function() {
+            capturePhoto(this);
         });
         
         // Função para atualizar a foto do aluno dinamicamente após captura

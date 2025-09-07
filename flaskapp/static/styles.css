@@ -984,3 +984,41 @@ body {
 #addStudentModal .modal-dialog {
     z-index: 1075 !important;
 }
+
+/* === NOTES BUTTON POSITIONING === */
+/* Posicionamento do botão de notas na imagem */
+.notes-btn-on-image {
+    position: absolute !important;
+    bottom: 4px !important;
+    left: 4px !important;
+    width: 30px !important;
+    height: 30px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    border: 2px solid white !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+    transition: all 0.2s ease !important;
+    z-index: 15 !important;
+    background-color: #0d6efd !important;
+}
+
+.notes-btn-on-image:hover {
+    transform: scale(1.1) !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3) !important;
+}
+
+/* Melhorar visibilidade em telas pequenas */
+@media (max-width: 768px) {
+    .notes-btn-on-image {
+        width: 34px !important;
+        height: 34px !important;
+        bottom: 8px !important;
+        left: 8px !important;
+        border: 3px solid white !important;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.3) !important;
+    }
+    
+    .notes-btn-on-image .notes-icon-xs {
+        font-size: 0.8rem !important;
+    }
+}
