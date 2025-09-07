@@ -1130,6 +1130,7 @@ def login(action_url=None):
             password = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
             code = request.form.get('verification_code', '').strip()
+            selected_departments = request.form.getlist('selected_departments')  # Lista de IDs dos departamentos selecionados
             
             if not all([email, name, password, confirm_password, code]):
                 flash('Todos os campos são obrigatórios.', 'error')
@@ -1186,13 +1187,43 @@ def login(action_url=None):
                 user.is_verified = True
                 
                 db.session.add(user)
+                db.session.flush()  # Para obter o user.id antes de commit
+                
+                # Associar departamentos selecionados (apenas para users não-admin)
+                if not is_first_user and selected_departments:
+                    try:
+                        # Converter IDs para inteiros e buscar departamentos válidos
+                        dept_ids = [int(dept_id) for dept_id in selected_departments if dept_id.isdigit()]
+                        if dept_ids:
+                            departamentos = Departamento.query.filter(Departamento.id.in_(dept_ids)).all()
+                            
+                            # Associar departamentos ao utilizador
+                            for departamento in departamentos:
+                                user.departamentos.append(departamento)
+                                
+                            print(f"Utilizador {user.email} associado a {len(departamentos)} departamentos: {[d.name for d in departamentos]}")
+                        
+                    except (ValueError, TypeError) as e:
+                        print(f"Erro ao processar departamentos selecionados: {e}")
+                        # Continua sem departamentos, não falha o registo
+                
                 db.session.delete(pre_user)  # Remover pré-utilizador
                 db.session.commit()
                 
                 if is_first_user:
                     flash('Conta de administrador criada com sucesso!', 'success')
                 else:
-                    flash('Conta criada com sucesso!', 'success')
+                    # Criar mensagem personalizada com departamentos selecionados
+                    dept_count = len(user.departamentos)
+                    if dept_count > 0:
+                        dept_names = [d.name for d in user.departamentos]
+                        if dept_count <= 3:
+                            dept_list = ', '.join(dept_names)
+                        else:
+                            dept_list = ', '.join(dept_names[:2]) + f' e mais {dept_count-2} departamentos'
+                        flash(f'Conta criada com sucesso! Acesso solicitado para: {dept_list}', 'success')
+                    else:
+                        flash('Conta criada com sucesso!', 'success')
                 
                 # Fazer login automático
                 session['user_id'] = user.id
@@ -2346,6 +2377,39 @@ def api_login():
         else:
             return jsonify({'error': 'Invalid credentials'}), 401
 # End function api_login
+
+
+@app.route('/api/departamentos', methods=['GET'])
+def api_departamentos():
+    """API endpoint para obter lista de departamentos disponíveis"""
+    try:
+        # Buscar todos os departamentos ordenados por nome
+        departamentos = Departamento.query.order_by(Departamento.name).all()
+        
+        # Criar lista com informações dos departamentos
+        dept_list = []
+        for dept in departamentos:
+            dept_data = {
+                'id': dept.id,
+                'name': dept.name,
+                'fullname': dept.fullname,
+                'users_count': len(dept.users),
+                'turmas_count': len(dept.turmas)
+            }
+            dept_list.append(dept_data)
+        
+        return jsonify({
+            'success': True,
+            'departamentos': dept_list
+        })
+        
+    except Exception as e:
+        print(f"Erro na API de departamentos: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Erro interno do servidor'
+        }), 500
+# End function api_departamentos
 
 
 @app.route('/api/photos/', methods=['GET'])
