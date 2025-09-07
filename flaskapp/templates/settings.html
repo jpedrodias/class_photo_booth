@@ -242,7 +242,7 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <span class="text-muted small" id="paginationInfo">
-                                        A mostrar <span id="showingFrom">1</span> a <span id="showingTo">20</span> de <span id="totalUsers">{{ users|length }}</span> utilizadores
+                                        A mostrar <span id="showingFrom">1</span> a <span id="showingTo">10</span> de <span id="totalUsers">{{ users|length }}</span> utilizadores
                                     </span>
                                 </div>
                                 <nav aria-label="Paginação de utilizadores">
@@ -1887,15 +1887,42 @@
 
         // JavaScript para Paginação e Filtros de Utilizadores
         document.addEventListener('DOMContentLoaded', function() {
-            const itemsPerPage = 20;
+            const itemsPerPage = 10;
             let currentPage = 1;
             let allRows = [];
             let filteredRows = [];
+
+            // Função para salvar filtros no localStorage
+            function saveFilters() {
+                const filters = {
+                    search: document.getElementById('searchUsers').value,
+                    department: document.getElementById('filterDepartment').value,
+                    role: document.getElementById('filterRole').value
+                };
+                localStorage.setItem('gestao_utilizadores', JSON.stringify(filters));
+            }
+
+            // Função para carregar filtros do localStorage
+            function loadFilters() {
+                try {
+                    const savedFilters = localStorage.getItem('gestao_utilizadores');
+                    if (savedFilters) {
+                        const filters = JSON.parse(savedFilters);
+                        document.getElementById('searchUsers').value = filters.search || '';
+                        document.getElementById('filterDepartment').value = filters.department || '';
+                        document.getElementById('filterRole').value = filters.role || '';
+                    }
+                } catch (e) {
+                    // Se houver erro ao carregar, ignora
+                    console.warn('Erro ao carregar filtros salvos:', e);
+                }
+            }
 
             // Inicializar
             function init() {
                 allRows = Array.from(document.querySelectorAll('.user-row'));
                 filteredRows = [...allRows];
+                loadFilters(); // Carregar filtros salvos
                 setupEventListeners();
                 updateTable();
             }
@@ -1905,18 +1932,21 @@
                 // Filtro de busca
                 document.getElementById('searchUsers').addEventListener('input', function() {
                     currentPage = 1;
+                    saveFilters(); // Salvar filtros
                     applyFilters();
                 });
 
                 // Filtro por departamento
                 document.getElementById('filterDepartment').addEventListener('change', function() {
                     currentPage = 1;
+                    saveFilters(); // Salvar filtros
                     applyFilters();
                 });
 
                 // Filtro por permissão
                 document.getElementById('filterRole').addEventListener('change', function() {
                     currentPage = 1;
+                    saveFilters(); // Salvar filtros
                     applyFilters();
                 });
 
@@ -1926,6 +1956,7 @@
                     document.getElementById('filterDepartment').value = '';
                     document.getElementById('filterRole').value = '';
                     currentPage = 1;
+                    saveFilters(); // Salvar filtros limpos
                     applyFilters();
                 });
             }
