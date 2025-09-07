@@ -1897,7 +1897,8 @@
                 const filters = {
                     search: document.getElementById('searchUsers').value,
                     department: document.getElementById('filterDepartment').value,
-                    role: document.getElementById('filterRole').value
+                    role: document.getElementById('filterRole').value,
+                    page: currentPage
                 };
                 localStorage.setItem('gestao_utilizadores', JSON.stringify(filters));
             }
@@ -1911,6 +1912,7 @@
                         document.getElementById('searchUsers').value = filters.search || '';
                         document.getElementById('filterDepartment').value = filters.department || '';
                         document.getElementById('filterRole').value = filters.role || '';
+                        currentPage = filters.page || 1;
                     }
                 } catch (e) {
                     // Se houver erro ao carregar, ignora
@@ -2122,6 +2124,7 @@
                         const page = parseInt(link.getAttribute('data-page'));
                         if (page >= 1 && page <= totalPages && page !== currentPage) {
                             currentPage = page;
+                            saveFilters(); // Salvar página atual
                             updateTable();
                         }
                     }
