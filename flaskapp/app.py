@@ -4475,6 +4475,7 @@ def clean_redis_sessions():
         }), 500
 
 
+@csrf.exempt
 @app.route('/api/job_status/<job_id>')
 def job_status(job_id):
     """
