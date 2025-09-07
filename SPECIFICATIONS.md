@@ -1,4 +1,4 @@
-# Class-Photo-Booth - Especificação Técnica Completa v1.1
+# Class-Photo-Booth - Especificação Técnica Completa v1.2
 
 ## 📋 Visão Geral do Sistema
 
@@ -151,6 +151,13 @@ python worker.py             # Execução única (burst mode)
 - **Tabelas inteligentes**: Ordenação, filtragem e paginação
 - **Dropdowns contextuais**: Ações baseadas em permissões
 - **Real-time updates**: Atualização automática do estado das tarefas
+
+#### 4.3 Sistema de Notas dos Alunos
+- **Toggle dinâmico**: Botão inteligente para mostrar/ocultar notas sobre as fotografias
+- **Posicionamento absoluto**: Notas aparecem diretamente sobre a imagem do aluno
+- **Interface intuitiva**: Ícone de olho para visualização rápida de informações
+- **Responsividade**: Adaptação automática em dispositivos móveis e desktop
+- **Integração nativa**: Funcionalidade integrada na galeria de fotografias
 
 ### 5. Sistema de Download e Exportação
 
@@ -381,7 +388,7 @@ BannedIPs {
 
 ---
 
-**Class Photo Booth v1.1** - Sistema completo de gestão fotográfica escolar com arquitetura moderna e processamento assíncrono avançado.
+**Class Photo Booth v1.2** - Sistema completo de gestão fotográfica escolar com arquitetura moderna, processamento assíncrono avançado e sistema de notas integrado.
 
 **Data de Atualização**: Janeiro 2025
 **Estado da Implementação**: ✅ 100% Completo

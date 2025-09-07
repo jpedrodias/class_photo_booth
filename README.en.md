@@ -2,10 +2,10 @@
 The objective of the **Class Photo Booth** application is to allow the capture of student photographs by class. The application facilitates the management, viewing, and export of photographs in an organized manner.
 
 ## � Project Statistics
-- **Lines of Code**: 13,693 lines
-- **Files**: 27 code files
+- **Lines of Code**: 13,401 lines
+- **Files**: 22 code files
 - **Technologies**: Python Flask, HTML/CSS/JavaScript, Docker, Redis, PostgreSQL
-- **Version**: 1.2 (updated on 08/31/2025)
+- **Version**: 1.2 (updated on 09/07/2025)
 
 ## �📋 Features
 ```
@@ -43,7 +43,9 @@ Complete School Photograph Management System
   ├─ 📋 View students by class
   ├─ 🗑️ Remove students
   ├─ 📊 Student statistics
-  └─ 🔍 Search and filter students
+  ├─ 🔍 Search and filter students
+  ├─ 📝 Student notes system
+  └─ 👁️ Quick notes preview on photo
 
   📸 PHOTO CAPTURE
   ├─ 📷 Camera integration
@@ -124,6 +126,8 @@ For detailed technical documentation, consult the [`SPECIFICATIONS.md`](SPECIFIC
 - **Drag-and-Drop Upload**: Photo upload via drag and drop
 - **Performance Improvements**: Image processing optimizations
 - **Enhanced Interface**: Better user experience
+- **Student Notes System**: Functionality to add and view student notes
+- **Smart Notes Button**: Optimized positioning on student photo
 
 ## 🤝 Contributions
 
