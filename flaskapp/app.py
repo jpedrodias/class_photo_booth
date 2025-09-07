@@ -34,7 +34,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Cm, Pt
 
 # Flask imports
-from flask import Flask, jsonify, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash
+from flask import Flask, jsonify, render_template, request, redirect, url_for, send_file, session, Response, make_response, flash, send_from_directory
 from flask_mail import Mail, Message
 from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
@@ -4607,6 +4607,16 @@ def send_notification_email():
             flash('Erro ao enviar email. Tente novamente.', 'error')
             return redirect(request.referrer or url_for('turmas'))
 # End function send_notification_email
+
+
+@app.route("/manual/images/<path:filename>")
+def manual_images(filename):
+    MANUAL_IMAGES_DIR = os.path.join(app.root_path, "static", "manual", "images")
+    return send_from_directory(MANUAL_IMAGES_DIR, filename)
+
+@app.route("/manual/")
+def manual():
+    return send_from_directory(os.path.join(app.static_folder, "manual"), "manual_class_photo_booth.html")
 
 
 if __name__ == '__main__':

@@ -160,6 +160,18 @@
         </div>
         
         <div class="row g-3" id="turmasContainer">
+            <!-- Cartão para Manual de Utilização (sempre primeiro) -->
+            <div class="col-6 col-md-4 col-lg-3 col-xl-3">
+                <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #fd7e14;" onclick="window.location.href='{{ url_for('manual') }}'">
+                    <div class="text-center">
+                        <div class="display-4 mb-3 text-warning">📸</div>
+                        <h5 class="fw-bold mb-3 text-warning">Manual de Utilização</h5>
+                        <p class="text-muted small">Guia completo para usar a aplicação</p>
+                        <hr>
+                    </div>
+                </div>
+            </div>
+            
             {% for turma in turmas %}
             <div class="col-6 col-md-4 col-lg-3 col-xl-3 turma-item" data-turma-id="{{ turma.id }}" data-turma-nome="{{ turma.nome }}" data-alunos="{{ turma.total_alunos }}" data-fotos="{{ turma.alunos_com_foto }}">
                 <div class="turma-card h-100" style="cursor: pointer;">
@@ -266,6 +278,17 @@
         
         {% if is_admin or user_departamentos %}
         <div class="row g-4 justify-content-center">
+            <!-- Cartão para Manual de Utilização (sempre primeiro) -->
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #fd7e14;" onclick="window.location.href='{{ url_for('manual') }}'">
+                    <div class="text-center">
+                        <div class="display-4 mb-3 text-warning">📸</div>
+                        <h5 class="fw-bold mb-3 text-warning">Manual de Utilização</h5>
+                        <p class="text-muted small">Guia completo para usar a aplicação</p>
+                    </div>
+                </div>
+            </div>
+            
             <!-- Cartão para criar primeira turma -->
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #4a5eaa;" onclick="addTurma()">
@@ -281,7 +304,7 @@
             <div class="col-6 col-md-4 col-lg-3">
                 <div class="turma-card h-100" style="cursor: pointer; border: 2px dashed #28a745;" onclick="window.location.href='/settings'">
                     <div class="text-center">
-                        <div class="display-4 mb-3 text-success">📊</div>
+                        <div class="display-4 mb-3 text-success">�</div>
                         <h5 class="fw-bold mb-3 text-success">Carregar turmas via CSV</h5>
                         <p class="text-muted small">Importe dados de um ficheiro CSV</p>
                     </div>
@@ -291,6 +314,25 @@
         {% endif %}
     </div>
     {% endif %}
+
+    <div class="container my-5">
+        <section id="responsabilidade" class="mb-5">
+            <div class="alert alert-warning shadow-sm" role="alert">
+            <h2 class="h4">Utilização responsável e confidencialidade</h2>
+            <p>
+                Todos os dados e fotografias apresentados nesta aplicação são <strong>estritamente confidenciais</strong> 
+                e destinam-se <strong>exclusivamente</strong> a utilização interna no Colégio Atlântico.
+            </p>
+            <ul>
+                <li>É <strong>proibida</strong> qualquer forma de partilha, cópia, captura de ecrã ou divulgação de dados.</li>
+                <li>Tenha especial cuidado na <strong>utilização em sala de aula</strong> para garantir que terceiros não têm acesso a informações confidenciais.</li>
+            </ul>
+            <p class="mb-0"><em>Proteja os dados dos nossos alunos e utilize a aplicação de forma responsável.</em></p>
+            </div>
+        </section>
+    </div>
+
+
 
     <!-- Modal para adicionar turma -->
     <div class="modal fade" id="addTurmaModal" tabindex="-1" aria-labelledby="addTurmaModalLabel" aria-hidden="true">
