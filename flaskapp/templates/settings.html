@@ -1913,6 +1913,9 @@
                         document.getElementById('filterDepartment').value = filters.department || '';
                         document.getElementById('filterRole').value = filters.role || '';
                         currentPage = filters.page || 1;
+                        
+                        // Aplicar os filtros após carregar os valores
+                        applyFilters();
                     }
                 } catch (e) {
                     // Se houver erro ao carregar, ignora
@@ -1924,9 +1927,13 @@
             function init() {
                 allRows = Array.from(document.querySelectorAll('.user-row'));
                 filteredRows = [...allRows];
-                loadFilters(); // Carregar filtros salvos
                 setupEventListeners();
-                updateTable();
+                loadFilters(); // Carregar filtros salvos (que já chama applyFilters() -> updateTable())
+                
+                // Se não há filtros salvos, aplicar filtros padrão
+                if (!localStorage.getItem('gestao_utilizadores')) {
+                    updateTable();
+                }
             }
 
             // Configurar event listeners
