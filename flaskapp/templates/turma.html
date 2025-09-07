@@ -835,16 +835,90 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                     <div class="d-flex d-md-none flex-column w-100 h-100">
                         <!-- Vídeo ocupa maior parte da tela -->
                         <div class="flex-grow-1 d-flex align-items-center justify-content-center bg-dark p-2">
-                            <video id="modalCameraVideo" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover;"></video>
+                            <div class="camera-container position-relative w-100 h-100">
+                                <video id="modalCameraVideo" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover;"></video>
+                                
+                                <!-- OVERLAY (GUIAS) para Mobile -->
+                                <svg id="guidesMobile" class="guides-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                                    <!-- Cruz central -->
+                                    <g id="guide-cross-mobile" stroke="white" stroke-width="2" opacity="0.8">
+                                        <line x1="500" y1="0" x2="500" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="500" x2="1000" y2="500" vector-effect="non-scaling-stroke"/>
+                                    </g>
+
+                                    <!-- Regra dos terços -->
+                                    <g id="guide-thirds-mobile" stroke="white" stroke-width="2" opacity="0.5" style="display:none">
+                                        <line x1="333.33" y1="0" x2="333.33" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="666.66" y1="0" x2="666.66" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="333.33" x2="1000" y2="333.33" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="666.66" x2="1000" y2="666.66" vector-effect="non-scaling-stroke"/>
+                                    </g>
+
+                                    <!-- Silhueta (face + ombros) -->
+                                    <g id="guide-silhouette-mobile" fill="none" stroke="white" stroke-width="2" opacity="0.9" style="display:none" transform="translate(500,540) scale(1) translate(-500,-500)">
+                                        <!-- Círculo da cabeça -->
+                                        <circle cx="500" cy="400" r="120" vector-effect="non-scaling-stroke"/>
+                                        <!-- Pescoço -->
+                                        <path d="M460,520 C470,560 530,560 540,520" vector-effect="non-scaling-stroke"/>
+                                        <!-- Ombros/peito -->
+                                        <path d="M360,600 C420,550 580,550 640,600
+                                                 C720,660 720,760 640,800
+                                                 L360,800
+                                                 C280,760 280,660 360,600 Z"
+                                              vector-effect="non-scaling-stroke"/>
+                                        <!-- Alvo central (nariz) -->
+                                        <circle cx="500" cy="420" r="6" fill="white" stroke="none"/>
+                                    </g>
+
+                                    <!-- Vinheta/margens de segurança -->
+                                    <rect x="20" y="20" width="960" height="960" fill="none" stroke="white" stroke-width="2" opacity="0.25"
+                                          vector-effect="non-scaling-stroke" style="display:none" id="guide-frame-mobile"/>
+                                </svg>
+                            </div>
                         </div>
                         
                         <!-- Controles compactos na parte inferior -->
-                        <div class="bg-white border-top p-3" style="min-height: 180px;">
+                        <div class="bg-white border-top p-3" style="min-height: 280px;">
                             <div class="d-grid gap-2">
                                 <!-- Botão principal -->
                                 <button type="button" id="modalCaptureButton" class="btn btn-primary btn-lg">
                                     <i class="bi bi-camera me-2"></i>Capturar Foto
                                 </button>
+                                
+                                <!-- Guias auxiliares -->
+                                <div class="text-center">
+                                    <small class="text-muted d-block mb-2"><i class="bi bi-grid-3x3 me-1"></i>Guias:</small>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <input type="radio" class="btn-check" name="guideMobile" id="guideCrossMobile" value="cross" checked>
+                                        <label class="btn btn-outline-secondary" for="guideCrossMobile">Cruz</label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideMobile" id="guideThirdsMobile" value="thirds">
+                                        <label class="btn btn-outline-secondary" for="guideThirdsMobile">Terços</label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideMobile" id="guideSilhouetteMobile" value="silhouette">
+                                        <label class="btn btn-outline-secondary" for="guideSilhouetteMobile">Pessoa</label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideMobile" id="guideNoneMobile" value="none">
+                                        <label class="btn btn-outline-secondary" for="guideNoneMobile">Off</label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Controles da Silhueta Mobile (visível apenas quando selecionada) -->
+                                <div id="silhouetteControlsMobile" style="display:none;" class="text-center">
+                                    <small class="text-muted d-block mb-2"><i class="bi bi-arrows-fullscreen me-1"></i>Ajustar Pessoa:</small>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label small">Tamanho:</label>
+                                            <input id="silhouetteScaleMobile" type="range" class="form-range form-range-sm" min="0.7" max="2.5" step="0.01" value="1.0">
+                                            <div class="small text-muted"><span id="scaleValueMobile">100%</span></div>
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label small">Posição:</label>
+                                            <input id="silhouetteOffsetMobile" type="range" class="form-range form-range-sm" min="-200" max="200" step="5" value="0">
+                                            <div class="small text-muted"><span id="offsetValueMobile">Centro</span></div>
+                                        </div>
+                                    </div>
+                                </div>
                                 
                                 <!-- Câmeras em linha -->
                                 <div class="text-center">
@@ -874,16 +948,108 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                     <div class="d-none d-md-flex w-100 h-100">
                         <!-- Vídeo - 75% da largura -->
                         <div class="flex-grow-1 d-flex align-items-center justify-content-center bg-dark p-3" style="flex-basis: 75%;">
-                            <video id="modalCameraVideoDesktop" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover; max-height: 90vh;"></video>
+                            <div class="camera-container position-relative w-100 h-100">
+                                <video id="modalCameraVideoDesktop" autoplay class="w-100 h-100 rounded shadow" style="object-fit: cover; max-height: 90vh;"></video>
+                                
+                                <!-- OVERLAY (GUIAS) para Desktop -->
+                                <svg id="guidesDesktop" class="guides-overlay" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+                                    <!-- Cruz central -->
+                                    <g id="guide-cross-desktop" stroke="white" stroke-width="2" opacity="0.8">
+                                        <line x1="500" y1="0" x2="500" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="500" x2="1000" y2="500" vector-effect="non-scaling-stroke"/>
+                                    </g>
+
+                                    <!-- Regra dos terços -->
+                                    <g id="guide-thirds-desktop" stroke="white" stroke-width="2" opacity="0.5" style="display:none">
+                                        <line x1="333.33" y1="0" x2="333.33" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="666.66" y1="0" x2="666.66" y2="1000" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="333.33" x2="1000" y2="333.33" vector-effect="non-scaling-stroke"/>
+                                        <line x1="0" y1="666.66" x2="1000" y2="666.66" vector-effect="non-scaling-stroke"/>
+                                    </g>
+
+                                    <!-- Silhueta (face + ombros) -->
+                                    <g id="guide-silhouette-desktop" fill="none" stroke="white" stroke-width="2" opacity="0.9" style="display:none" transform="translate(500,540) scale(1) translate(-500,-500)">
+                                        <!-- Círculo da cabeça -->
+                                        <circle cx="500" cy="400" r="120" vector-effect="non-scaling-stroke"/>
+                                        <!-- Pescoço -->
+                                        <path d="M460,520 C470,560 530,560 540,520" vector-effect="non-scaling-stroke"/>
+                                        <!-- Ombros/peito -->
+                                        <path d="M360,600 C420,550 580,550 640,600
+                                                 C720,660 720,760 640,800
+                                                 L360,800
+                                                 C280,760 280,660 360,600 Z"
+                                              vector-effect="non-scaling-stroke"/>
+                                        <!-- Alvo central (nariz) -->
+                                        <circle cx="500" cy="420" r="6" fill="white" stroke="none"/>
+                                    </g>
+
+                                    <!-- Vinheta/margens de segurança -->
+                                    <rect x="20" y="20" width="960" height="960" fill="none" stroke="white" stroke-width="2" opacity="0.25"
+                                          vector-effect="non-scaling-stroke" style="display:none" id="guide-frame-desktop"/>
+                                </svg>
+                            </div>
                         </div>
                         
                         <!-- Controles laterais - 25% da largura -->
-                        <div class="bg-light border-start p-4 d-flex flex-column" style="flex-basis: 25%; min-width: 300px;">
+                        <div class="bg-light border-start p-4 d-flex flex-column" style="flex-basis: 25%; min-width: 350px;">
                             <div class="d-grid gap-3 h-100">
                                 <!-- Botão principal -->
                                 <button type="button" id="modalCaptureButtonDesktop" class="btn btn-primary btn-lg">
                                     <i class="bi bi-camera me-2"></i>Capturar Foto
                                 </button>
+                                
+                                <!-- Seção Guias Auxiliares -->
+                                <div>
+                                    <label class="form-label fw-semibold">
+                                        <i class="bi bi-grid-3x3 me-2"></i>Guias Auxiliares:
+                                    </label>
+                                    <div class="btn-group-vertical w-100" role="group">
+                                        <input type="radio" class="btn-check" name="guideDesktop" id="guideCrossDesktop" value="cross" checked>
+                                        <label class="btn btn-outline-secondary" for="guideCrossDesktop">
+                                            <i class="bi bi-plus me-2"></i>Cruz Central
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideDesktop" id="guideThirdsDesktop" value="thirds">
+                                        <label class="btn btn-outline-secondary" for="guideThirdsDesktop">
+                                            <i class="bi bi-grid-3x3 me-2"></i>Regra dos Terços
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideDesktop" id="guideSilhouetteDesktop" value="silhouette">
+                                        <label class="btn btn-outline-secondary" for="guideSilhouetteDesktop">
+                                            <i class="bi bi-person me-2"></i>Silhueta Pessoa
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="guideDesktop" id="guideNoneDesktop" value="none">
+                                        <label class="btn btn-outline-secondary" for="guideNoneDesktop">
+                                            <i class="bi bi-eye-slash me-2"></i>Sem Guias
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Controles da Silhueta (visível apenas quando selecionada) -->
+                                <div id="silhouetteControlsDesktop" style="display:none;">
+                                    <label class="form-label fw-semibold">
+                                        <i class="bi bi-arrows-fullscreen me-2"></i>Ajustes da Silhueta:
+                                    </label>
+                                    <div class="mb-3">
+                                        <label class="form-label small">Tamanho:</label>
+                                        <input id="silhouetteScaleDesktop" type="range" class="form-range" min="0.7" max="2.5" step="0.01" value="1.0">
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span>70%</span>
+                                            <span id="scaleValueDesktop">100%</span>
+                                            <span>250%</span>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label small">Posição Vertical:</label>
+                                        <input id="silhouetteOffsetDesktop" type="range" class="form-range" min="-200" max="200" step="5" value="0">
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span>↑ Cima</span>
+                                            <span id="offsetValueDesktop">Centro</span>
+                                            <span>↓ Baixo</span>
+                                        </div>
+                                    </div>
+                                </div>
                                 
                                 <!-- Seção Câmeras -->
                                 <div>
@@ -956,6 +1122,37 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
             padding: 0.75rem 1rem;
         }
         
+        /* Camera container e guias auxiliares */
+        .camera-container {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .guides-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* Animações suaves para as guias */
+        .guides-overlay g {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        /* Responsividade das guias */
+        @media (max-width: 767.98px) {
+            .guides-overlay {
+                border-radius: 8px;
+            }
+        }
+        
         /* Ensure video fills available space properly */
         #modalCameraVideo, #modalCameraVideoDesktop {
             max-width: 100%;
@@ -965,7 +1162,14 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         /* Mobile specific adjustments */
         @media (max-width: 767.98px) {
             #modalCameraVideo {
-                max-height: calc(100vh - 250px);
+                max-height: calc(100vh - 330px); /* Aumentado para dar espaço aos controles da silhueta */
+            }
+            /* Controles da silhueta mobile mais compactos */
+            #silhouetteControlsMobile .form-range {
+                height: 1.2rem;
+            }
+            #silhouetteControlsMobile .small {
+                font-size: 0.75rem;
             }
         }
         
@@ -974,6 +1178,20 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
             #modalCameraVideoDesktop {
                 max-height: calc(100vh - 120px);
             }
+        }
+        
+        /* Estilos para os controles das guias */
+        .form-range {
+            cursor: pointer;
+        }
+        
+        .form-range::-webkit-slider-thumb {
+            background-color: #0d6efd;
+        }
+        
+        .form-range::-moz-range-thumb {
+            background-color: #0d6efd;
+            border-color: #0d6efd;
         }
     </style>
 
@@ -1764,19 +1982,7 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
             }
         }
         
-        // Event listeners para o modal
-        document.getElementById('capturePhotoModal').addEventListener('shown.bs.modal', function () {
-            initPhotoQuality();
-            initModalCamera();
-            
-            // Re-inicializar listeners de redimensionamento para detectar mudanças de orientação
-            window.addEventListener('resize', function() {
-                setTimeout(() => {
-                    initModalCamera(); // Re-inicializar câmera se necessário
-                }, 300);
-            });
-        });
-
+        // Event listeners básicos para o modal (a inicialização completa está no sistema de guias)
         document.getElementById('capturePhotoModal').addEventListener('hidden.bs.modal', function () {
             stopModalCamera();
         });
@@ -1857,6 +2063,326 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         document.getElementById('modalCaptureButtonDesktop').addEventListener('click', function() {
             capturePhoto(this);
         });
+        
+        // ============ SISTEMA DE GUIAS AUXILIARES ============
+        
+        // Função para atualizar guias (mobile e desktop)
+        function updateGuides() {
+            // Mobile
+            const guideMobileRadios = document.querySelectorAll('input[name="guideMobile"]');
+            const selectedMobileGuide = [...guideMobileRadios].find(radio => radio.checked)?.value || 'cross';
+            
+            const gCrossMobile = document.getElementById('guide-cross-mobile');
+            const gThirdsMobile = document.getElementById('guide-thirds-mobile');
+            const gSilhouetteMobile = document.getElementById('guide-silhouette-mobile');
+            const gFrameMobile = document.getElementById('guide-frame-mobile');
+            const silhouetteControlsMobile = document.getElementById('silhouetteControlsMobile');
+            
+            // Ocultar todas as guias mobile
+            gCrossMobile.style.display = 'none';
+            gThirdsMobile.style.display = 'none';
+            gSilhouetteMobile.style.display = 'none';
+            gFrameMobile.style.display = 'none';
+            silhouetteControlsMobile.style.display = 'none';
+            
+            // Mostrar guia selecionada mobile
+            switch (selectedMobileGuide) {
+                case 'cross':
+                    gCrossMobile.style.display = '';
+                    break;
+                case 'thirds':
+                    gThirdsMobile.style.display = '';
+                    gFrameMobile.style.display = '';
+                    break;
+                case 'silhouette':
+                    gSilhouetteMobile.style.display = '';
+                    silhouetteControlsMobile.style.display = '';
+                    break;
+                case 'none':
+                    // Todas ficam ocultas
+                    break;
+            }
+            
+            // Desktop
+            const guideDesktopRadios = document.querySelectorAll('input[name="guideDesktop"]');
+            const selectedDesktopGuide = [...guideDesktopRadios].find(radio => radio.checked)?.value || 'cross';
+            
+            const gCrossDesktop = document.getElementById('guide-cross-desktop');
+            const gThirdsDesktop = document.getElementById('guide-thirds-desktop');
+            const gSilhouetteDesktop = document.getElementById('guide-silhouette-desktop');
+            const gFrameDesktop = document.getElementById('guide-frame-desktop');
+            const silhouetteControlsDesktop = document.getElementById('silhouetteControlsDesktop');
+            
+            // Ocultar todas as guias desktop
+            gCrossDesktop.style.display = 'none';
+            gThirdsDesktop.style.display = 'none';
+            gSilhouetteDesktop.style.display = 'none';
+            gFrameDesktop.style.display = 'none';
+            silhouetteControlsDesktop.style.display = 'none';
+            
+            // Mostrar guia selecionada desktop
+            switch (selectedDesktopGuide) {
+                case 'cross':
+                    gCrossDesktop.style.display = '';
+                    break;
+                case 'thirds':
+                    gThirdsDesktop.style.display = '';
+                    gFrameDesktop.style.display = '';
+                    break;
+                case 'silhouette':
+                    gSilhouetteDesktop.style.display = '';
+                    silhouetteControlsDesktop.style.display = '';
+                    break;
+                case 'none':
+                    // Todas ficam ocultas
+                    break;
+            }
+            
+            // Salvar preferência no localStorage
+            localStorage.setItem('photoGuidePreference', JSON.stringify({
+                mobile: selectedMobileGuide,
+                desktop: selectedDesktopGuide
+            }));
+        }
+        
+        // Função para obter a chave de configuração baseada na qualidade e orientação
+        function getSilhouetteStorageKey() {
+            // Detectar orientação
+            const isVertical = window.innerWidth < window.innerHeight;
+            const orientation = isVertical ? 'vertical' : 'horizontal';
+            
+            // Detectar qualidade selecionada
+            const isMobile = window.innerWidth < 768;
+            const qualityInputs = isMobile ? 
+                document.querySelectorAll('input[name="photoQuality"]') :
+                document.querySelectorAll('input[name="photoQualityDesktop"]');
+            
+            let quality = 'med'; // Default
+            for (const input of qualityInputs) {
+                if (input.checked) {
+                    quality = input.value;
+                    break;
+                }
+            }
+            
+            return `silhouetteSettings_cam_${quality}_${orientation}`;
+        }
+        
+        // Função para aplicar transformações na silhueta (desktop)
+        function applySilhouetteTransform() {
+            const scaleSlider = document.getElementById('silhouetteScaleDesktop');
+            const offsetSlider = document.getElementById('silhouetteOffsetDesktop');
+            const scaleValue = document.getElementById('scaleValueDesktop');
+            const offsetValue = document.getElementById('offsetValueDesktop');
+            const silhouetteGroup = document.getElementById('guide-silhouette-desktop');
+            
+            if (scaleSlider && offsetSlider && silhouetteGroup) {
+                const scale = parseFloat(scaleSlider.value);
+                const offset = parseInt(offsetSlider.value);
+                
+                // Atualizar transformação (offset vertical aplicado)
+                const centerY = 540 + offset; // Centro base + offset
+                silhouetteGroup.setAttribute('transform', `translate(500,${centerY}) scale(${scale}) translate(-500,-500)`);
+                
+                // Atualizar labels de valores
+                if (scaleValue) scaleValue.textContent = `${Math.round(scale * 100)}%`;
+                if (offsetValue) {
+                    if (offset === 0) {
+                        offsetValue.textContent = 'Centro';
+                    } else if (offset < 0) {
+                        offsetValue.textContent = `${Math.abs(offset)}px ↑`;
+                    } else {
+                        offsetValue.textContent = `${offset}px ↓`;
+                    }
+                }
+                
+                // Salvar no localStorage com chave específica
+                const storageKey = getSilhouetteStorageKey();
+                localStorage.setItem(storageKey, JSON.stringify({
+                    scale: scale,
+                    offset: offset
+                }));
+                
+                // Debug info
+                console.log(`Guardado em: ${storageKey}`, {scale, offset});
+            }
+        }
+        
+        // Função para aplicar transformações na silhueta (mobile)
+        function applySilhouetteTransformMobile() {
+            const scaleSlider = document.getElementById('silhouetteScaleMobile');
+            const offsetSlider = document.getElementById('silhouetteOffsetMobile');
+            const scaleValue = document.getElementById('scaleValueMobile');
+            const offsetValue = document.getElementById('offsetValueMobile');
+            const silhouetteGroup = document.getElementById('guide-silhouette-mobile');
+            
+            if (scaleSlider && offsetSlider && silhouetteGroup) {
+                const scale = parseFloat(scaleSlider.value);
+                const offset = parseInt(offsetSlider.value);
+                
+                // Atualizar transformação (offset vertical aplicado)
+                const centerY = 540 + offset; // Centro base + offset
+                silhouetteGroup.setAttribute('transform', `translate(500,${centerY}) scale(${scale}) translate(-500,-500)`);
+                
+                // Atualizar labels de valores
+                if (scaleValue) scaleValue.textContent = `${Math.round(scale * 100)}%`;
+                if (offsetValue) {
+                    if (offset === 0) {
+                        offsetValue.textContent = 'Centro';
+                    } else if (offset < 0) {
+                        offsetValue.textContent = `${Math.abs(offset)}px ↑`;
+                    } else {
+                        offsetValue.textContent = `${offset}px ↓`;
+                    }
+                }
+                
+                // Salvar no localStorage com chave específica
+                const storageKey = getSilhouetteStorageKey();
+                localStorage.setItem(storageKey, JSON.stringify({
+                    scale: scale,
+                    offset: offset
+                }));
+                
+                // Debug info
+                console.log(`Guardado em: ${storageKey}`, {scale, offset});
+            }
+        }
+        
+        // Função para carregar configurações da silhueta para o contexto atual
+        function loadSilhouetteSettings() {
+            const storageKey = getSilhouetteStorageKey();
+            const savedSettings = localStorage.getItem(storageKey);
+            
+            console.log(`Carregando de: ${storageKey}`);
+            
+            if (savedSettings) {
+                const settings = JSON.parse(savedSettings);
+                
+                // Desktop sliders
+                const scaleSlider = document.getElementById('silhouetteScaleDesktop');
+                const offsetSlider = document.getElementById('silhouetteOffsetDesktop');
+                
+                if (scaleSlider && settings.scale !== undefined) scaleSlider.value = settings.scale;
+                if (offsetSlider && settings.offset !== undefined) offsetSlider.value = settings.offset;
+                
+                // Mobile sliders
+                const scaleSliderMobile = document.getElementById('silhouetteScaleMobile');
+                const offsetSliderMobile = document.getElementById('silhouetteOffsetMobile');
+                
+                if (scaleSliderMobile && settings.scale !== undefined) scaleSliderMobile.value = settings.scale;
+                if (offsetSliderMobile && settings.offset !== undefined) offsetSliderMobile.value = settings.offset;
+                
+                console.log(`Configurações carregadas:`, settings);
+                return true;
+            }
+            
+            console.log(`Nenhuma configuração encontrada para: ${storageKey}`);
+            return false;
+        }
+        
+        // Função para reagir a mudanças de qualidade e recarregar configurações
+        function onQualityChange() {
+            console.log('Qualidade alterada, recarregando configurações da silhueta...');
+            loadSilhouetteSettings();
+            applySilhouetteTransform();
+            applySilhouetteTransformMobile();
+        }
+
+        // Inicializar controles das guias quando o modal abrir
+        document.getElementById('capturePhotoModal').addEventListener('shown.bs.modal', function () {
+            // Event listeners para guias mobile
+            document.querySelectorAll('input[name="guideMobile"]').forEach(radio => {
+                radio.addEventListener('change', updateGuides);
+            });
+            
+            // Event listeners para guias desktop
+            document.querySelectorAll('input[name="guideDesktop"]').forEach(radio => {
+                radio.addEventListener('change', updateGuides);
+            });
+            
+            // Event listeners para controles da silhueta desktop
+            const scaleSlider = document.getElementById('silhouetteScaleDesktop');
+            const offsetSlider = document.getElementById('silhouetteOffsetDesktop');
+            
+            if (scaleSlider) {
+                scaleSlider.addEventListener('input', applySilhouetteTransform);
+            }
+            if (offsetSlider) {
+                offsetSlider.addEventListener('input', applySilhouetteTransform);
+            }
+            
+            // Event listeners para controles da silhueta mobile
+            const scaleSliderMobile = document.getElementById('silhouetteScaleMobile');
+            const offsetSliderMobile = document.getElementById('silhouetteOffsetMobile');
+            
+            if (scaleSliderMobile) {
+                scaleSliderMobile.addEventListener('input', applySilhouetteTransformMobile);
+            }
+            if (offsetSliderMobile) {
+                offsetSliderMobile.addEventListener('input', applySilhouetteTransformMobile);
+            }
+            
+            // Restaurar preferências do localStorage
+            try {
+                const savedGuides = localStorage.getItem('photoGuidePreference');
+                if (savedGuides) {
+                    const guides = JSON.parse(savedGuides);
+                    
+                    // Aplicar preferência mobile
+                    const mobileRadio = document.querySelector(`input[name="guideMobile"][value="${guides.mobile}"]`);
+                    if (mobileRadio) mobileRadio.checked = true;
+                    
+                    // Aplicar preferência desktop
+                    const desktopRadio = document.querySelector(`input[name="guideDesktop"][value="${guides.desktop}"]`);
+                    if (desktopRadio) desktopRadio.checked = true;
+                }
+                
+                // Carregar configurações da silhueta específicas para qualidade/orientação atual
+                loadSilhouetteSettings();
+                
+            } catch (e) {
+                console.log('Erro ao restaurar preferências das guias:', e);
+            }
+            
+            // Event listeners para mudanças de qualidade (recarregar configurações da silhueta)
+            document.querySelectorAll('input[name="photoQuality"], input[name="photoQualityDesktop"]').forEach(radio => {
+                radio.addEventListener('change', onQualityChange);
+            });
+            
+            // Event listener para mudanças de orientação (resize)
+            let resizeTimeout;
+            window.addEventListener('resize', function() {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    console.log('Orientação alterada, recarregando configurações...');
+                    loadSilhouetteSettings();
+                    updateGuides();
+                    applySilhouetteTransform();
+                    applySilhouetteTransformMobile();
+                }, 300);
+            });
+            
+            // Aplicar guias iniciais
+            updateGuides();
+            applySilhouetteTransform();
+            applySilhouetteTransformMobile();
+            
+            // Inicializar qualidade da foto
+            initPhotoQuality();
+            
+            // Inicializar câmera
+            initModalCamera();
+            
+            // Re-inicializar listeners de redimensionamento para detectar mudanças de orientação
+            window.addEventListener('resize', function() {
+                setTimeout(() => {
+                    initModalCamera(); // Re-inicializar câmera se necessário
+                    updateGuides(); // Re-aplicar guias após mudança de orientação
+                }, 300);
+            });
+        });
+        
+        // ============ FIM DO SISTEMA DE GUIAS AUXILIARES ============
         
         // Função para atualizar a foto do aluno dinamicamente após captura
         function updateStudentPhotoAfterCapture(processo) {
