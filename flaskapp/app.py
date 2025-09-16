@@ -982,7 +982,7 @@ def login(action_url=None):
         action = action_url or 'login'
         
         if action == 'login':
-            email = request.form.get('email', '').strip()
+            email = request.form.get('email', '').strip().lower()
             password = request.form.get('password', '')
             remember_me = request.form.get('remember_me') == 'on'
             
@@ -1060,7 +1060,7 @@ def login(action_url=None):
                 return render_template('login.html', action='login')
         
         elif action == 'register':
-            email = request.form.get('email', '').strip()
+            email = request.form.get('email', '').strip().lower()
             
             if not email:
                 flash('Email é obrigatório.', 'error')
@@ -1125,7 +1125,7 @@ def login(action_url=None):
                 return render_template('login.html', action='register')
         
         elif action == 'verify':
-            email = request.form.get('email', '').strip()
+            email = request.form.get('email', '').strip().lower()
             name = request.form.get('name', '').strip()
             password = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
@@ -1239,7 +1239,7 @@ def login(action_url=None):
                 return render_template('login.html', action='verify', email=email)
         
         elif action == 'forgot_password':
-            email = request.form.get('email', '').strip()
+            email = request.form.get('email', '').strip().lower()
             
             if not email:
                 flash('Email é obrigatório.', 'error')
@@ -1314,7 +1314,7 @@ def login(action_url=None):
             return render_template('login.html', action='reset_password', email=email, job_id=job.get_id())
                 
         elif action == 'reset_password':
-            email = request.form.get('email', '').strip()
+            email = request.form.get('email', '').strip().lower()
             code = request.form.get('verification_code', '').strip()
             new_password = request.form.get('new_password', '')
             confirm_password = request.form.get('confirm_password', '')
@@ -1773,7 +1773,7 @@ def student_crud():
         nome = request.form.get('nome', '').strip()
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         notes = request.form.get('notes', '').strip()
         autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox (default True se não marcado)
         
@@ -1835,7 +1835,7 @@ def student_crud():
         nome = request.form.get('nome', '').strip()
         processo = request.form.get('processo', '').strip()
         numero = request.form.get('numero', '').strip()
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         notes = request.form.get('notes', '').strip()
         autorizacao = request.form.get('autorizacao') == 'on'  # Checkbox
 
@@ -3523,7 +3523,7 @@ def user_management(user_id=None):
     
     if action == 'crud_user_add_new':
         """Criar novos utilizadores"""
-        email = request.form.get('email', '').strip()
+        email = request.form.get('email', '').strip().lower()
         name = request.form.get('name', '').strip()
         password = request.form.get('password', '')
         role = request.form.get('role', 'none').strip()
@@ -3592,7 +3592,7 @@ def user_management(user_id=None):
         try:
             # Atualizar dados do utilizador
             user.name = request.form.get('name', '').strip()
-            user.email = request.form.get('email', '').strip()
+            user.email = request.form.get('email', '').strip().lower()
             user.role = request.form.get('role', 'none')
             
             # Processar departamentos selecionados
@@ -4593,7 +4593,7 @@ def send_notification_email():
         else:
             # Se não for AJAX, obter dados do formulário
             data = {
-                'email': request.form.get('email', '').strip(),
+                'email': request.form.get('email', '').strip().lower(),
                 'subject': request.form.get('subject', '').strip(),
                 'body': request.form.get('body', '').strip(),
                 'turma_nome': request.form.get('turma_nome', '').strip(),
