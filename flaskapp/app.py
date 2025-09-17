@@ -940,11 +940,19 @@ def no_cache(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         response = f(*args, **kwargs)
-        if isinstance(response, str):
+        
+        # Se for uma Response do Flask, aplicar headers diretamente
+        if hasattr(response, 'headers'):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        # Se for string, criar Response e aplicar headers
+        elif isinstance(response, str):
             response = make_response(response)
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        
         return response
     return wrapper
 # End def no_cache (decorator)
@@ -2199,76 +2207,45 @@ def student_crud():
 @required_login
 @required_role('editor')
 def upload_photo(nome_seguro, processo):
-    print(f"[DEBUG] upload_photo chamada - nome_seguro: {nome_seguro}, processo: {processo}")
-    
     data = request.get_json()
     if not data or 'image' not in data:
-        print("[DEBUG] Dados inválidos ou sem imagem")
         return "Dados inválidos.", 400
-
-    print(f"[DEBUG] Dados recebidos com sucesso, imagem tem {len(data.get('image', ''))} caracteres")
 
     # Buscar a turma usando nome_seguro
     turma_obj = Turma.query.filter_by(nome_seguro=nome_seguro).first()
     if not turma_obj:
-        print(f"[DEBUG] Turma não encontrada para nome_seguro: {nome_seguro}")
         return "Turma não encontrada.", 404
-    
-    print(f"[DEBUG] Turma encontrada: {turma_obj.nome} (ID: {turma_obj.id})")
 
     image_data = data['image'].split(',')[1]
-    print(f"[DEBUG] Base64 image_data extraído, tem {len(image_data)} caracteres")
-    
     foto_dir = turma_obj.get_foto_directory()
     thumb_dir = turma_obj.get_thumb_directory()
     photo_path = os.path.join(foto_dir, f'{processo}.jpg')
     
-    print(f"[DEBUG] Diretórios - foto_dir: {foto_dir}, thumb_dir: {thumb_dir}")
-    print(f"[DEBUG] Caminho da foto: {photo_path}")
-    
     # Criar diretório da foto de forma segura
     if not safe_makedirs(os.path.dirname(photo_path)):
-        print(f"[DEBUG] Erro ao criar diretório: {os.path.dirname(photo_path)}")
         return "Erro ao criar diretório para fotos.", 500
-
-    print(f"[DEBUG] Diretório criado com sucesso: {os.path.dirname(photo_path)}")
 
     try:
         with open(photo_path, 'wb') as photo_file:
             photo_file.write(BytesIO(base64.b64decode(image_data)).getvalue())
-        print(f"[DEBUG] Foto original salva com sucesso em: {photo_path}")
     except Exception as e:
-        print(f"[DEBUG] Erro ao salvar foto original: {e}")
         return f"Erro ao salvar foto: {e}", 500
 
     thumb_path = os.path.join(thumb_dir, f'{processo}.jpg')
     
-    print(f"[DEBUG] Caminho do thumbnail: {thumb_path}")
-    
     # Criar diretório da thumbnail de forma segura
     if not safe_makedirs(os.path.dirname(thumb_path)):
-        print(f"[DEBUG] Erro ao criar diretório de thumbnails: {os.path.dirname(thumb_path)}")
         return "Erro ao criar diretório para thumbnails.", 500
-
-    print(f"[DEBUG] Diretório de thumbnails criado com sucesso: {os.path.dirname(thumb_path)}")
 
     # Decodificar imagem base64 diretamente
     try:
         image_bytes = base64.b64decode(image_data)
-        print(f"[DEBUG] Base64 decodificado com sucesso, {len(image_bytes)} bytes")
-        
         image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
-        print(f"[DEBUG] OpenCV decodificação - imagem é None: {image is None}")
         
         if image is None:
-            print("[DEBUG] Erro: OpenCV retornou None na decodificação")
             return "Erro ao decodificar imagem.", 400
-        
-        print(f"[DEBUG] Imagem decodificada com sucesso - shape: {image.shape}")
     except Exception as e:
-        print(f"[DEBUG] Exceção na decodificação OpenCV: {e}")
         return f"Erro ao decodificar imagem: {e}", 400
-    
     height, width, _ = image.shape
     min_dim = min(height, width)
     start_x = (width - min_dim) // 2
@@ -2276,77 +2253,41 @@ def upload_photo(nome_seguro, processo):
     cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
     thumbnail = cv2.resize(cropped_image, (250, 250))
     
-    print(f"[DEBUG] Processamento de imagem - original: {width}x{height}, crop: {min_dim}x{min_dim}, thumbnail: 250x250")
-    
     # Salvar foto original
     try:
         result_original = cv2.imwrite(photo_path, image, [cv2.IMWRITE_JPEG_QUALITY, 95])
-        print(f"[DEBUG] cv2.imwrite foto original - resultado: {result_original}, caminho: {photo_path}")
+        if not result_original:
+            return "Erro ao salvar foto original.", 500
     except Exception as e:
-        print(f"[DEBUG] Erro ao salvar foto original com cv2.imwrite: {e}")
         return f"Erro ao salvar foto original: {e}", 500
     
     # Salvar thumbnail
     try:
         result_thumb = cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])
-        print(f"[DEBUG] cv2.imwrite thumbnail - resultado: {result_thumb}, caminho: {thumb_path}")
+        if not result_thumb:
+            return "Erro ao salvar thumbnail.", 500
     except Exception as e:
-        print(f"[DEBUG] Erro ao salvar thumbnail com cv2.imwrite: {e}")
         return f"Erro ao salvar thumbnail: {e}", 500
 
     # Atualizar flag de foto tirada na base de dados
-    print(f"[DEBUG] Iniciando busca do aluno - nome_seguro: {nome_seguro}, processo: {processo}")
-    
     aluno_obj = Aluno.query.join(Turma).filter(
         Turma.nome_seguro == nome_seguro,
         Aluno.processo == processo
     ).first()
     
-    print(f"[DEBUG] Resultado da busca do aluno: {aluno_obj}")
-    
     if aluno_obj:
-        print(f"[DEBUG] Aluno encontrado - ID: {aluno_obj.id}, Nome: {aluno_obj.nome}, Processo: {aluno_obj.processo}")
-        print(f"[DEBUG] Estado atual - foto_tirada: {aluno_obj.foto_tirada}, foto_existe: {aluno_obj.foto_existe}")
-        
         try:
             aluno_obj.foto_tirada = True
             aluno_obj.foto_existe = True  # Sempre que foto é tirada, foto_existe também
-            print(f"[DEBUG] Flags atualizadas - foto_tirada: {aluno_obj.foto_tirada}, foto_existe: {aluno_obj.foto_existe}")
-            
             aluno_obj.turma.update_last_modified()  # Atualizar timestamp da turma
-            print(f"[DEBUG] Timestamp da turma atualizado")
-            
             db.session.commit()
-            print(f"[DEBUG] Commit da base de dados realizado com sucesso")
-            
-            # Verificar se realmente foi atualizado
-            db.session.refresh(aluno_obj)
-            print(f"[DEBUG] Após refresh - foto_tirada: {aluno_obj.foto_tirada}, foto_existe: {aluno_obj.foto_existe}")
-            
         except Exception as e:
-            print(f"[DEBUG] Erro na atualização da base de dados: {e}")
             db.session.rollback()
             return f"Erro ao atualizar base de dados: {e}", 500
     else:
-        print(f"[DEBUG] ERRO: Aluno não encontrado para nome_seguro: {nome_seguro}, processo: {processo}")
-        
-        # Debug adicional - tentar encontrar o aluno por processo apenas
-        aluno_debug = Aluno.query.filter_by(processo=processo).first()
-        if aluno_debug:
-            print(f"[DEBUG] Aluno existe com este processo: {aluno_debug.nome}, turma: {aluno_debug.turma.nome}, nome_seguro: {aluno_debug.turma.nome_seguro}")
-        else:
-            print(f"[DEBUG] Nenhum aluno encontrado com processo: {processo}")
-        
-        # Debug adicional - verificar se a turma tem alunos
-        total_alunos = len(turma_obj.alunos)
-        print(f"[DEBUG] Turma {turma_obj.nome} tem {total_alunos} alunos")
-        for aluno in turma_obj.alunos:
-            print(f"[DEBUG] - Aluno: {aluno.nome}, processo: {aluno.processo}")
-        
         # Retornar erro se não conseguir atualizar aluno
         return "Erro ao atualizar informações do aluno.", 500
 
-    print(f"[DEBUG] Upload concluído com sucesso")
     return "Foto enviada com sucesso.", 200
 # End def upload_photo (csrf exempt)
 
@@ -2364,7 +2305,11 @@ def get_photo(folder_name, processo):
     # Buscar a turma usando nome_seguro
     turma_obj = Turma.query.filter_by(nome_seguro=folder_name).first()
     if not turma_obj:
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     photo_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
     photo_path = os.path.join(photo_dir, f'{processo}.jpg')
@@ -2372,9 +2317,18 @@ def get_photo(folder_name, processo):
     #print(photo_path)
     if not os.path.exists(photo_path):
         #print(f"Foto não encontrada: {photo_path}")
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache' 
+        response.headers['Expires'] = '0'
+        return response
+    
     #print(f"Enviando foto: {photo_path}")
-    return send_file(photo_path)
+    response = make_response(send_file(photo_path))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 # End def get_photo
 
 
@@ -2505,6 +2459,7 @@ def api_departamentos():
 
 
 @app.route('/api/photos/', methods=['GET'])
+@no_cache  # Adicionar decorador no_cache
 def api_get_photo():
     token = request.args.get('token')
     processo = request.args.get('processo')
@@ -2531,14 +2486,22 @@ def api_get_photo():
     if not aluno:
         if noplaceholder:
             return jsonify({'error': 'Student not found', 'processo': processo}), 404
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     # Obter turma e folder
     turma = aluno.turma
     if not turma:
         if noplaceholder:
             return jsonify({'error': 'Class not found for student', 'processo': processo}), 404
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     folder = turma.nome_seguro
     
@@ -2547,7 +2510,11 @@ def api_get_photo():
     if not turma_obj:
         if noplaceholder:
             return jsonify({'error': 'Class folder not found', 'processo': processo, 'folder': folder}), 404
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
     photo_dir = turma_obj.get_foto_directory() if is_original else turma_obj.get_thumb_directory()
     photo_path = os.path.join(photo_dir, f'{processo}.jpg')
@@ -2560,9 +2527,17 @@ def api_get_photo():
                 'size': size,
                 'path': photo_path
             }), 404
-        return send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg'))
+        response = make_response(send_file(os.path.join(BASE_DIR, 'static', 'student_icon.jpg')))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     
-    return send_file(photo_path)
+    response = make_response(send_file(photo_path))
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 # End function api_get_photo
 
 
