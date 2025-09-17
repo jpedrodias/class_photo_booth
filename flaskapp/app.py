@@ -2180,7 +2180,8 @@ def student_crud():
             start_y = (height - min_dim) // 2
             cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
             thumbnail = cv2.resize(cropped_image, (250, 250))
-            cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])
+            QUALITY = 95  # Qualidade da thumbnail
+            cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
 
             # Atualizar flags na base de dados
             aluno.foto_tirada = True
@@ -2263,7 +2264,8 @@ def upload_photo(nome_seguro, processo):
     
     # Salvar thumbnail
     try:
-        result_thumb = cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])
+        QUALITY = 95
+        result_thumb = cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, QUALITY])
         if not result_thumb:
             return "Erro ao salvar thumbnail.", 500
     except Exception as e:
