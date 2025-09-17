@@ -2386,13 +2386,17 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
         
         // Função para atualizar a foto do aluno dinamicamente após captura
         function updateStudentPhotoAfterCapture(processo) {
-            // Encontrar o card do aluno pelo processo
+            // Encontrar o aluno nos dados e atualizar as flags
             const alunoData = alunosData.find(a => a.processo === processo);
             
             if (!alunoData) {
                 console.error('Aluno não encontrado para processo:', processo);
                 return;
             }
+            
+            // IMPORTANTE: Atualizar os dados do aluno para refletir o novo estado
+            alunoData.foto_tirada = true;
+            alunoData.foto_existe = true;
             
             // Encontrar o card do aluno pelo atributo data-aluno-processo
             const targetCard = document.querySelector(`[data-aluno-processo="${processo}"]`);
@@ -2491,6 +2495,9 @@ A sua turma "{{ current_turma.nome }}" foi recentemente atualizada com novas inf
                 
                 // Atualizar contador de fotos na navbar
                 updatePhotoCounter();
+                
+                // Atualizar ícones de status de todos os alunos para refletir mudanças
+                updateAllStudentIcons();
                 
                 // Adicionar efeito visual de "nova foto"
                 photoImg.style.opacity = '0';
