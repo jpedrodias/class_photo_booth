@@ -2229,16 +2229,24 @@ def upload_photo(nome_seguro, processo):
     if not safe_makedirs(os.path.dirname(thumb_path)):
         return "Erro ao criar diretório para thumbnails.", 500
 
-    with open(photo_path, 'rb') as photo_file:
-        image = cv2.imdecode(np.frombuffer(photo_file.read(), np.uint8), cv2.IMREAD_COLOR)
-        height, width, _ = image.shape
-        min_dim = min(height, width)
-        start_x = (width - min_dim) // 2
-        start_y = (height - min_dim) // 2
-        cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
-        thumbnail = cv2.resize(cropped_image, (250, 250))
-        cv2.imwrite(photo_path, cv2.imdecode(cv2.imencode('.jpg', image, [cv2.IMWRITE_JPEG_QUALITY, 95])[1], cv2.IMREAD_COLOR))
-        cv2.imwrite(thumb_path, cv2.imdecode(cv2.imencode('.jpg', thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])[1], cv2.IMREAD_COLOR))
+    # Decodificar imagem base64 diretamente
+    image_bytes = base64.b64decode(image_data)
+    image = cv2.imdecode(np.frombuffer(image_bytes, np.uint8), cv2.IMREAD_COLOR)
+    
+    if image is None:
+        return "Erro ao decodificar imagem.", 400
+    
+    height, width, _ = image.shape
+    min_dim = min(height, width)
+    start_x = (width - min_dim) // 2
+    start_y = (height - min_dim) // 2
+    cropped_image = image[start_y:start_y + min_dim, start_x:start_x + min_dim]
+    thumbnail = cv2.resize(cropped_image, (250, 250))
+    
+    # Salvar foto original
+    cv2.imwrite(photo_path, image, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    # Salvar thumbnail
+    cv2.imwrite(thumb_path, thumbnail, [cv2.IMWRITE_JPEG_QUALITY, 50])
 
     # Atualizar flag de foto tirada na base de dados
     aluno_obj = Aluno.query.join(Turma).filter(
