@@ -93,6 +93,3 @@ Escolha `-w <NUM_WORKERS>` com base no número de CPUs disponíveis.
 - Proteger `.env` e segredos
 
 Se precisar, posso adicionar exemplos de `docker-compose.yml` e de configuração de Gunicorn.
-
-
-TESTE
