@@ -1015,3 +1015,5 @@ Esta especificação reflete fielmente a aplicação **Class Photo Booth** imple
 - **viewer**: Visualização apenas
 - **editor**: + Captura e gestão de alunos  
 - **admin**: + Gestão completa do sistema
+
+### end of file
