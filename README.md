@@ -168,3 +168,4 @@ Para dúvidas, sugestões ou problemas:
 
 **Class Photo Booth v1.2** - Desenvolvido com ❤️ para facilitar a gestão de fotografias escolares
 ```
+
